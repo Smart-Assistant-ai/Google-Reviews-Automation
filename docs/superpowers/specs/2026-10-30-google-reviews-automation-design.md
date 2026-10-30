@@ -2,7 +2,6 @@
 
 ## ▶ TODAY: Demo POC (approved scope)
 Goal: a clickable demo today, entirely in **mock mode** (no Google approval needed).
-- **Commits:** many small commits authored by the repo's git user (tejasxspatil). **No `Co-Authored-By: Claude` lines and no Claude attribution.** The user explicitly asked for this.
 - **In scope:**
   - Monorepo scaffold (backend Fastify + Sequelize + Postgres, frontend Vite + React + MUI) and docker-compose for postgres.
   - Simple email/password auth (JWT).
