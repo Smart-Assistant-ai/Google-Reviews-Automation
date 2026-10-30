@@ -14,7 +14,8 @@ const TOPIC_KEYWORDS = {
   dessert: ['tiramisu', 'dessert'],
 };
 
-function detectLanguage(text = '') {
+function detectLanguage(text) {
+  text = text || '';
   if (/[ऀ-ॿ]/.test(text)) {
     return /(आहे|होता|छान|खूप|पुन्हा|अप्रतिम|पण)/.test(text) ? 'mr' : 'hi';
   }
@@ -28,8 +29,8 @@ function sentimentFor(stars) {
   return 'negative';
 }
 
-function topicsFor(text = '') {
-  const lower = ` ${text.toLowerCase()} `;
+function topicsFor(text) {
+  const lower = ` ${(text || '').toLowerCase()} `;
   return Object.entries(TOPIC_KEYWORDS)
     .filter(([, words]) => words.some((w) => lower.includes(w)))
     .map(([topic]) => topic)

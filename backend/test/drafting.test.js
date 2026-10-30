@@ -40,3 +40,9 @@ test('template drafts never offer incentives', () => {
   const draft = templateDrafter.draft({ review, analysis: analyze(review), voice: { tone: 'warm' } });
   assert.doesNotMatch(draft, /discount|coupon|free/i);
 });
+
+test('analysis handles rating-only reviews (null comment)', () => {
+  const a = analyze({ starRating: 5, comment: null });
+  assert.equal(a.language, 'en');
+  assert.deepEqual(a.topics, []);
+});
