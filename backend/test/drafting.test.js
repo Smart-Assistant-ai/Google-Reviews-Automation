@@ -46,3 +46,9 @@ test('analysis handles rating-only reviews (null comment)', () => {
   assert.equal(a.language, 'en');
   assert.deepEqual(a.topics, []);
 });
+
+test('positive drafts only mention praise-worthy topics', () => {
+  const review = { reviewerName: 'Ananya', starRating: 4, comment: 'Great pasta, slightly pricey but worth it' };
+  const draft = templateDrafter.draft({ review, analysis: { language: 'en', sentiment: 'positive', topics: ['price & billing'] }, voice: { tone: 'warm' } });
+  assert.doesNotMatch(draft, /price|billing/);
+});
