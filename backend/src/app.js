@@ -23,6 +23,10 @@ function buildApp() {
 
   app.register(require('./routes/auth.routes'), { prefix: '/api/v1/auth' });
   app.register(require('./routes/google.routes'), { prefix: '/api/v1/google' });
+  app.register(require('./routes/reviews.routes'), { prefix: '/api/v1/reviews' });
+  app.register(require('./routes/settings.routes'), { prefix: '/api/v1/settings' });
+  app.register(require('./routes/stats.routes'), { prefix: '/api/v1/stats' });
+  app.register(require('./routes/dev.routes'), { prefix: '/api/v1/dev' });
 
   app.get('/health', async () => ({ ok: true, gbpProvider: env.gbpProvider }));
 
