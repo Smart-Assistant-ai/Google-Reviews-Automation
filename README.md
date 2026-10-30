@@ -5,7 +5,7 @@ Connect a Google Business Profile, see every review in one inbox, let AI draft r
 > Working name "ReplyPilot" is a placeholder. Design doc: [docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md](docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md)
 
 ## Layout
-- `backend/` — Fastify + Sequelize (SQLite for local demo, Postgres via `DATABASE_URL`)
+- `backend/` — Fastify + Sequelize + Postgres
 - `frontend/` — Vite + React + MUI
 
 ## Run the demo
@@ -18,5 +18,5 @@ Demo login: `demo@replypilot.app` / `demo1234`
 ### Google mode
 `GBP_PROVIDER=mock` (default) uses a fake Google Business Profile shaped like the real v4 API, so everything works before Google approves API access. `GBP_PROVIDER=live` switches to the real API.
 
-### Postgres instead of SQLite
-`docker compose up -d` then set `DATABASE_URL=postgres://replypilot:replypilot@localhost:5434/replypilot` in `backend/.env`.
+### Database
+Any Postgres. Set `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` in `backend/.env` (same convention as node-backend).

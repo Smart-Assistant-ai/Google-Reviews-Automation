@@ -1,0 +1,28 @@
+{
+  "name": "replypilot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "NODE_ENV=${NODE_ENV:-local} node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "NODE_ENV=${NODE_ENV:-local} sequelize-cli db:migrate",
+    "migrate:undo": "NODE_ENV=${NODE_ENV:-local} sequelize-cli db:migrate:undo",
+    "seed": "NODE_ENV=${NODE_ENV:-local} node src/scripts/seed.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/jwt": "^8.0.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "openai": "^5.8.2",
+    "pg": "^8.12.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.3"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.2"
+  }
+}
