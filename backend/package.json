@@ -9,7 +9,7 @@
     "migrate": "NODE_ENV=${NODE_ENV:-local} sequelize-cli db:migrate",
     "migrate:undo": "NODE_ENV=${NODE_ENV:-local} sequelize-cli db:migrate:undo",
     "seed": "NODE_ENV=${NODE_ENV:-local} node src/scripts/seed.js",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
