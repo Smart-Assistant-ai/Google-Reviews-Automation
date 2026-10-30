@@ -66,7 +66,7 @@ aiassistant.co wants a **new, standalone product**. A business connects its Goog
 | Replies are **max 4096 bytes** (bytes, not characters) | Byte counter in the editor; the AI is asked to stay well under. |
 | Replies are moderated: `ReviewReplyState` PENDING/APPROVED/REJECTED, plus `PolicyViolation` | Track the state. Show "Rejected by Google: reason" with re-edit. |
 | No auto-posting without explicit consent | Auto-rules are off by default, turned on by the owner with a consent checkbox, and every auto-post is audit-logged. |
-| API content may only be stored ≤30 days | A nightly purge deletes review text, reviewer names and reply text older than 30 days. Dashboards use daily **aggregate numbers** only (counts, averages, response times). Older reviews are re-fetched live when someone views them. *(My reading of the policy. Confirm once with Google or a lawyer.)* |
+| API content may only be stored ≤30 days | A nightly purge deletes review text, reviewer names and reply text older than 30 days. Dashboards use daily **aggregate numbers** only (counts, averages, response times). Older reviews are re-fetched live when someone views them. *(Our reading of the policy. Confirm with Google or a lawyer.)* |
 | The API can't delete or flag reviews | Show a "Report to Google" deep link. |
 | Offboarding: the client must be able to disconnect within 7 business days | A Disconnect button revokes the token and purges the data immediately. |
 | OAuth scope `business.manage`. Unverified apps are capped at 100 users. **Testing-mode refresh tokens expire after 7 days.** Open reports from 2026 say external users get 403 with no way to submit for verification. | Run the Google track (§10) in parallel. Show a reconnect banner and email the owner when the token fails. |
@@ -74,7 +74,7 @@ aiassistant.co wants a **new, standalone product**. A business connects its Goog
 
 ## 5. The product: user journey & UI
 
-**Design direction (my call):** a calm, modern, light-first SaaS look with dark mode, a single brand accent colour and generous whitespace. The visual identity must not look like Google. Each screen has one clear job. Product name and logo are TBD (placeholder: **"ReplyPilot"**).
+**Design direction:** a calm, modern, light-first SaaS look with dark mode, a single brand accent colour and generous whitespace. The visual identity must not look like Google. Each screen has one clear job. Product name and logo are TBD (placeholder: **"ReplyPilot"**).
 
 ### 5.1 Onboarding (the first 2 minutes)
 ```
@@ -153,7 +153,7 @@ Stripe Checkout with one plan in v1, a 14-day trial and month-to-month billing. 
   - Website review widget
   - Competitor benchmarking
 
-## 7. Architecture (stack choices are my calls, built on what the team knows)
+## 7. Architecture (stack follows what the team already knows)
 
 Monorepo in `Google-Reviews-Automation`:
 ```
@@ -257,7 +257,7 @@ Selected by env GBP_PROVIDER=mock|live (per-environment)
 9. Stripe billing + trial.
 10. Live provider + contract test (as soon as approval lands) → pilot with existing customers.
 
-## 12. Calls made on open points (Claude's calls, confirm while reading)
+## 12. Calls made on open points (decisions to confirm)
 1. **Backfill on first connect.**
    - Initial sync imports the last 30 days of reviews and auto-drafts the unreplied ones.
    - Older unreplied reviews show in a "Backlog" filter, fetched live, with a "Draft reply" button. No bulk auto-drafting.
