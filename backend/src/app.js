@@ -22,6 +22,7 @@ function buildApp() {
   });
 
   app.register(require('./routes/auth.routes'), { prefix: '/api/v1/auth' });
+  app.register(require('./routes/google.routes'), { prefix: '/api/v1/google' });
 
   app.get('/health', async () => ({ ok: true, gbpProvider: env.gbpProvider }));
 
