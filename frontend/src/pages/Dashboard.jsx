@@ -143,7 +143,7 @@ export default function Dashboard() {
                   <XAxis dataKey="week" tickFormatter={weekLabel} tick={axis} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={axis} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip formatLabel={(l) => `Week of ${weekLabel(l)}`} />} cursor={{ stroke: theme.palette.text.secondary, strokeDasharray: '3 3' }} />
-                  <Line type="monotone" dataKey="avgRating" name="Avg rating" stroke={c.line} strokeWidth={2}
+                  <Line animationDuration={500} type="monotone" dataKey="avgRating" name="Avg rating" stroke={c.line} strokeWidth={2}
                     dot={{ r: 4, fill: c.line, stroke: c.surface, strokeWidth: 2 }} activeDot={{ r: 6, stroke: c.surface, strokeWidth: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -177,9 +177,9 @@ export default function Dashboard() {
                   <XAxis dataKey="week" tickFormatter={weekLabel} tick={axis} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis allowDecimals={false} tick={axis} axisLine={false} tickLine={false} />
                   <Tooltip content={<ChartTooltip formatLabel={(l) => `Week of ${weekLabel(l)}`} />} cursor={{ fill: theme.palette.action.hover }} />
-                  <Bar dataKey="negative" name="1–2★" stackId="s" fill={c.negative} stroke={c.surface} strokeWidth={2} />
-                  <Bar dataKey="neutral" name="3★" stackId="s" fill={c.neutral} stroke={c.surface} strokeWidth={2} />
-                  <Bar dataKey="positive" name="4–5★" stackId="s" fill={c.positive} stroke={c.surface} strokeWidth={2} radius={[4, 4, 0, 0]} />
+                  <Bar animationDuration={500} dataKey="negative" name="1–2★" stackId="s" fill={c.negative} stroke={c.surface} strokeWidth={2} />
+                  <Bar animationDuration={500} dataKey="neutral" name="3★" stackId="s" fill={c.neutral} stroke={c.surface} strokeWidth={2} />
+                  <Bar animationDuration={500} dataKey="positive" name="4–5★" stackId="s" fill={c.positive} stroke={c.surface} strokeWidth={2} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -206,8 +206,8 @@ export default function Dashboard() {
                       )}
                       cursor={{ fill: theme.palette.action.hover }}
                     />
-                    <Bar dataKey="complained" name="Complained" stackId="t" fill={c.negative} radius={[4, 0, 0, 4]} />
-                    <Bar dataKey="praised" name="Praised" stackId="t" fill={c.positive} radius={[0, 4, 4, 0]} />
+                    <Bar animationDuration={500} dataKey="complained" name="Complained" stackId="t" fill={c.negative} radius={[4, 0, 0, 4]} />
+                    <Bar animationDuration={500} dataKey="praised" name="Praised" stackId="t" fill={c.positive} radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

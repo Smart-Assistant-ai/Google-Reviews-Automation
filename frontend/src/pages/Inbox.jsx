@@ -118,7 +118,7 @@ export default function Inbox() {
           {connection?.provider === 'mock' && (
             <>
               <Button size="small" variant="outlined" startIcon={<AddCommentRoundedIcon />} onClick={(e) => setSimMenu(e.currentTarget)}>
-                Simulate review
+                {desktop ? 'Simulate review' : 'Simulate'}
               </Button>
               <Menu anchorEl={simMenu} open={!!simMenu} onClose={() => setSimMenu(null)}>
                 <MenuItem onClick={() => simulate({})}>Random review</MenuItem>
@@ -203,7 +203,7 @@ export default function Inbox() {
   );
 
   return (
-    <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: '100vh' }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '380px 1fr' } }}>
+    <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: '100vh' }, display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '380px minmax(0, 1fr)' } }}>
       {desktop ? <>{list}<Box sx={{ minWidth: 0 }}>{detailPane}</Box></> : selectedId ? detailPane : list}
       <Snackbar open={!!toast} autoHideDuration={3000} onClose={() => setToast('')} message={toast} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
     </Box>

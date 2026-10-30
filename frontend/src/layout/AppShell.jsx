@@ -117,7 +117,7 @@ export default function AppShell() {
           <Drawer open={open} onClose={() => setOpen(false)} PaperProps={{ sx: { width: WIDTH } }}>{nav}</Drawer>
         </>
       )}
-      <Box component="main" sx={{ flex: 1, minWidth: 0, pt: desktop ? 0 : 8 }}>
+      <Box component="main" sx={{ flex: 1, minWidth: 0, pt: desktop ? 0 : 7 }}>
         <Outlet context={{ status, refreshStatus: () => api.get('/google/status').then(setStatus) }} />
       </Box>
     </Box>
