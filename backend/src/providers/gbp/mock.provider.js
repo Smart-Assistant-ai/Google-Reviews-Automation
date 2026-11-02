@@ -35,7 +35,9 @@ function buildReview(locationPath, r, createTime) {
   };
   if (r.text) review.comment = r.text;
   if (r.reply) {
-    review.reviewReply = { comment: r.reply, updateTime: createTime, replyState: 'APPROVED' };
+    // Answered about five hours later, so the dashboard shows a realistic response time.
+    const updateTime = new Date(new Date(createTime).getTime() + 5 * 3600000).toISOString();
+    review.reviewReply = { comment: r.reply, updateTime, replyState: 'APPROVED' };
   }
   return review;
 }

@@ -115,7 +115,7 @@ export default function Dashboard() {
       <Stack direction="row" alignItems="center" sx={{ mb: 3 }}>
         <Box sx={{ flex: 1 }}>
           <Typography variant="h5">Dashboard</Typography>
-          <Typography variant="body2" color="text.secondary">How customers feel, and how fast you respond.</Typography>
+          <Typography variant="body2" color="text.secondary">How guests feel, and how fast you respond.</Typography>
         </Box>
         <ToggleButtonGroup size="small" exclusive value={days} onChange={(_, v) => v && setDays(v)}>
           {RANGES.map((r) => <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>{r.label}</ToggleButton>)}
@@ -187,7 +187,7 @@ export default function Dashboard() {
 
           <Grid item xs={12} md={5}>
             <ChartCard
-              title="What customers talk about"
+              title="What guests talk about"
               subtitle="Mentions in negative vs positive reviews"
               legend={<Legend items={[{ label: 'Complained', color: c.negative }, { label: 'Praised', color: c.positive }]} />}
             >
