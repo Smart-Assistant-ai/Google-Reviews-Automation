@@ -40,7 +40,6 @@ async function llmDraft({ review, voice, recentReplies, instructions }) {
 
   const res = await openai.chat.completions.create({
     model: env.openai.model,
-    temperature: 0.8,
     response_format: { type: 'json_object' },
     messages: [{ role: 'system', content: systemPrompt(voice) }, { role: 'user', content: user }],
   });
