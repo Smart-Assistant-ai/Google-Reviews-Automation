@@ -5,7 +5,6 @@ const MAP = {
   backlog: { label: 'Backlog', color: 'default' },
   drafting: { label: 'Drafting…', color: 'default' },
   draft: { label: 'Draft ready', color: 'primary' },
-  scheduled: { label: 'Auto-posting', color: 'secondary' },
   posting: { label: 'Posting…', color: 'default' },
   pending: { label: 'Google reviewing', color: 'warning' },
   live: { label: 'Live', color: 'success' },

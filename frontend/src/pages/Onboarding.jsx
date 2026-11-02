@@ -5,11 +5,9 @@ import {
   Stepper, Typography,
 } from '@mui/material';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
-import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import Logo from '../components/Logo';
 import VoiceForm from '../components/VoiceForm';
-import RulesEditor from '../components/RulesEditor';
 import { useAuth } from '../auth/AuthContext';
 import api from '../api/client';
 
@@ -17,7 +15,6 @@ const STEPS = [
   { key: 'connect', label: 'Connect Google' },
   { key: 'location', label: 'Pick location' },
   { key: 'voice', label: 'Your reply voice' },
-  { key: 'rules', label: 'Auto-replies' },
 ];
 
 function ConnectStep({ error }) {
@@ -32,7 +29,7 @@ function ConnectStep({ error }) {
       {error && <Alert severity="error" sx={{ alignSelf: 'stretch' }}>Connection failed: {error}</Alert>}
       <Typography color="text.secondary">
         Sign in with the Google account that owns or manages your Business Profile. We&apos;ll read your reviews
-        and only post replies you approve — or that match rules you turn on.
+        and only post replies you approve.
       </Typography>
       <Button variant="contained" size="large" startIcon={<LinkRoundedIcon />} onClick={connect} disabled={busy}>
         Connect Google Business Profile
@@ -105,25 +102,6 @@ function VoiceStep({ onDone }) {
   );
 }
 
-function RulesStep({ onDone }) {
-  const [rules, setRules] = useState(null);
-  useEffect(() => {
-    api.get('/settings/rules').then(setRules);
-  }, []);
-  if (!rules) return <CircularProgress />;
-  return (
-    <Stack spacing={3}>
-      <Alert icon={<CheckCircleRoundedIcon />} severity="success" variant="outlined">
-        By default, every reply waits for your approval. Auto-replies are optional.
-      </Alert>
-      <RulesEditor rules={rules} onChange={setRules} />
-      <Box>
-        <Button variant="contained" size="large" onClick={onDone}>Go to my inbox</Button>
-      </Box>
-    </Stack>
-  );
-}
-
 export default function Onboarding() {
   const { session, refresh } = useAuth();
   const navigate = useNavigate();
@@ -157,8 +135,7 @@ export default function Onboarding() {
             <Typography variant="h5" sx={{ mb: 2 }}>{STEPS[active].label}</Typography>
             {step === 'connect' && <ConnectStep error={params.get('google_connected') === 'false' ? params.get('error') : ''} />}
             {step === 'location' && <LocationStep onDone={refresh} />}
-            {step === 'voice' && <VoiceStep onDone={refresh} />}
-            {step === 'rules' && <RulesStep onDone={finish} />}
+            {step === 'voice' && <VoiceStep onDone={finish} />}
           </CardContent>
         </Card>
       </Container>

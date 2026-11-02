@@ -68,8 +68,6 @@ const Reply = sequelize.define('Reply', {
   googleReplyState: DataTypes.STRING,
   policyViolation: DataTypes.STRING,
   error: DataTypes.TEXT,
-  scheduledFor: DataTypes.DATE,
-  autoRuleId: DataTypes.UUID,
   postedAt: DataTypes.DATE,
   postedBy: DataTypes.UUID,
 }, opts('replies'));
@@ -86,19 +84,6 @@ const VoiceProfile = sequelize.define('VoiceProfile', {
   languageMode: { type: DataTypes.STRING, allowNull: false, defaultValue: 'match' },
 }, opts('voice_profiles'));
 
-const AutoReplyRule = sequelize.define('AutoReplyRule', {
-  id,
-  workspaceId: { type: DataTypes.UUID, allowNull: false },
-  name: { type: DataTypes.STRING, allowNull: false },
-  minStars: { type: DataTypes.INTEGER, allowNull: false },
-  maxStars: { type: DataTypes.INTEGER, allowNull: false },
-  textCondition: { type: DataTypes.STRING, allowNull: false, defaultValue: 'any' },
-  delayMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 120 },
-  enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-  consentedAt: DataTypes.DATE,
-  consentedBy: DataTypes.UUID,
-}, opts('auto_reply_rules'));
-
 const AuditLog = sequelize.define('AuditLog', {
   id,
   workspaceId: { type: DataTypes.UUID, allowNull: false },
@@ -111,7 +96,6 @@ const AuditLog = sequelize.define('AuditLog', {
 Workspace.hasOne(GoogleConnection, { foreignKey: 'workspaceId' });
 Workspace.hasMany(Location, { foreignKey: 'workspaceId' });
 Workspace.hasOne(VoiceProfile, { foreignKey: 'workspaceId' });
-Workspace.hasMany(AutoReplyRule, { foreignKey: 'workspaceId' });
 Location.belongsTo(Workspace, { foreignKey: 'workspaceId' });
 Location.hasMany(Review, { foreignKey: 'locationId' });
 Review.belongsTo(Location, { foreignKey: 'locationId' });
@@ -119,5 +103,5 @@ Review.hasOne(Reply, { foreignKey: 'reviewId' });
 Reply.belongsTo(Review, { foreignKey: 'reviewId' });
 
 module.exports = {
-  sequelize, User, Workspace, GoogleConnection, Location, Review, Reply, VoiceProfile, AutoReplyRule, AuditLog,
+  sequelize, User, Workspace, GoogleConnection, Location, Review, Reply, VoiceProfile, AuditLog,
 };

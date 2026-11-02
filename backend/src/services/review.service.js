@@ -12,14 +12,13 @@ function statusOf(review) {
     return old ? 'backlog' : 'needs_reply';
   }
   return {
-    drafting: 'drafting', draft: 'draft', scheduled: 'scheduled', posting: 'posting',
+    drafting: 'drafting', draft: 'draft', posting: 'posting',
     pending_google: 'pending', live: 'live', rejected: 'rejected', failed: 'failed',
   }[reply.state] || 'needs_reply';
 }
 
 const TABS = {
   todo: ['needs_reply', 'drafting', 'draft', 'rejected', 'failed'],
-  scheduled: ['scheduled'],
   posted: ['posting', 'pending', 'live'],
   backlog: ['backlog'],
 };
@@ -41,7 +40,7 @@ function serialize(review) {
     reply: reply ? {
       id: reply.id, text: reply.text, source: reply.source, state: reply.state,
       googleReplyState: reply.googleReplyState, policyViolation: reply.policyViolation, error: reply.error,
-      scheduledFor: reply.scheduledFor, postedAt: reply.postedAt,
+      postedAt: reply.postedAt,
     } : null,
   };
 }

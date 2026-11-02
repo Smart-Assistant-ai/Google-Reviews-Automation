@@ -16,7 +16,6 @@ import api from '../api/client';
 
 const TABS = [
   { key: 'todo', label: 'To reply' },
-  { key: 'scheduled', label: 'Auto-posting' },
   { key: 'posted', label: 'Posted' },
   { key: 'backlog', label: 'Backlog' },
   { key: 'all', label: 'All' },
@@ -27,7 +26,7 @@ const STAR_FILTERS = [
   { key: '3', label: '3★' },
   { key: '4,5', label: '4–5★' },
 ];
-const LIVE_STATES = ['drafting', 'scheduled', 'pending', 'posting'];
+const LIVE_STATES = ['drafting', 'pending', 'posting'];
 
 export default function Inbox() {
   const theme = useTheme();
@@ -70,7 +69,7 @@ export default function Inbox() {
     api.get(`/reviews/${selectedId}`).then(setDetail).catch(() => setDetail(null));
   }, [selectedId]);
 
-  // Poll while anything is in motion (drafting, scheduled, waiting on Google moderation).
+  // Poll while anything is in motion (drafting, waiting on Google moderation).
   const busy = useMemo(
     () => (data?.reviews || []).some((r) => LIVE_STATES.includes(r.status)) || LIVE_STATES.includes(detail?.status),
     [data, detail],

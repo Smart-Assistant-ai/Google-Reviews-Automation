@@ -1,12 +1,6 @@
 const bcrypt = require('bcryptjs');
-const { sequelize, User, Workspace, VoiceProfile, AutoReplyRule } = require('../models');
+const { sequelize, User, Workspace, VoiceProfile } = require('../models');
 const { HttpError } = require('../utils/errors');
-
-// Default rules are created disabled: nothing auto-posts until the owner opts in.
-const DEFAULT_RULES = [
-  { name: '5★ with no text', minStars: 5, maxStars: 5, textCondition: 'without_text', delayMinutes: 0 },
-  { name: '4–5★ with text', minStars: 4, maxStars: 5, textCondition: 'with_text', delayMinutes: 120 },
-];
 
 async function signup({ email, password, name, businessName }) {
   if (!email || !password || password.length < 8) {
@@ -27,7 +21,6 @@ async function signup({ email, password, name, businessName }) {
     await VoiceProfile.create({
       workspaceId: workspace.id, businessName: businessName || null, ownerName: name || null,
     }, { transaction });
-    await AutoReplyRule.bulkCreate(DEFAULT_RULES.map((r) => ({ ...r, workspaceId: workspace.id })), { transaction });
     return { user, workspace };
   });
 }

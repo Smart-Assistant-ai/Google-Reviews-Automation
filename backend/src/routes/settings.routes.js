@@ -1,5 +1,4 @@
 const { VoiceProfile, Workspace, AuditLog } = require('../models');
-const rulesService = require('../services/rules.service');
 const { usingLlm } = require('../services/draft.service');
 
 const VOICE_FIELDS = ['businessName', 'tone', 'signOff', 'ownerName', 'alwaysSay', 'neverSay', 'languageMode'];
@@ -18,15 +17,9 @@ module.exports = async function settingsRoutes(app) {
     const voice = await VoiceProfile.findOne({ where: { workspaceId: request.user.wid } });
     await voice.update(pick(request.body || {}, VOICE_FIELDS));
     const workspace = await Workspace.findByPk(request.user.wid);
-    if (workspace.onboardingStep === 'voice') await workspace.update({ onboardingStep: 'rules' });
     if (request.body?.businessName) await workspace.update({ name: request.body.businessName });
     return pick(voice.toJSON(), VOICE_FIELDS);
   });
-
-  app.get('/rules', async (request) => rulesService.list(request.user.wid));
-
-  app.put('/rules/:id', async (request) =>
-    rulesService.update(request.user.wid, request.user.sub, request.params.id, request.body || {}));
 
   app.post('/onboarding/complete', async (request) => {
     await Workspace.update({ onboardingStep: 'done' }, { where: { id: request.user.wid } });

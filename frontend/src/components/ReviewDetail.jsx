@@ -6,14 +6,13 @@ import {
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
-import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import OutlinedFlagRoundedIcon from '@mui/icons-material/OutlinedFlagRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
-import { byteLength, countdown, LANGUAGE_NAMES, timeAgo } from './format';
+import { byteLength, LANGUAGE_NAMES, timeAgo } from './format';
 import api from '../api/client';
 
 const MAX_BYTES = 4096;
@@ -29,15 +28,6 @@ const VIOLATIONS = {
   CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
 };
 const SENTIMENT_COLOR = { positive: 'success', neutral: 'default', negative: 'error' };
-
-function Ticker({ until }) {
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return <>{countdown(until)}</>;
-}
 
 export default function ReviewDetail({ review, onUpdated, onBack }) {
   const [text, setText] = useState('');
@@ -70,7 +60,6 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
   const regenerate = (instructions) => run('regen', () => api.post(`/reviews/${review.id}/reply/regenerate`, { instructions }));
   const post = () => run('post', () => api.post(`/reviews/${review.id}/reply/post`, { text }));
   const saveDraft = () => run('save', () => api.put(`/reviews/${review.id}/reply`, { text }));
-  const cancel = () => run('cancel', () => api.post(`/reviews/${review.id}/reply/cancel-schedule`));
   const remove = () => run('delete', () => api.delete(`/reviews/${review.id}/reply`));
 
   const bytes = byteLength(text);
@@ -122,15 +111,6 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
         )}
         {status === 'failed' && <Alert severity="error" sx={{ mb: 2 }}>Couldn&apos;t post: {reply?.error}</Alert>}
 
-        {status === 'scheduled' && (
-          <Alert
-            icon={<ScheduleRoundedIcon />} severity="info" sx={{ mb: 2 }}
-            action={<Button color="inherit" size="small" onClick={cancel} disabled={!!busy}>Cancel</Button>}
-          >
-            Auto-posting in <b><Ticker until={reply.scheduledFor} /></b> by your auto-reply rule. Edit to take over.
-          </Alert>
-        )}
-
         {status === 'pending' && (
           <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
             Posted. Google is reviewing the reply; this usually takes a few minutes.
@@ -138,7 +118,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
         )}
         {status === 'live' && (
           <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
-            Live on Google{reply?.source === 'auto' ? ' · posted automatically' : ''}{reply?.source === 'google' ? ' · replied before ReplyPilot' : ''}.
+            Live on Google{reply?.source === 'google' ? ' · replied before ReplyPilot' : ''}.
           </Alert>
         )}
 
@@ -147,7 +127,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             {posted && !editingPosted ? 'Your reply' : reply?.source === 'human' ? 'Your draft' : 'AI draft'}
           </Typography>
-          {(editable || status === 'scheduled') && (
+          {editable && (
             <>
               <Button size="small" startIcon={<RefreshRoundedIcon />} onClick={(e) => setMenu(e.currentTarget)} disabled={!!busy}>
                 Rewrite
@@ -187,23 +167,22 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   multiline minRows={5} fullWidth
-                  disabled={!editable && status !== 'scheduled'}
-                  onFocus={() => status === 'scheduled' && cancel()}
+                  disabled={!editable}
                   placeholder="Write a reply…"
                 />
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="caption" color={bytes > MAX_BYTES ? 'error' : 'text.secondary'} sx={{ flex: 1 }}>
                     {bytes} / {MAX_BYTES} bytes
                   </Typography>
-                  {(editable || status === 'scheduled') && (
+                  {editable && (
                     <>
-                      {dirty && status !== 'scheduled' && <Button onClick={saveDraft} disabled={!!busy}>Save draft</Button>}
+                      {dirty && <Button onClick={saveDraft} disabled={!!busy}>Save draft</Button>}
                       {editingPosted && <Button onClick={() => { setEditingPosted(false); setText(reply?.text || ''); }}>Cancel</Button>}
                       <Button
                         variant="contained" endIcon={<SendRoundedIcon />} onClick={post}
                         disabled={!!busy || !text.trim() || bytes > MAX_BYTES}
                       >
-                        {status === 'scheduled' ? 'Post now' : editingPosted ? 'Update reply' : 'Post reply'}
+                        {editingPosted ? 'Update reply' : 'Post reply'}
                       </Button>
                     </>
                   )}

@@ -15,10 +15,10 @@ function validateText(text) {
   if (byteLength(text) > GOOGLE_REPLY_MAX_BYTES) throw new HttpError(400, `Reply is over Google's ${GOOGLE_REPLY_MAX_BYTES}-byte limit`);
 }
 
-// Owner edits a draft. Editing always cancels a scheduled auto-post.
+// Owner edits a draft.
 async function saveDraft(workspaceId, userId, reviewId, text) {
   const review = await loadReview(workspaceId, reviewId);
-  const values = { text, source: 'human', state: 'draft', scheduledFor: null, autoRuleId: null, error: null };
+  const values = { text, source: 'human', state: 'draft', error: null };
   const reply = review.Reply ? await review.Reply.update(values) : await Reply.create({ reviewId, ...values });
   await AuditLog.create({ workspaceId, userId, reviewId, action: 'reply.edited' });
   return reply;
@@ -30,7 +30,7 @@ async function regenerate(workspaceId, userId, reviewId, instructions) {
     // Re-drafting a posted reply starts a fresh draft that overwrites it when posted.
     await review.Reply.update({ state: 'draft' });
   } else if (review.Reply) {
-    await review.Reply.update({ state: 'drafting', scheduledFor: null, autoRuleId: null });
+    await review.Reply.update({ state: 'drafting' });
   } else {
     await Reply.create({ reviewId, source: 'ai', state: 'drafting' });
   }
@@ -38,7 +38,7 @@ async function regenerate(workspaceId, userId, reviewId, instructions) {
   return draftService.draftForReview(reviewId, { instructions });
 }
 
-async function postReply(replyId, { userId = null, auto = false } = {}) {
+async function postReply(replyId, { userId = null } = {}) {
   const reply = await Reply.findByPk(replyId, { include: [{ model: Review, include: [Location] }] });
   if (!reply) throw new HttpError(404, 'Reply not found');
   validateText(reply.text);
@@ -51,14 +51,12 @@ async function postReply(replyId, { userId = null, auto = false } = {}) {
     await reply.update({
       state: 'pending_google',
       googleReplyState: result?.replyState || 'PENDING',
-      source: auto ? 'auto' : reply.source,
       postedAt: new Date(),
       postedBy: userId,
-      scheduledFor: null,
       error: null,
       policyViolation: null,
     });
-    await AuditLog.create({ workspaceId, userId, reviewId: reply.reviewId, action: auto ? 'reply.auto_posted' : 'reply.posted' });
+    await AuditLog.create({ workspaceId, userId, reviewId: reply.reviewId, action: 'reply.posted' });
   } catch (err) {
     await reply.update({ state: 'failed', error: err.message });
     if (err.statusCode === 401) {
@@ -82,14 +80,6 @@ async function postNow(workspaceId, userId, reviewId, text) {
   }
   const reply = await Reply.findOne({ where: { reviewId } });
   return postReply(reply.id, { userId });
-}
-
-async function cancelSchedule(workspaceId, userId, reviewId) {
-  const review = await loadReview(workspaceId, reviewId);
-  if (review.Reply?.state !== 'scheduled') throw new HttpError(400, 'Nothing is scheduled for this review');
-  await review.Reply.update({ state: 'draft', scheduledFor: null, autoRuleId: null });
-  await AuditLog.create({ workspaceId, userId, reviewId, action: 'reply.schedule_cancelled' });
-  return review.Reply;
 }
 
 async function deleteReply(workspaceId, userId, reviewId) {
@@ -122,15 +112,4 @@ async function refreshPending() {
   }
 }
 
-async function postDueScheduled() {
-  const due = await Reply.findAll({ where: { state: 'scheduled' } });
-  for (const reply of due.filter((r) => r.scheduledFor && r.scheduledFor <= new Date())) {
-    try {
-      await postReply(reply.id, { auto: true });
-    } catch (err) {
-      console.warn('[auto-post]', reply.id, err.message);
-    }
-  }
-}
-
-module.exports = { saveDraft, regenerate, postNow, postReply, cancelSchedule, deleteReply, refreshPending, postDueScheduled };
+module.exports = { saveDraft, regenerate, postNow, postReply, deleteReply, refreshPending };

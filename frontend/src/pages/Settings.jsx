@@ -5,7 +5,6 @@ import {
   List, ListItem, ListItemText, Snackbar, Stack, Tab, Tabs, Typography,
 } from '@mui/material';
 import VoiceForm from '../components/VoiceForm';
-import RulesEditor from '../components/RulesEditor';
 import { timeAgo } from '../components/format';
 import { useAuth } from '../auth/AuthContext';
 import api from '../api/client';
@@ -14,13 +13,9 @@ const ACTION_LABELS = {
   'google.connected': 'Connected Google Business Profile',
   'google.disconnected': 'Disconnected Google Business Profile',
   'reply.posted': 'Posted a reply',
-  'reply.auto_posted': 'Auto-posted a reply',
   'reply.edited': 'Edited a draft',
   'reply.regenerated': 'Asked AI for a new draft',
-  'reply.scheduled': 'Scheduled an auto-reply',
-  'reply.schedule_cancelled': 'Cancelled an auto-reply',
   'reply.deleted': 'Deleted a reply',
-  'rule.updated': 'Updated an auto-reply rule',
 };
 
 function VoiceTab() {
@@ -39,22 +34,6 @@ function VoiceTab() {
       <VoiceForm value={voice} onChange={setVoice} />
       <Box><Button variant="contained" onClick={async () => { await api.put('/settings/voice', voice); setSaved(true); }}>Save voice</Button></Box>
       <Snackbar open={saved} autoHideDuration={2500} onClose={() => setSaved(false)} message="Voice saved" />
-    </Stack>
-  );
-}
-
-function RulesTab() {
-  const [rules, setRules] = useState(null);
-  useEffect(() => {
-    api.get('/settings/rules').then(setRules);
-  }, []);
-  if (!rules) return <CircularProgress />;
-  return (
-    <Stack spacing={2}>
-      <Typography variant="body2" color="text.secondary">
-        Rules only apply to reviews that arrive after you turn them on. Editing a draft always cancels its auto-post.
-      </Typography>
-      <RulesEditor rules={rules} onChange={setRules} />
     </Stack>
   );
 }
@@ -129,7 +108,6 @@ function ActivityTab() {
           <ListItem key={r.id} divider={i < rows.length - 1}>
             <ListItemText
               primary={ACTION_LABELS[r.action] || r.action}
-              secondary={r.meta?.ruleName ? `Rule: ${r.meta.ruleName}` : null}
               primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
             />
             <Typography variant="caption" color="text.secondary">{timeAgo(r.createdAt)}</Typography>
@@ -142,7 +120,6 @@ function ActivityTab() {
 
 const TABS = [
   { key: 'voice', label: 'Reply voice', el: <VoiceTab /> },
-  { key: 'rules', label: 'Auto-replies', el: <RulesTab /> },
   { key: 'connection', label: 'Google connection', el: <ConnectionTab /> },
   { key: 'activity', label: 'Activity', el: <ActivityTab /> },
 ];

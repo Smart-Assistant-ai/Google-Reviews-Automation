@@ -23,7 +23,6 @@ function guard(name, fn) {
 
 function start() {
   const fast = guard('fast', async () => {
-    await replyService.postDueScheduled();
     await replyService.refreshPending();
   });
   const sync = guard('sync', async () => {

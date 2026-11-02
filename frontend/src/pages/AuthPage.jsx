@@ -82,7 +82,7 @@ export default function AuthPage({ mode }) {
             </CardContent>
           </Card>
           <Typography variant="body2" color="text.secondary" sx={{ pt: 2 }}>
-            AI drafts every reply in your brand voice. You approve, edit, or let trusted rules post for you.
+            AI drafts every reply in your brand voice. You review, edit and post.
           </Typography>
         </Stack>
       </Box>

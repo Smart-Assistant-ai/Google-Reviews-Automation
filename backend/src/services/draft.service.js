@@ -88,11 +88,7 @@ async function draftForReview(reviewId, { instructions } = {}) {
 
   await review.update(analysis);
   const values = { text, source: 'ai', state: 'draft', error: null, policyViolation: null, googleReplyState: null };
-  const saved = reply ? await reply.update(values) : await Reply.create({ reviewId: review.id, ...values });
-
-  // Late require avoids a circular import with the rules service.
-  await require('./rules.service').evaluate(saved.id);
-  return saved;
+  return reply ? reply.update(values) : Reply.create({ reviewId: review.id, ...values });
 }
 
 module.exports = { draftForReview, usingLlm: !!openai };
