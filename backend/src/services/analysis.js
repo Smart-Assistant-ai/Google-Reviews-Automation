@@ -3,7 +3,6 @@
 
 const TOPIC_KEYWORDS = {
   'check-in': ['check-in', 'check in', 'check-out', 'checkout', 'waited', 'reservation', 'not ready', 'recepción', 'esperar'],
-  room: ['room', 'bed', 'shower', 'elevator', 'heating', 'habitación', 'cómoda', 'aire acondicionado'],
   cleanliness: ['clean', 'dirty', 'stain', 'spotless', 'housekeeping', 'smell', 'limpi', 'sucia', 'humedad'],
   service: ['staff', 'concierge', 'front desk', 'friendly', 'helpful', 'polite', 'personal', 'atento', 'amable'],
   location: ['location', 'walking distance', 'cable car', ' view', 'ubicación', 'céntrico', 'vista'],
@@ -12,6 +11,8 @@ const TOPIC_KEYWORDS = {
   amenities: ['wi-fi', 'wifi', 'rooftop', ' bar ', 'gym', 'pool'],
   'price & billing': ['charged', 'refund', ' fee', 'expensive', 'overpriced', 'pricey', 'cobraron'],
   parking: ['parking', 'valet', 'estacionamiento'],
+  // Generic, so last: drafts mention the first match, and a specific topic reads better.
+  room: ['room', 'bed', 'shower', 'elevator', 'heating', 'habitación', 'cómoda', 'aire acondicionado'],
 };
 
 // Offline fallback for the two languages V1 sells in. With an LLM key, the LLM reports the language instead.

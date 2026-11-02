@@ -80,3 +80,9 @@ test('offline drafts have no leftovers from another industry', () => {
     }
   }
 });
+
+test('drafts name the specific complaint rather than the room in general', () => {
+  const review = { reviewerName: 'Jason', starRating: 1, comment: 'Found stains on the sheets and the bathroom was dirty.' };
+  const draft = templateDrafter.draft({ review, analysis: analyze(review), voice: { tone: 'warm' } });
+  assert.doesNotMatch(draft, /about your room/);
+});
