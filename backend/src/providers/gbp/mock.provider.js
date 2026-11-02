@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const env = require('../../config/env');
-const { STAR, SEED_REVIEWS, SECOND_LOCATION_REVIEWS, SIMULATED_POOL } = require('./mock.fixtures');
+const { STAR, SEED_REVIEWS, SIMULATED_POOL } = require('./mock.fixtures');
 
 // A fake Google Business Profile that persists to a JSON file and mimics the
 // v4 reviews API, including reply moderation (PENDING -> APPROVED/REJECTED).
@@ -47,7 +47,6 @@ function accountKeyFor(connection) {
 function ensureAccount(store, accountName) {
   if (store.accounts[accountName]) return store.accounts[accountName];
   const loc1 = `${accountName}/locations/1001`;
-  const loc2 = `${accountName}/locations/1002`;
   store.accounts[accountName] = {
     accountName: 'Joe\'s Pizza Group',
     locations: {
@@ -55,11 +54,6 @@ function ensureAccount(store, accountName) {
         title: 'Joe\'s Wood-Fired Pizza',
         address: 'Lane 6, Koregaon Park, Pune',
         reviews: SEED_REVIEWS.map((r) => buildReview(loc1, r, daysAgo(r.days))),
-      },
-      [loc2]: {
-        title: 'Joe\'s Pizza Express',
-        address: 'Baner Road, Baner, Pune',
-        reviews: SECOND_LOCATION_REVIEWS.map((r) => buildReview(loc2, r, daysAgo(r.days))),
       },
     },
   };

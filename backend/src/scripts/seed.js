@@ -27,8 +27,7 @@ async function main() {
       accessToken: aes.encrypt('mock-access'), refreshToken: aes.encrypt('mock-refresh'),
       expiresAt: new Date(Date.now() + 3600000), status: 'healthy',
     });
-    const locations = await googleService.listLocations(workspace.id);
-    await googleService.selectLocation(workspace.id, locations.find((l) => l.title.includes('Wood-Fired')).id);
+    await googleService.attachProfile(workspace.id);
     const result = await syncService.syncWorkspace(workspace.id);
     await waitForDrafts();
     await Workspace.update({ onboardingStep: 'done' }, { where: { id: workspace.id } });

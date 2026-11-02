@@ -21,11 +21,6 @@ module.exports = async function settingsRoutes(app) {
     return pick(voice.toJSON(), VOICE_FIELDS);
   });
 
-  app.post('/onboarding/complete', async (request) => {
-    await Workspace.update({ onboardingStep: 'done' }, { where: { id: request.user.wid } });
-    return { ok: true };
-  });
-
   app.get('/activity', async (request) => {
     const rows = await AuditLog.findAll({ where: { workspaceId: request.user.wid }, order: [['created_at', 'DESC']], limit: 50 });
     return rows.map((r) => ({ id: r.id, action: r.action, reviewId: r.reviewId, meta: r.meta, createdAt: r.createdAt }));

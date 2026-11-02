@@ -59,7 +59,7 @@ function ConnectionTab() {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
             <Box sx={{ flex: 1 }}>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="subtitle2">{status.location?.title || 'No location'}</Typography>
+                <Typography variant="subtitle2">{status.location?.title || 'No profile connected'}</Typography>
                 <Chip size="small" color={status.status === 'healthy' ? 'success' : 'warning'} label={status.status === 'healthy' ? 'Healthy' : 'Needs reconnect'} />
                 {status.provider === 'mock' && <Chip size="small" variant="outlined" label="Demo data" />}
               </Stack>
@@ -82,7 +82,7 @@ function ConnectionTab() {
         <DialogTitle>Disconnect Google?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
-            We&apos;ll revoke access and delete the reviews and replies we stored for this location. Replies already on Google stay there.
+            We&apos;ll revoke access and delete the reviews and replies we stored for this profile. Replies already on Google stay there.
           </Typography>
         </DialogContent>
         <DialogActions>

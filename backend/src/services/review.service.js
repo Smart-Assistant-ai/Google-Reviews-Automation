@@ -47,7 +47,7 @@ function serialize(review) {
 
 async function selectedLocation(workspaceId) {
   const location = await Location.findOne({ where: { workspaceId, isSelected: true } });
-  if (!location) throw new HttpError(400, 'No location selected yet');
+  if (!location) throw new HttpError(400, 'Connect your Business Profile first');
   return location;
 }
 

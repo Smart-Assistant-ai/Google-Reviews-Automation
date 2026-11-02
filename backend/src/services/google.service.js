@@ -41,10 +41,8 @@ async function handleCallback({ code, state, error }) {
     await GoogleConnection.create(values);
   }
 
-  const workspace = await Workspace.findByPk(pending.workspaceId);
-  if (workspace.onboardingStep === 'connect') await workspace.update({ onboardingStep: 'location' });
   await AuditLog.create({ workspaceId: pending.workspaceId, action: 'google.connected', meta: { email: tokens.email } });
-  return workspace;
+  return pending.workspaceId;
 }
 
 // Returns the provider context used by every GBP call, refreshing the access token when needed.
@@ -104,15 +102,13 @@ async function listLocations(workspaceId) {
   return rows.map((l) => ({ id: l.id, title: l.title, address: l.address, isSelected: l.isSelected }));
 }
 
-async function selectLocation(workspaceId, locationId) {
-  const location = await Location.findOne({ where: { id: locationId, workspaceId } });
-  if (!location) throw new HttpError(404, 'Location not found');
-  // v1 UI: one location per workspace.
-  await Location.update({ isSelected: false }, { where: { workspaceId } });
-  await location.update({ isSelected: true });
-  const workspace = await Workspace.findByPk(workspaceId);
-  if (workspace.onboardingStep === 'location') await workspace.update({ onboardingStep: 'voice' });
-  return location;
+// V1 manages one profile per account: the one already attached, otherwise the first on the Google account.
+async function attachProfile(workspaceId) {
+  const locations = await listLocations(workspaceId);
+  const profile = locations.find((l) => l.isSelected) || locations[0];
+  if (!profile) throw new HttpError(400, 'No Business Profile found on this Google account');
+  await Location.update({ isSelected: true }, { where: { id: profile.id, workspaceId } });
+  return profile;
 }
 
 async function disconnect(workspaceId, userId) {
@@ -127,4 +123,4 @@ async function disconnect(workspaceId, userId) {
   await AuditLog.create({ workspaceId, userId, action: 'google.disconnected' });
 }
 
-module.exports = { startConnect, handleCallback, getContext, getStatus, listLocations, selectLocation, disconnect };
+module.exports = { startConnect, handleCallback, getContext, getStatus, attachProfile, disconnect };
