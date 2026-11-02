@@ -122,8 +122,8 @@ export default function Inbox() {
               <Menu anchorEl={simMenu} open={!!simMenu} onClose={() => setSimMenu(null)}>
                 <MenuItem onClick={() => simulate({})}>Random review</MenuItem>
                 <MenuItem onClick={() => simulate({ stars: 5, text: '' })}>5★ rating only</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 5, text: 'Fantastic dinner tonight — the margherita was perfect and the staff were lovely!' })}>5★ with text</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 1, text: 'Ordered at 8, food came at 9:15 and it was cold. Nobody apologised.' })}>1★ complaint</MenuItem>
+                <MenuItem onClick={() => simulate({ stars: 5, text: 'Fantastic stay. The room had a great view and the staff were lovely!' })}>5★ with text</MenuItem>
+                <MenuItem onClick={() => simulate({ stars: 1, text: 'We arrived at 8 and our room was not ready until 9:15. Nobody apologized.' })}>1★ complaint</MenuItem>
               </Menu>
             </>
           )}

@@ -32,7 +32,7 @@ export default function VoiceForm({ value, onChange }) {
         <TextField label="Owner / manager name" value={value.ownerName || ''} onChange={set('ownerName')} fullWidth />
       </Grid>
       <Grid item xs={12} sm={6}>
-        <TextField label="Sign-off" placeholder="– Team Joe's" value={value.signOff || ''} onChange={set('signOff')} fullWidth />
+        <TextField label="Sign-off" placeholder="– The Harbor & Pine team" value={value.signOff || ''} onChange={set('signOff')} fullWidth />
       </Grid>
       <Grid item xs={12} sm={6}>
         <TextField select label="Reply language" value={value.languageMode || 'match'} onChange={set('languageMode')} fullWidth>
@@ -42,7 +42,7 @@ export default function VoiceForm({ value, onChange }) {
       </Grid>
       <Grid item xs={12} sm={6}>
         <TextField
-          label="Things to mention when natural" placeholder="Our wood-fired oven, family recipes"
+          label="Things to mention when natural" placeholder="Our rooftop terrace, the cable car stop outside"
           value={value.alwaysSay || ''} onChange={set('alwaysSay')} fullWidth multiline minRows={2}
         />
       </Grid>

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const env = require('../../config/env');
-const { STAR, SEED_REVIEWS, SIMULATED_POOL } = require('./mock.fixtures');
+const { STAR, HOTEL, SEED_REVIEWS, SIMULATED_POOL } = require('./mock.fixtures');
 
 // A fake Google Business Profile that persists to a JSON file and mimics the
 // v4 reviews API, including reply moderation (PENDING -> APPROVED/REJECTED).
@@ -48,11 +48,11 @@ function ensureAccount(store, accountName) {
   if (store.accounts[accountName]) return store.accounts[accountName];
   const loc1 = `${accountName}/locations/1001`;
   store.accounts[accountName] = {
-    accountName: 'Joe\'s Pizza Group',
+    accountName: HOTEL.group,
     locations: {
       [loc1]: {
-        title: 'Joe\'s Wood-Fired Pizza',
-        address: 'Lane 6, Koregaon Park, Pune',
+        title: HOTEL.title,
+        address: HOTEL.address,
         reviews: SEED_REVIEWS.map((r) => buildReview(loc1, r, daysAgo(r.days))),
       },
     },
@@ -62,7 +62,7 @@ function ensureAccount(store, accountName) {
 
 // Pretend Google moderation: replies with promo content or contact details get rejected.
 function moderationVerdict(comment) {
-  if (/\b(discount|coupon|% off|free (meal|pizza|dessert))\b/i.test(comment)) return 'PROMOTIONAL_CONTENT';
+  if (/\b(discount|coupon|free (night|stay|breakfast|upgrade|parking))\b|\d+\s*% off/i.test(comment)) return 'PROMOTIONAL_CONTENT';
   if (/(\+?\d[\d\s-]{8,}\d)|https?:\/\//i.test(comment)) return 'CONTACT_INFORMATION';
   return null;
 }
@@ -103,7 +103,7 @@ module.exports = {
       accessToken: `mock-access-${crypto.randomBytes(8).toString('hex')}`,
       refreshToken: `mock-refresh-${crypto.randomBytes(8).toString('hex')}`,
       expiresAt: new Date(Date.now() + 3600 * 1000),
-      email: 'owner@joespizza.example',
+      email: HOTEL.ownerEmail,
     };
   },
 

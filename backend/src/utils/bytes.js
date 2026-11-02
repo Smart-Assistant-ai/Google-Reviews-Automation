@@ -1,4 +1,4 @@
-// Google caps review replies at 4096 bytes (not characters), which matters for Hindi/Marathi text.
+// Google caps review replies at 4096 bytes (not characters), which matters for accented characters and emoji.
 const GOOGLE_REPLY_MAX_BYTES = 4096;
 const DRAFT_TARGET_BYTES = 1500;
 

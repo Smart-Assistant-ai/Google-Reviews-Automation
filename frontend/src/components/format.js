@@ -12,4 +12,4 @@ export function timeAgo(date) {
 
 export const byteLength = (text) => new TextEncoder().encode(text || '').length;
 
-export const LANGUAGE_NAMES = { en: 'English', hi: 'Hindi', mr: 'Marathi', es: 'Spanish' };
+export const LANGUAGE_NAMES = { en: 'English', es: 'Spanish' };

@@ -2,25 +2,23 @@
 // (and as a fallback if the LLM call fails).
 
 const TOPIC_KEYWORDS = {
-  'wait time': ['wait', 'waited', 'slow', 'late', 'seated', 'took', 'वेळ'],
-  'food quality': ['cold', 'lukewarm', 'undercooked', 'burnt', 'stale', 'salty', 'hair'],
-  taste: ['delicious', 'best', 'tasty', 'amazing', 'incredible', 'unreal', 'addictive', 'स्वादिष्ट', 'छान', 'अप्रतिम', 'mejor'],
-  service: ['staff', 'service', 'friendly', 'polite', 'attentive', 'manager', 'स्टाफ़', 'personal'],
-  'price & billing': ['price', 'pricey', 'charged', 'refund', 'value', 'expensive'],
-  delivery: ['delivery', 'driver', 'missing', 'order'],
-  ambience: ['ambience', 'music', 'loud', 'noisy', 'ac ', 'hot inside', 'cozy'],
-  parking: ['parking'],
-  hygiene: ['hair', 'dirty', 'hygiene'],
-  dessert: ['tiramisu', 'dessert'],
+  'check-in': ['check-in', 'check in', 'check-out', 'checkout', 'waited', 'reservation', 'not ready', 'recepción', 'esperar'],
+  room: ['room', 'bed', 'shower', 'elevator', 'heating', 'habitación', 'cómoda', 'aire acondicionado'],
+  cleanliness: ['clean', 'dirty', 'stain', 'spotless', 'housekeeping', 'smell', 'limpi', 'sucia', 'humedad'],
+  service: ['staff', 'concierge', 'front desk', 'friendly', 'helpful', 'polite', 'personal', 'atento', 'amable'],
+  location: ['location', 'walking distance', 'cable car', ' view', 'ubicación', 'céntrico', 'vista'],
+  noise: ['noise', 'noisy', 'loud', 'quiet', 'ruido'],
+  breakfast: ['breakfast', 'desayuno'],
+  amenities: ['wi-fi', 'wifi', 'rooftop', ' bar ', 'gym', 'pool'],
+  'price & billing': ['charged', 'refund', ' fee', 'expensive', 'overpriced', 'pricey', 'cobraron'],
+  parking: ['parking', 'valet', 'estacionamiento'],
 };
 
+// Offline fallback for the two languages V1 sells in. With an LLM key, the LLM reports the language instead.
+const SPANISH_MARKERS = /[¡¿]|\b(muy|fue|estuvo|estaba|pero|nos|habitaci[oó]n|desayuno|ubicaci[oó]n|gracias|excelente|hotel maravilloso)\b/i;
+
 function detectLanguage(text) {
-  text = text || '';
-  if (/[ऀ-ॿ]/.test(text)) {
-    return /(आहे|होता|छान|खूप|पुन्हा|अप्रतिम|पण)/.test(text) ? 'mr' : 'hi';
-  }
-  if (/[¡¿]|\b(muy|mejor|que|personal|fue)\b/i.test(text)) return 'es';
-  return 'en';
+  return SPANISH_MARKERS.test(text || '') ? 'es' : 'en';
 }
 
 function sentimentFor(stars) {

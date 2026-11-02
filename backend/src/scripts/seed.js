@@ -6,8 +6,9 @@ const googleService = require('../services/google.service');
 const syncService = require('../services/sync.service');
 const draftQueue = require('../jobs/draft.queue');
 const aes = require('../utils/crypto.aes');
+const { HOTEL } = require('../providers/gbp/mock.fixtures');
 
-const DEMO = { email: 'demo@replypilot.app', password: 'demo1234', name: 'Joe Fernandes', businessName: "Joe's Wood-Fired Pizza" };
+const DEMO = { email: 'demo@replypilot.app', password: 'demo1234', name: 'Maya Torres', businessName: HOTEL.title };
 
 async function waitForDrafts() {
   while (draftQueue.size() > 0) await new Promise((r) => setTimeout(r, 300));
@@ -23,7 +24,7 @@ async function main() {
 
   if (process.argv.includes('--connected')) {
     await GoogleConnection.create({
-      workspaceId: workspace.id, provider: 'mock', googleEmail: 'owner@joespizza.example',
+      workspaceId: workspace.id, provider: 'mock', googleEmail: HOTEL.ownerEmail,
       accessToken: aes.encrypt('mock-access'), refreshToken: aes.encrypt('mock-refresh'),
       expiresAt: new Date(Date.now() + 3600000), status: 'healthy',
     });
