@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Box, Card, CardContent, CircularProgress, Grid, Stack, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
@@ -10,6 +11,7 @@ import {
 } from 'recharts';
 import { chartColors } from '../theme/chartColors';
 import { brand } from '../theme';
+import GoogleEmptyState from '../components/GoogleEmptyState';
 import api from '../api/client';
 
 const RANGES = [
@@ -97,11 +99,17 @@ export default function Dashboard() {
   const c = chartColors(theme.palette.mode);
   const [days, setDays] = useState(90);
   const [data, setData] = useState(null);
+  const { status, refreshStatus } = useOutletContext();
+  const hasLocation = !!status?.location;
 
   useEffect(() => {
     setData(null);
     api.get('/stats', { params: { days } }).then(setData);
-  }, [days]);
+  }, [days, hasLocation]);
+
+  if (status?.connected && !status.sample && !status.location) {
+    return <GoogleEmptyState status={status} onChanged={refreshStatus} />;
+  }
 
   const axis = { fontSize: 12, fill: theme.palette.text.secondary };
   const weekly = (data?.weekly || []).map((w) => ({
