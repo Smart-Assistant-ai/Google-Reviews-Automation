@@ -26,4 +26,32 @@ async function loadProfile(workspaceId) {
   return connection;
 }
 
-module.exports = { readBlockedMessage, loadProfile };
+async function requireConnection(workspaceId) {
+  const connection = await GoogleConnection.findOne({ where: { workspaceId } });
+  if (!connection) throw new HttpError(400, 'Connect your Google account first');
+  return connection;
+}
+
+async function useSampleData(workspaceId, userId) {
+  const connection = await requireConnection(workspaceId);
+  const realReviews = await Review.count({ include: [{ model: Location, where: { workspaceId }, required: true }] });
+  if (connection.dataSource !== 'sample' && realReviews > 0) {
+    throw new HttpError(409, 'This account already has real reviews, so sample data is not available');
+  }
+  await Location.destroy({ where: { workspaceId } });
+  await connection.update({ dataSource: 'sample', apiError: null });
+  await googleService.attachProfile(workspaceId);
+  await syncService.syncWorkspace(workspaceId);
+  await AuditLog.create({ workspaceId, userId, action: 'google.sample_enabled' });
+}
+
+// Deleting the location also deletes its sample reviews and replies.
+async function stopSampleData(workspaceId, userId) {
+  const connection = await requireConnection(workspaceId);
+  await Location.destroy({ where: { workspaceId } });
+  await connection.update({ dataSource: 'google' });
+  await AuditLog.create({ workspaceId, userId, action: 'google.sample_disabled' });
+  return loadProfile(workspaceId);
+}
+
+module.exports = { readBlockedMessage, loadProfile, useSampleData, stopSampleData, requireConnection };
