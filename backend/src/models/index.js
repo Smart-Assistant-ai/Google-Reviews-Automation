@@ -29,6 +29,8 @@ const GoogleConnection = sequelize.define('GoogleConnection', {
   refreshToken: DataTypes.TEXT,
   expiresAt: DataTypes.DATE,
   status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'healthy' },
+  dataSource: { type: DataTypes.STRING, allowNull: false, defaultValue: 'google' },
+  apiError: DataTypes.TEXT,
 }, opts('google_connections'));
 
 const Location = sequelize.define('Location', {
