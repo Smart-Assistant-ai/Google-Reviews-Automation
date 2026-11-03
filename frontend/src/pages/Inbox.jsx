@@ -11,6 +11,7 @@ import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
 import ReviewDetail from '../components/ReviewDetail';
+import GoogleEmptyState from '../components/GoogleEmptyState';
 import { timeAgo } from '../components/format';
 import api from '../api/client';
 
@@ -31,7 +32,7 @@ const LIVE_STATES = ['drafting', 'pending', 'posting'];
 export default function Inbox() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
-  const { status: connection } = useOutletContext();
+  const { status: connection, refreshStatus } = useOutletContext();
   const [tab, setTab] = useState('todo');
   const [stars, setStars] = useState('');
   const [q, setQ] = useState('');
@@ -200,6 +201,10 @@ export default function Inbox() {
       <Typography variant="body2">Select a review</Typography>
     </Stack>
   );
+
+  if (connection?.connected && !connection.sample && data?.counts.all === 0 && !q && !stars) {
+    return <GoogleEmptyState status={connection} onChanged={async () => { await refreshStatus(); await load(); }} />;
+  }
 
   return (
     <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: '100vh' }, display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '380px minmax(0, 1fr)' } }}>
