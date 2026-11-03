@@ -27,11 +27,6 @@ module.exports = async function reviewsRoutes(app) {
     return fresh(request);
   });
 
-  app.post('/:id/reply/cancel-schedule', async (request) => {
-    await replyService.cancelSchedule(wid(request), uid(request), request.params.id);
-    return fresh(request);
-  });
-
   app.delete('/:id/reply', async (request) => {
     await replyService.deleteReply(wid(request), uid(request), request.params.id);
     return fresh(request);

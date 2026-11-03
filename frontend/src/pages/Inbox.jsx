@@ -11,12 +11,12 @@ import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
 import ReviewDetail from '../components/ReviewDetail';
+import GoogleEmptyState from '../components/GoogleEmptyState';
 import { timeAgo } from '../components/format';
 import api from '../api/client';
 
 const TABS = [
   { key: 'todo', label: 'To reply' },
-  { key: 'scheduled', label: 'Auto-posting' },
   { key: 'posted', label: 'Posted' },
   { key: 'backlog', label: 'Backlog' },
   { key: 'all', label: 'All' },
@@ -27,12 +27,12 @@ const STAR_FILTERS = [
   { key: '3', label: '3★' },
   { key: '4,5', label: '4–5★' },
 ];
-const LIVE_STATES = ['drafting', 'scheduled', 'pending', 'posting'];
+const LIVE_STATES = ['drafting', 'pending', 'posting'];
 
 export default function Inbox() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
-  const { status: connection } = useOutletContext();
+  const { status: connection, refreshStatus } = useOutletContext();
   const [tab, setTab] = useState('todo');
   const [stars, setStars] = useState('');
   const [q, setQ] = useState('');
@@ -70,7 +70,7 @@ export default function Inbox() {
     api.get(`/reviews/${selectedId}`).then(setDetail).catch(() => setDetail(null));
   }, [selectedId]);
 
-  // Poll while anything is in motion (drafting, scheduled, waiting on Google moderation).
+  // Poll while anything is in motion (drafting, waiting on Google moderation).
   const busy = useMemo(
     () => (data?.reviews || []).some((r) => LIVE_STATES.includes(r.status)) || LIVE_STATES.includes(detail?.status),
     [data, detail],
@@ -115,7 +115,7 @@ export default function Inbox() {
       <Box sx={{ p: 2, pb: 1 }}>
         <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
           <Typography variant="h5" sx={{ flex: 1 }}>Inbox</Typography>
-          {connection?.provider === 'mock' && (
+          {connection?.sample && (
             <>
               <Button size="small" variant="outlined" startIcon={<AddCommentRoundedIcon />} onClick={(e) => setSimMenu(e.currentTarget)}>
                 {desktop ? 'Simulate review' : 'Simulate'}
@@ -123,8 +123,8 @@ export default function Inbox() {
               <Menu anchorEl={simMenu} open={!!simMenu} onClose={() => setSimMenu(null)}>
                 <MenuItem onClick={() => simulate({})}>Random review</MenuItem>
                 <MenuItem onClick={() => simulate({ stars: 5, text: '' })}>5★ rating only</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 5, text: 'Fantastic dinner tonight — the margherita was perfect and the staff were lovely!' })}>5★ with text</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 1, text: 'Ordered at 8, food came at 9:15 and it was cold. Nobody apologised.' })}>1★ complaint</MenuItem>
+                <MenuItem onClick={() => simulate({ stars: 5, text: 'Fantastic stay. The room had a great view and the staff were lovely!' })}>5★ with text</MenuItem>
+                <MenuItem onClick={() => simulate({ stars: 1, text: 'We arrived at 8 and our room was not ready until 9:15. Nobody apologized.' })}>1★ complaint</MenuItem>
               </Menu>
             </>
           )}
@@ -201,6 +201,10 @@ export default function Inbox() {
       <Typography variant="body2">Select a review</Typography>
     </Stack>
   );
+
+  if (connection?.connected && !connection.sample && data?.counts.all === 0 && !q && !stars) {
+    return <GoogleEmptyState status={connection} onChanged={async () => { await refreshStatus(); await load(); }} />;
+  }
 
   return (
     <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: '100vh' }, display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '380px minmax(0, 1fr)' } }}>

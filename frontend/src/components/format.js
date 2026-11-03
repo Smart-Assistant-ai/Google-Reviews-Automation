@@ -10,15 +10,6 @@ export function timeAgo(date) {
   return new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function countdown(date) {
-  const s = Math.max(0, Math.floor((new Date(date).getTime() - Date.now()) / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h) return `${h}h ${m}m`;
-  return `${m}:${String(sec).padStart(2, '0')}`;
-}
-
 export const byteLength = (text) => new TextEncoder().encode(text || '').length;
 
-export const LANGUAGE_NAMES = { en: 'English', hi: 'Hindi', mr: 'Marathi', es: 'Spanish' };
+export const LANGUAGE_NAMES = { en: 'English', es: 'Spanish' };

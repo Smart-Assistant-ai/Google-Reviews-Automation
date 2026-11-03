@@ -15,7 +15,7 @@ const TONES = {
 
 function systemPrompt(voice) {
   return [
-    `You write public replies to Google reviews on behalf of ${voice.businessName || 'a local business'}.`,
+    `You write public replies to Google reviews on behalf of ${voice.businessName || 'a hotel'}.`,
     `Tone: ${TONES[voice.tone] || TONES.warm}.`,
     voice.languageMode === 'english' ? 'Always reply in English.' : 'Reply in the same language the reviewer used.',
     voice.signOff ? `End with this sign-off on its own line: "${voice.signOff}"` : '',
@@ -23,7 +23,7 @@ function systemPrompt(voice) {
     voice.neverSay ? `Never mention: ${voice.neverSay}` : '',
     'Rules: address the reviewer by first name; reference something specific they said; 2-4 sentences;',
     'never offer discounts, freebies or anything in exchange for changing a review; never admit legal liability;',
-    'never include phone numbers, emails or links; for negative reviews apologise and invite them to contact the business;',
+    'never include phone numbers, emails or links; for negative reviews apologize and invite them to contact the hotel;',
     'do not start with the same words as the recent replies provided.',
     'Respond as JSON: {"reply": string, "sentiment": "positive"|"neutral"|"negative", "topics": string[] (max 3, short), "language": ISO 639-1 code}.',
   ].filter(Boolean).join('\n');
@@ -40,7 +40,6 @@ async function llmDraft({ review, voice, recentReplies, instructions }) {
 
   const res = await openai.chat.completions.create({
     model: env.openai.model,
-    temperature: 0.8,
     response_format: { type: 'json_object' },
     messages: [{ role: 'system', content: systemPrompt(voice) }, { role: 'user', content: user }],
   });
@@ -88,11 +87,7 @@ async function draftForReview(reviewId, { instructions } = {}) {
 
   await review.update(analysis);
   const values = { text, source: 'ai', state: 'draft', error: null, policyViolation: null, googleReplyState: null };
-  const saved = reply ? await reply.update(values) : await Reply.create({ reviewId: review.id, ...values });
-
-  // Late require avoids a circular import with the rules service.
-  await require('./rules.service').evaluate(saved.id);
-  return saved;
+  return reply ? reply.update(values) : Reply.create({ reviewId: review.id, ...values });
 }
 
 module.exports = { draftForReview, usingLlm: !!openai };

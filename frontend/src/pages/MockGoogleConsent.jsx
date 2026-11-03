@@ -26,7 +26,7 @@ export default function MockGoogleConsent() {
             In production this step is Google&apos;s own consent screen. ReplyPilot will be able to:
           </Typography>
           <Stack spacing={1.5} sx={{ mb: 3 }}>
-            <Typography variant="body2">• Read reviews for your business locations</Typography>
+            <Typography variant="body2">• Read reviews for your Business Profile</Typography>
             <Typography variant="body2">• Post and edit replies on your behalf (only as you allow)</Typography>
             <Typography variant="body2">• See your account email address</Typography>
           </Stack>

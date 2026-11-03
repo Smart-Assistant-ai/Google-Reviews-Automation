@@ -10,6 +10,9 @@ const pendingStates = new Map();
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function startConnect(workspaceId) {
+  if (env.gbpProvider === 'live' && !(env.google.clientId && env.google.clientSecret)) {
+    throw new HttpError(400, 'Google sign-in is not set up: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to backend/.env');
+  }
   const state = crypto.randomBytes(24).toString('hex');
   pendingStates.set(state, { workspaceId, expiresAt: Date.now() + STATE_TTL_MS });
   return { url: getProvider().getAuthUrl(state), provider: getProvider().kind };
@@ -23,6 +26,8 @@ async function handleCallback({ code, state, error }) {
 
   const provider = getProvider();
   const tokens = await provider.exchangeCode(code);
+  // The email is how we tell a reconnect from a different account, so never continue without it.
+  if (!tokens.email) throw new HttpError(400, 'Could not confirm which Google account you signed in with, please try again');
   const values = {
     workspaceId: pending.workspaceId,
     provider: provider.kind,
@@ -34,24 +39,31 @@ async function handleCallback({ code, state, error }) {
   };
   const existing = await GoogleConnection.findOne({ where: { workspaceId: pending.workspaceId } });
   if (existing) {
-    // Google only returns a refresh token on first consent; keep the old one if missing.
-    if (!tokens.refreshToken) delete values.refreshToken;
+    const accountChanged = existing.googleEmail && existing.googleEmail !== tokens.email;
+    // Signing in must never delete the old account's reviews and replies: only an explicit disconnect does that.
+    // Sample data belongs to no account, so it does not block the switch.
+    if (accountChanged && !usesSampleData(existing) && (await Location.count({ where: { workspaceId: pending.workspaceId } })) > 0) {
+      throw new HttpError(409, 'This workspace is connected to a different Google account. Sign in with that account, or disconnect it, which removes its reviews and replies.', 'google_account_conflict');
+    }
+    // Google only returns a refresh token on first consent; keep the old one if missing, but only for the same account.
+    if (!tokens.refreshToken && !accountChanged) delete values.refreshToken;
     await existing.update(values);
   } else {
     await GoogleConnection.create(values);
   }
 
-  const workspace = await Workspace.findByPk(pending.workspaceId);
-  if (workspace.onboardingStep === 'connect') await workspace.update({ onboardingStep: 'location' });
   await AuditLog.create({ workspaceId: pending.workspaceId, action: 'google.connected', meta: { email: tokens.email } });
-  return workspace;
+  return pending.workspaceId;
 }
+
+// Sample mode serves the fake profile, so nothing can reach the real Google profile.
+const usesSampleData = (connection) => connection.provider === 'mock' || connection.dataSource === 'sample';
 
 // Returns the provider context used by every GBP call, refreshing the access token when needed.
 async function getContext(workspaceId) {
   const connection = await GoogleConnection.findOne({ where: { workspaceId } });
   if (!connection) throw new HttpError(400, 'Google Business Profile is not connected');
-  const provider = getProvider(connection.provider);
+  const provider = getProvider(usesSampleData(connection) ? 'mock' : connection.provider);
 
   const getAccessToken = async () => {
     const expiringSoon = !connection.expiresAt || connection.expiresAt.getTime() - Date.now() < 5 * 60 * 1000;
@@ -83,6 +95,8 @@ async function getStatus(workspaceId) {
     provider: connection?.provider || env.gbpProvider,
     email: connection?.googleEmail || null,
     status: connection?.status || null,
+    sample: connection ? usesSampleData(connection) : false,
+    apiError: connection?.apiError || null,
     location: location ? { id: location.id, title: location.title, address: location.address, lastSyncedAt: location.lastSyncedAt } : null,
   };
 }
@@ -104,15 +118,13 @@ async function listLocations(workspaceId) {
   return rows.map((l) => ({ id: l.id, title: l.title, address: l.address, isSelected: l.isSelected }));
 }
 
-async function selectLocation(workspaceId, locationId) {
-  const location = await Location.findOne({ where: { id: locationId, workspaceId } });
-  if (!location) throw new HttpError(404, 'Location not found');
-  // v1 UI: one location per workspace.
-  await Location.update({ isSelected: false }, { where: { workspaceId } });
-  await location.update({ isSelected: true });
-  const workspace = await Workspace.findByPk(workspaceId);
-  if (workspace.onboardingStep === 'location') await workspace.update({ onboardingStep: 'voice' });
-  return location;
+// V1 manages one profile per account: the one already attached, otherwise the first on the Google account.
+async function attachProfile(workspaceId) {
+  const locations = await listLocations(workspaceId);
+  const profile = locations.find((l) => l.isSelected) || locations[0];
+  if (!profile) throw new HttpError(400, 'No Business Profile found on this Google account');
+  await Location.update({ isSelected: true }, { where: { id: profile.id, workspaceId } });
+  return profile;
 }
 
 async function disconnect(workspaceId, userId) {
@@ -127,4 +139,4 @@ async function disconnect(workspaceId, userId) {
   await AuditLog.create({ workspaceId, userId, action: 'google.disconnected' });
 }
 
-module.exports = { startConnect, handleCallback, getContext, getStatus, listLocations, selectLocation, disconnect };
+module.exports = { startConnect, handleCallback, getContext, getStatus, attachProfile, disconnect, usesSampleData };

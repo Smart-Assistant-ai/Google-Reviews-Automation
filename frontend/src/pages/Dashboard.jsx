@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   Box, Card, CardContent, CircularProgress, Grid, Stack, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
@@ -10,6 +11,7 @@ import {
 } from 'recharts';
 import { chartColors } from '../theme/chartColors';
 import { brand } from '../theme';
+import GoogleEmptyState from '../components/GoogleEmptyState';
 import api from '../api/client';
 
 const RANGES = [
@@ -97,11 +99,17 @@ export default function Dashboard() {
   const c = chartColors(theme.palette.mode);
   const [days, setDays] = useState(90);
   const [data, setData] = useState(null);
+  const { status, refreshStatus } = useOutletContext();
+  const hasLocation = !!status?.location;
 
   useEffect(() => {
     setData(null);
     api.get('/stats', { params: { days } }).then(setData);
-  }, [days]);
+  }, [days, hasLocation]);
+
+  if (status?.connected && !status.sample && !status.location) {
+    return <GoogleEmptyState status={status} onChanged={refreshStatus} />;
+  }
 
   const axis = { fontSize: 12, fill: theme.palette.text.secondary };
   const weekly = (data?.weekly || []).map((w) => ({
@@ -115,7 +123,7 @@ export default function Dashboard() {
       <Stack direction="row" alignItems="center" sx={{ mb: 3 }}>
         <Box sx={{ flex: 1 }}>
           <Typography variant="h5">Dashboard</Typography>
-          <Typography variant="body2" color="text.secondary">How customers feel, and how fast you respond.</Typography>
+          <Typography variant="body2" color="text.secondary">How guests feel, and how fast you respond.</Typography>
         </Box>
         <ToggleButtonGroup size="small" exclusive value={days} onChange={(_, v) => v && setDays(v)}>
           {RANGES.map((r) => <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>{r.label}</ToggleButton>)}
@@ -187,7 +195,7 @@ export default function Dashboard() {
 
           <Grid item xs={12} md={5}>
             <ChartCard
-              title="What customers talk about"
+              title="What guests talk about"
               subtitle="Mentions in negative vs positive reviews"
               legend={<Legend items={[{ label: 'Complained', color: c.negative }, { label: 'Praised', color: c.positive }]} />}
             >

@@ -4,10 +4,12 @@
 const firstName = (name = '') => name.trim().split(/\s+/)[0] || 'there';
 
 // Only mention topics that fit the review's mood, phrased naturally.
-const PRAISE_PHRASES = { taste: 'food', service: 'team', ambience: 'ambience', dessert: 'desserts', delivery: 'delivery' };
+const PRAISE_PHRASES = {
+  room: 'rooms', service: 'team', location: 'location', breakfast: 'breakfast', cleanliness: 'housekeeping team', amenities: 'amenities',
+};
 const ISSUE_PHRASES = {
-  'wait time': 'the wait', 'food quality': 'the food', 'price & billing': 'the billing issue', delivery: 'the delivery',
-  hygiene: 'what you found', ambience: 'the atmosphere', parking: 'parking', service: 'the service',
+  'check-in': 'the check-in', room: 'your room', cleanliness: 'the cleanliness of your room', noise: 'the noise',
+  'price & billing': 'the billing issue', parking: 'parking', service: 'the service', breakfast: 'breakfast', amenities: 'the amenities',
 };
 
 function topicPhrase(topics, sentiment) {
@@ -21,49 +23,37 @@ const EN = {
     warm: [
       (n, t) => `Hi ${n}, thank you so much for the lovely words${t ? ` about our ${t}` : ''}! It genuinely made our day.`,
       (n, t) => `${n}, this is wonderful to read — thank you!${t ? ` We'll pass your note about our ${t} to the whole team.` : ''}`,
-      (n) => `Thanks a ton, ${n}! Guests like you are the reason we fire up the oven every morning.`,
-      (n, t) => `What a kind review, ${n}.${t ? ` So glad our ${t} hit the spot.` : ''} We can't wait to welcome you back.`,
+      (n) => `Thanks a ton, ${n}! Guests like you are the reason we love what we do.`,
+      (n, t) => `What a kind review, ${n}.${t ? ` So glad our ${t} made your stay better.` : ''} We can't wait to welcome you back.`,
     ],
     professional: [
-      (n, t) => `Dear ${n}, thank you for your review${t ? ` and your kind remarks on our ${t}` : ''}. We look forward to serving you again.`,
+      (n, t) => `Dear ${n}, thank you for your review${t ? ` and your kind remarks on our ${t}` : ''}. We look forward to welcoming you again.`,
       (n) => `Thank you, ${n}. We appreciate you taking the time to share your experience.`,
     ],
     playful: [
-      (n) => `${n}, you just made our pizza oven blush 🍕 Thank you!`,
+      (n) => `${n}, you just made our front desk blush 🛎️ Thank you!`,
       (n) => `Woohoo, thanks ${n}! The whole crew is doing a happy dance. See you soon!`,
     ],
   },
   neutral: {
     any: [
-      (n, t) => `Hi ${n}, thanks for the honest feedback${t ? ` about ${t}` : ''}. We're looking into it and hope to give you a five-star visit next time.`,
-      (n, t) => `Thank you, ${n}. Glad parts of your visit worked for you —${t ? ` we've noted your point about ${t}` : ' we have noted your feedback'} and are on it.`,
+      (n, t) => `Hi ${n}, thanks for the honest feedback${t ? ` about ${t}` : ''}. We're looking into it and hope to give you a five-star stay next time.`,
+      (n, t) => `Thank you, ${n}. Glad parts of your stay worked for you —${t ? ` we've noted your point about ${t}` : ' we have noted your feedback'} and are on it.`,
     ],
   },
   negative: {
     any: [
-      (n, t) => `Hi ${n}, we're truly sorry${t ? ` about ${t}` : ' your visit fell short'}. That's not the experience we want for anyone. Please reach out to us directly so we can make this right.`,
-      (n, t) => `${n}, thank you for telling us, and we apologise.${t ? ` Your feedback about ${t} has been shared with our team` : ' Your feedback has been shared with our team'} so it doesn't happen again. We'd love the chance to do better.`,
+      (n, t) => `Hi ${n}, we're truly sorry${t ? ` about ${t}` : ' your stay fell short'}. That's not the experience we want for anyone. Please reach out to us directly so we can make this right.`,
+      (n, t) => `${n}, thank you for telling us, and we apologize.${t ? ` Your feedback about ${t} has been shared with our team` : ' Your feedback has been shared with our team'} so it doesn't happen again. We'd love the chance to do better.`,
       (n) => `We're sorry, ${n}. This isn't our standard, and we're reviewing what went wrong. Please contact our manager so we can follow up personally.`,
     ],
   },
 };
 
-const OTHER = {
-  hi: {
-    positive: (n) => `${n} जी, आपके प्यारे शब्दों के लिए बहुत-बहुत धन्यवाद! आपसे फिर मिलने का इंतज़ार रहेगा।`,
-    neutral: (n) => `${n} जी, आपकी राय के लिए धन्यवाद। हम सुधार पर काम कर रहे हैं।`,
-    negative: (n) => `${n} जी, हमें खेद है कि आपका अनुभव अच्छा नहीं रहा। कृपया हमसे संपर्क करें ताकि हम इसे ठीक कर सकें।`,
-  },
-  mr: {
-    positive: (n) => `${n}, तुमच्या सुंदर अभिप्रायाबद्दल मनःपूर्वक धन्यवाद! लवकरच पुन्हा भेटूया.`,
-    neutral: (n) => `${n}, तुमच्या अभिप्रायाबद्दल धन्यवाद. आम्ही नक्की सुधारणा करू.`,
-    negative: (n) => `${n}, तुमचा अनुभव चांगला न झाल्याबद्दल आम्ही दिलगीर आहोत. कृपया आमच्याशी संपर्क साधा.`,
-  },
-  es: {
-    positive: (n) => `¡Muchas gracias, ${n}! Nos alegra muchísimo que hayas disfrutado. ¡Te esperamos pronto!`,
-    neutral: (n) => `Gracias por tu opinión, ${n}. Ya estamos trabajando para mejorar.`,
-    negative: (n) => `Lo sentimos mucho, ${n}. Por favor contáctanos para poder solucionarlo.`,
-  },
+const SPANISH = {
+  positive: (n) => `¡Muchas gracias, ${n}! Nos alegra muchísimo que hayas disfrutado tu estancia. ¡Te esperamos pronto!`,
+  neutral: (n) => `Gracias por tu opinión, ${n}. Ya estamos trabajando para mejorar.`,
+  negative: (n) => `Lo sentimos mucho, ${n}. Por favor contáctanos para poder solucionarlo.`,
 };
 
 function draft({ review, analysis, voice, recentReplies = [] }) {
@@ -72,8 +62,8 @@ function draft({ review, analysis, voice, recentReplies = [] }) {
   const language = voice.languageMode === 'english' ? 'en' : analysis.language;
   let body;
 
-  if (language !== 'en' && OTHER[language]) {
-    body = OTHER[language][analysis.sentiment](name);
+  if (language === 'es') {
+    body = SPANISH[analysis.sentiment](name);
   } else {
     const bucket = EN[analysis.sentiment];
     const variants = bucket[voice.tone] || bucket.warm || bucket.any;

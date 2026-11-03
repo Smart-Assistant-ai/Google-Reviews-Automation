@@ -12,14 +12,13 @@ function statusOf(review) {
     return old ? 'backlog' : 'needs_reply';
   }
   return {
-    drafting: 'drafting', draft: 'draft', scheduled: 'scheduled', posting: 'posting',
+    drafting: 'drafting', draft: 'draft', posting: 'posting',
     pending_google: 'pending', live: 'live', rejected: 'rejected', failed: 'failed',
   }[reply.state] || 'needs_reply';
 }
 
 const TABS = {
   todo: ['needs_reply', 'drafting', 'draft', 'rejected', 'failed'],
-  scheduled: ['scheduled'],
   posted: ['posting', 'pending', 'live'],
   backlog: ['backlog'],
 };
@@ -41,19 +40,23 @@ function serialize(review) {
     reply: reply ? {
       id: reply.id, text: reply.text, source: reply.source, state: reply.state,
       googleReplyState: reply.googleReplyState, policyViolation: reply.policyViolation, error: reply.error,
-      scheduledFor: reply.scheduledFor, postedAt: reply.postedAt,
+      postedAt: reply.postedAt,
     } : null,
   };
 }
 
 async function selectedLocation(workspaceId) {
   const location = await Location.findOne({ where: { workspaceId, isSelected: true } });
-  if (!location) throw new HttpError(400, 'No location selected yet');
+  if (!location) throw new HttpError(400, 'Connect your Business Profile first');
   return location;
 }
 
+const EMPTY_LIST = { reviews: [], counts: { todo: 0, posted: 0, backlog: 0, all: 0 } };
+
 async function list(workspaceId, { tab = 'todo', stars, q } = {}) {
-  const location = await selectedLocation(workspaceId);
+  // Connected, but Google has not let us read a profile yet.
+  const location = await Location.findOne({ where: { workspaceId, isSelected: true } });
+  if (!location) return EMPTY_LIST;
   const where = { locationId: location.id };
   if (stars) where.starRating = String(stars).split(',').map(Number);
   if (q) {

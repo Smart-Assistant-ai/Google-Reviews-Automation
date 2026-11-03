@@ -1,6 +1,6 @@
 # ReplyPilot — Google Reviews Automation (POC)
 
-Connect a Google Business Profile, see every review in one inbox, let AI draft replies in your brand voice, edit and post — with owner-controlled auto-reply rules.
+Connect a hotel's Google Business Profile, see every review in one inbox, let AI draft replies in your brand voice, then edit and post.
 
 > "ReplyPilot" is a placeholder name. Product design: [docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md](docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md)
 
@@ -36,12 +36,26 @@ Demo login: `demo@replypilot.app` / `demo1234`. Running `npm run seed` without `
 | `OPENAI_API_KEY` | key or empty | Empty = built-in offline drafter. Set it for real AI drafts. |
 | `MOCK_MODERATION_SECONDS` | number | How long the fake Google takes to approve/reject a posted reply. |
 
+## Testing real Google sign-in
+Real sign-in works before Google approves API access. Until then the account connects with 0 reviews, and **Use sample data** loads a fictional business. Sample data uses the fake Google profile, so replies never reach real Google.
+
+1. In the Google Cloud project, set up the OAuth consent screen with the user type **External** and the publishing status **Testing**, and add your Google account as a test user.
+2. Create an OAuth client of type **Web application** with this authorized redirect URI: `http://localhost:4000/api/v1/google/callback`
+3. In `backend/.env`, set `GBP_PROVIDER=live`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the backend.
+4. Sign up with a new account and click **Connect Google Business Profile**.
+
+Once Google approves API access, click **Check Google again** or **Sync now** to load the real profile. Real replies post publicly, so test on your own profile first.
+
 ## Demo script (~5 min)
-1. **Sign up** as a new business → **Connect Google** (demo consent screen) → **pick a location** → set **reply voice** → see **auto-reply rules** (all off by default; 1–3★ locked to manual).
-2. **Inbox**: every review already has an AI draft in your voice (English, Hindi, Marathi, Spanish). Open a 2★ review → **Rewrite → More apologetic** → edit → **Post reply** → status goes *Google reviewing* → *Live*.
+1. **Sign up** as a new hotel → **Connect Google** (demo consent screen) → you land in the inbox with the reviews of one hotel.
+2. **Inbox**: every recent review already has an AI draft in English or Spanish, matching the reviewer. Open a 2★ review → **Rewrite → More apologetic** → edit → **Post reply** → status goes *Google reviewing* → *Live*.
 3. **Google moderation**: post a reply containing "20% discount" → Google **rejects** it as promotional content; edit and re-post.
-4. **Auto-replies**: Settings → Auto-replies → enable "5★ rating only" (consent checkbox) → Inbox → **Simulate review → 5★ rating only** → it auto-posts. **Simulate → 1★ complaint** → stays a draft for a human.
-5. **Dashboard**: rating trend, weekly volume by sentiment, what customers praise vs. complain about.
+4. **New reviews**: **Simulate review** drops in a new review, and a draft appears a moment later.
+5. **Dashboard**: rating trend, weekly volume by sentiment, what guests praise vs. complain about.
+6. **Settings**: reply voice, Google connection and activity log.
+
+## V1 scope
+One user, one Business Profile, and a person approves every reply. Auto-replies and multiple locations are planned for V2. Their tables and columns stay in the database, unused. Auto-reply code can be restored from commit `351b474`.
 
 ## Tests
 ```bash

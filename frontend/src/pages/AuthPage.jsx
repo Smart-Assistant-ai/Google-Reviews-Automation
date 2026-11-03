@@ -36,7 +36,7 @@ export default function AuthPage({ mode }) {
           <Logo />
           <Typography variant="h4" sx={{ mt: 5, mb: 1 }}>{signup ? 'Start your free trial' : 'Welcome back'}</Typography>
           <Typography color="text.secondary" sx={{ mb: 4 }}>
-            {signup ? 'Every Google review answered, in your voice. No card needed.' : 'Log in to see what customers are saying.'}
+            {signup ? 'Every Google review of your hotel answered, in your voice. No card needed.' : 'Log in to see what guests are saying.'}
           </Typography>
           <form onSubmit={submit}>
             <Stack spacing={2}>
@@ -69,20 +69,20 @@ export default function AuthPage({ mode }) {
           <Card sx={{ boxShadow: '0 12px 40px rgba(0,0,0,0.08)' }}>
             <CardContent>
               <Stars value={2} />
-              <Typography variant="body2" sx={{ mt: 1 }}>“Waited 40 minutes and the pizza arrived lukewarm.”</Typography>
-              <Typography variant="caption" color="text.secondary">Priya S. · 2 hours ago</Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>“Waited 40 minutes at check-in and our room still was not ready.”</Typography>
+              <Typography variant="caption" color="text.secondary">Megan S. · 2 hours ago</Typography>
             </CardContent>
           </Card>
           <Card sx={{ ml: 4, borderColor: 'primary.main', boxShadow: '0 12px 40px rgba(0,0,0,0.08)' }}>
             <CardContent>
               <Typography variant="caption" color="primary" sx={{ fontWeight: 700 }}>AI DRAFT · WAITING FOR YOU</Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
-                Hi Priya, we&apos;re truly sorry about the wait. That&apos;s not the experience we want for anyone…
+                Hi Megan, we&apos;re truly sorry about the wait. That&apos;s not the experience we want for anyone…
               </Typography>
             </CardContent>
           </Card>
           <Typography variant="body2" color="text.secondary" sx={{ pt: 2 }}>
-            AI drafts every reply in your brand voice. You approve, edit, or let trusted rules post for you.
+            AI drafts every guest reply in your hotel&apos;s voice. You review, edit and post.
           </Typography>
         </Stack>
       </Box>
