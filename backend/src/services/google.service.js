@@ -26,6 +26,8 @@ async function handleCallback({ code, state, error }) {
 
   const provider = getProvider();
   const tokens = await provider.exchangeCode(code);
+  // The email is how we tell a reconnect from a different account, so never continue without it.
+  if (!tokens.email) throw new HttpError(400, 'Could not confirm which Google account you signed in with, please try again');
   const values = {
     workspaceId: pending.workspaceId,
     provider: provider.kind,
@@ -37,8 +39,11 @@ async function handleCallback({ code, state, error }) {
   };
   const existing = await GoogleConnection.findOne({ where: { workspaceId: pending.workspaceId } });
   if (existing) {
-    // Google only returns a refresh token on first consent; keep the old one if missing.
-    if (!tokens.refreshToken) delete values.refreshToken;
+    const accountChanged = existing.googleEmail && existing.googleEmail !== tokens.email;
+    // Same policy as disconnect: the old account's profile and data go. Sample data belongs to no account, so it stays.
+    if (accountChanged && !usesSampleData(existing)) await Location.destroy({ where: { workspaceId: pending.workspaceId } });
+    // Google only returns a refresh token on first consent; keep the old one if missing, but only for the same account.
+    if (!tokens.refreshToken && !accountChanged) delete values.refreshToken;
     await existing.update(values);
   } else {
     await GoogleConnection.create(values);

@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const env = require('../src/config/env');
 const { HttpError } = require('../src/utils/errors');
+const { getProvider } = require('../src/providers/gbp');
 const { GoogleConnection, Location, Review, AuditLog } = require('../src/models');
 const { readBlockedMessage, useSampleData, stopSampleData } = require('../src/services/connection.service');
 const googleService = require('../src/services/google.service');
@@ -85,4 +87,45 @@ test('only sample or mock connections use the fake profile', () => {
   assert.strictEqual(usesSampleData({ provider: 'live', dataSource: 'google' }), false);
   assert.strictEqual(usesSampleData({ provider: 'live', dataSource: 'sample' }), true);
   assert.strictEqual(usesSampleData({ provider: 'mock', dataSource: 'google' }), true);
+});
+
+async function reconnect(t, { existing, tokens }) {
+  const previousProvider = env.gbpProvider;
+  env.gbpProvider = 'mock';
+  t.after(() => { env.gbpProvider = previousProvider; });
+  const update = t.mock.fn(async () => {});
+  const destroy = t.mock.method(Location, 'destroy', async () => 1);
+  t.mock.method(GoogleConnection, 'findOne', async () => ({ provider: 'live', dataSource: 'google', ...existing, update }));
+  t.mock.method(AuditLog, 'create', async () => {});
+  t.mock.method(getProvider('mock'), 'exchangeCode', async () => ({ accessToken: 'new-access', expiresAt: new Date(), ...tokens }));
+  const { url } = googleService.startConnect('w1');
+  const state = new URL(url).searchParams.get('state');
+  return { update, destroy, callback: () => googleService.handleCallback({ code: 'c', state }) };
+}
+
+test('connecting a different Google account drops the old account\'s locations and refresh token', async (t) => {
+  const { update, destroy, callback } = await reconnect(t, { existing: { googleEmail: 'old@x.com' }, tokens: { email: 'new@x.com' } });
+  await callback();
+  assert.deepEqual(destroy.mock.calls[0].arguments[0], { where: { workspaceId: 'w1' } });
+  assert.strictEqual(update.mock.calls[0].arguments[0].refreshToken, null);
+});
+
+test('reconnecting the same Google account keeps its data and refresh token', async (t) => {
+  const { update, destroy, callback } = await reconnect(t, { existing: { googleEmail: 'same@x.com' }, tokens: { email: 'same@x.com' } });
+  await callback();
+  assert.equal(destroy.mock.callCount(), 0);
+  assert.ok(!('refreshToken' in update.mock.calls[0].arguments[0]));
+});
+
+test('a callback that cannot identify the Google account changes nothing', async (t) => {
+  const { update, destroy, callback } = await reconnect(t, { existing: { googleEmail: 'old@x.com' }, tokens: { email: undefined } });
+  await assert.rejects(callback(), { statusCode: 400 });
+  assert.equal(destroy.mock.callCount(), 0);
+  assert.equal(update.mock.callCount(), 0);
+});
+
+test('sample data survives connecting a different Google account', async (t) => {
+  const { destroy, callback } = await reconnect(t, { existing: { googleEmail: 'old@x.com', dataSource: 'sample' }, tokens: { email: 'new@x.com' } });
+  await callback();
+  assert.equal(destroy.mock.callCount(), 0);
 });
