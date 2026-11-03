@@ -34,6 +34,8 @@ async function requireConnection(workspaceId) {
 
 async function useSampleData(workspaceId, userId) {
   const connection = await requireConnection(workspaceId);
+  // Already running on sample data: keep its replies. No location means an earlier setup failed, so run it again.
+  if (connection.dataSource === 'sample' && (await Location.count({ where: { workspaceId } })) > 0) return;
   const realReviews = await Review.count({ include: [{ model: Location, where: { workspaceId }, required: true }] });
   if (connection.dataSource !== 'sample' && realReviews > 0) {
     throw new HttpError(409, 'This account already has real reviews, so sample data is not available');
