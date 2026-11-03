@@ -10,6 +10,9 @@ const pendingStates = new Map();
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function startConnect(workspaceId) {
+  if (env.gbpProvider === 'live' && !(env.google.clientId && env.google.clientSecret)) {
+    throw new HttpError(400, 'Google sign-in is not set up: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to backend/.env');
+  }
   const state = crypto.randomBytes(24).toString('hex');
   pendingStates.set(state, { workspaceId, expiresAt: Date.now() + STATE_TTL_MS });
   return { url: getProvider().getAuthUrl(state), provider: getProvider().kind };
