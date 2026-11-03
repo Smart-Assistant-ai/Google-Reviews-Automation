@@ -51,8 +51,12 @@ async function selectedLocation(workspaceId) {
   return location;
 }
 
+const EMPTY_LIST = { reviews: [], counts: { todo: 0, posted: 0, backlog: 0, all: 0 } };
+
 async function list(workspaceId, { tab = 'todo', stars, q } = {}) {
-  const location = await selectedLocation(workspaceId);
+  // Connected, but Google has not let us read a profile yet.
+  const location = await Location.findOne({ where: { workspaceId, isSelected: true } });
+  if (!location) return EMPTY_LIST;
   const where = { locationId: location.id };
   if (stars) where.starRating = String(stars).split(',').map(Number);
   if (q) {
