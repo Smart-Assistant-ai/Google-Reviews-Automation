@@ -36,6 +36,16 @@ Demo login: `demo@replypilot.app` / `demo1234`. Running `npm run seed` without `
 | `OPENAI_API_KEY` | key or empty | Empty = built-in offline drafter. Set it for real AI drafts. |
 | `MOCK_MODERATION_SECONDS` | number | How long the fake Google takes to approve/reject a posted reply. |
 
+## Testing real Google sign-in
+Real sign-in works before Google approves API access. Until then the account connects with 0 reviews, and **Use sample data** loads a fictional business. Sample data uses the fake Google profile, so replies never reach real Google.
+
+1. In the Google Cloud project, set up the OAuth consent screen with the user type **External** and the publishing status **Testing**, and add your Google account as a test user.
+2. Create an OAuth client of type **Web application** with this authorized redirect URI: `http://localhost:4000/api/v1/google/callback`
+3. In `backend/.env`, set `GBP_PROVIDER=live`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the backend.
+4. Sign up with a new account and click **Connect Google Business Profile**.
+
+Once Google approves API access, click **Check Google again** or **Sync now** to load the real profile. Real replies post publicly, so test on your own profile first.
+
 ## Demo script (~5 min)
 1. **Sign up** as a new hotel → **Connect Google** (demo consent screen) → you land in the inbox with the reviews of one hotel.
 2. **Inbox**: every recent review already has an AI draft in English or Spanish, matching the reviewer. Open a 2★ review → **Rewrite → More apologetic** → edit → **Post reply** → status goes *Google reviewing* → *Live*.
