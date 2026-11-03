@@ -34,10 +34,10 @@ function ConnectionBadge({ status }) {
         <Typography variant="caption" sx={{ fontWeight: 600 }}>
           {healthy ? 'Google connected' : 'Needs reconnect'}
         </Typography>
-        {status.sample && (
-          <Typography variant="caption" color="text.secondary">· sample data</Typography>
-        )}
       </Stack>
+      {status.sample && (
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>Using sample data</Typography>
+      )}
       {status.location && (
         <Typography variant="caption" color="text.secondary" component="div" noWrap sx={{ mt: 0.5 }}>
           {status.location.title}
