@@ -48,11 +48,14 @@ async function handleCallback({ code, state, error }) {
   return pending.workspaceId;
 }
 
+// Sample mode serves the fake profile, so nothing can reach the real Google profile.
+const usesSampleData = (connection) => connection.provider === 'mock' || connection.dataSource === 'sample';
+
 // Returns the provider context used by every GBP call, refreshing the access token when needed.
 async function getContext(workspaceId) {
   const connection = await GoogleConnection.findOne({ where: { workspaceId } });
   if (!connection) throw new HttpError(400, 'Google Business Profile is not connected');
-  const provider = getProvider(connection.provider);
+  const provider = getProvider(usesSampleData(connection) ? 'mock' : connection.provider);
 
   const getAccessToken = async () => {
     const expiringSoon = !connection.expiresAt || connection.expiresAt.getTime() - Date.now() < 5 * 60 * 1000;
@@ -84,6 +87,8 @@ async function getStatus(workspaceId) {
     provider: connection?.provider || env.gbpProvider,
     email: connection?.googleEmail || null,
     status: connection?.status || null,
+    sample: connection ? usesSampleData(connection) : false,
+    apiError: connection?.apiError || null,
     location: location ? { id: location.id, title: location.title, address: location.address, lastSyncedAt: location.lastSyncedAt } : null,
   };
 }
@@ -126,4 +131,4 @@ async function disconnect(workspaceId, userId) {
   await AuditLog.create({ workspaceId, userId, action: 'google.disconnected' });
 }
 
-module.exports = { startConnect, handleCallback, getContext, getStatus, attachProfile, disconnect };
+module.exports = { startConnect, handleCallback, getContext, getStatus, attachProfile, disconnect, usesSampleData };
