@@ -1,6 +1,7 @@
 const env = require('../config/env');
 const googleService = require('../services/google.service');
 const syncService = require('../services/sync.service');
+const connectionService = require('../services/connection.service');
 const { Workspace } = require('../models');
 
 module.exports = async function googleRoutes(app) {
@@ -10,8 +11,7 @@ module.exports = async function googleRoutes(app) {
   app.get('/callback', async (request, reply) => {
     try {
       const workspaceId = await googleService.handleCallback(request.query);
-      await googleService.attachProfile(workspaceId);
-      await syncService.syncWorkspace(workspaceId);
+      await connectionService.loadProfile(workspaceId);
       await Workspace.update({ onboardingStep: 'done' }, { where: { id: workspaceId } });
       return reply.redirect(`${env.frontendUrl}/onboarding?google_connected=true`);
     } catch (err) {
