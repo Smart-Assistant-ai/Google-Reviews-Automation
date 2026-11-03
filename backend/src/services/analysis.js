@@ -16,7 +16,8 @@ const TOPIC_KEYWORDS = {
 };
 
 // Offline fallback for the two languages V1 sells in. With an LLM key, the LLM reports the language instead.
-const SPANISH_MARKERS = /[¡¿]|\b(muy|fue|estuvo|estaba|pero|nos|habitaci[oó]n|desayuno|ubicaci[oó]n|gracias|excelente|hotel maravilloso)\b/i;
+// Avoid bare words that appear in English reviews: personal, and place names like El Paso, Las Vegas, Buena Vista.
+const SPANISH_MARKERS = /[¡¿]|\b(muy|fue|estuvo|estaba|pero|nos|habitaci[oó]n|desayuno|ubicaci[oó]n|gracias|excelente|hotel maravilloso|el personal|amables?|atent[oa]s?|limpi[oa]s?|suci[oa]s?|c[oó]mod[oa]s?)\b/i;
 
 function detectLanguage(text) {
   return SPANISH_MARKERS.test(text || '') ? 'es' : 'en';

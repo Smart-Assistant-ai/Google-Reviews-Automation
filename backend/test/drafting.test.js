@@ -17,6 +17,17 @@ test('detects Spanish and English', () => {
   assert.equal(detectLanguage('Nice cafe near the hotel'), 'en');
 });
 
+test('detects plain Spanish wording without accents or punctuation', () => {
+  assert.equal(detectLanguage('El personal es amable y atento'), 'es');
+  assert.equal(detectLanguage('El personal es bueno'), 'es');
+  assert.equal(detectLanguage('Cama comoda y bano limpio'), 'es');
+});
+
+test('English near-misses of the Spanish markers stay English', () => {
+  assert.equal(detectLanguage('The personal service at this El Paso hotel was amiable and attentive'), 'en');
+  assert.equal(detectLanguage('Stayed near Las Vegas, then Los Angeles and Buena Vista'), 'en');
+});
+
 test('analysis maps stars to sentiment and finds topics', () => {
   const a = analyze({ starRating: 2, comment: 'Waited 40 minutes at check-in and the room was dirty' });
   assert.equal(a.sentiment, 'negative');
