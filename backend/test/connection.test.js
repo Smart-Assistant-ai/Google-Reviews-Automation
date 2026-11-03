@@ -1,11 +1,13 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const Fastify = require('fastify');
 const env = require('../src/config/env');
 const { HttpError } = require('../src/utils/errors');
 const { getProvider } = require('../src/providers/gbp');
 const { GoogleConnection, Location, Review, AuditLog } = require('../src/models');
 const { readBlockedMessage, useSampleData, stopSampleData } = require('../src/services/connection.service');
 const googleService = require('../src/services/google.service');
+const googleRoutes = require('../src/routes/google.routes');
 const syncService = require('../src/services/sync.service');
 
 const { usesSampleData } = googleService;
@@ -106,7 +108,7 @@ async function reconnect(t, { existing, tokens, locations = 1 }) {
 
 test('connecting a different Google account is refused while the old account has data', async (t) => {
   const { update, destroy, callback } = await reconnect(t, { existing: { googleEmail: 'old@x.com' }, tokens: { email: 'new@x.com', refreshToken: 'new-refresh' } });
-  await assert.rejects(callback(), { statusCode: 409 });
+  await assert.rejects(callback(), { statusCode: 409, code: 'google_account_conflict' });
   assert.equal(destroy.mock.callCount(), 0);
   assert.equal(update.mock.callCount(), 0);
 });
@@ -138,4 +140,25 @@ test('sample data survives connecting a different Google account', async (t) => 
   await callback();
   assert.equal(destroy.mock.callCount(), 0);
   assert.equal(update.mock.callCount(), 1);
+});
+
+async function callbackRedirect(t, err) {
+  t.mock.method(googleService, 'handleCallback', async () => { throw err; });
+  const app = Fastify();
+  t.after(() => app.close());
+  app.decorate('authenticate', async () => {});
+  app.register(googleRoutes);
+  const res = await app.inject('/callback');
+  return new URL(res.headers.location).searchParams;
+}
+
+test('the callback flags an account conflict so onboarding can offer recovery', async (t) => {
+  const params = await callbackRedirect(t, new HttpError(409, 'Different account', 'google_account_conflict'));
+  assert.strictEqual(params.get('google_connected'), 'false');
+  assert.strictEqual(params.get('conflict'), 'true');
+});
+
+test('a 409 from anything else is not treated as an account conflict', async (t) => {
+  const params = await callbackRedirect(t, googleError(409, 'Google said conflict'));
+  assert.strictEqual(params.get('conflict'), null);
 });

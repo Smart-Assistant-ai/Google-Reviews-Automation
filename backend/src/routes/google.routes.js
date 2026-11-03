@@ -16,7 +16,8 @@ module.exports = async function googleRoutes(app) {
       return reply.redirect(`${env.frontendUrl}/onboarding?google_connected=true`);
     } catch (err) {
       request.log.warn(err, 'google callback failed');
-      return reply.redirect(`${env.frontendUrl}/onboarding?google_connected=false&error=${encodeURIComponent(err.message)}`);
+      const conflict = err.code === 'google_account_conflict' ? '&conflict=true' : '';
+      return reply.redirect(`${env.frontendUrl}/onboarding?google_connected=false${conflict}&error=${encodeURIComponent(err.message)}`);
     }
   });
 

@@ -43,7 +43,7 @@ async function handleCallback({ code, state, error }) {
     // Signing in must never delete the old account's reviews and replies: only an explicit disconnect does that.
     // Sample data belongs to no account, so it does not block the switch.
     if (accountChanged && !usesSampleData(existing) && (await Location.count({ where: { workspaceId: pending.workspaceId } })) > 0) {
-      throw new HttpError(409, 'This workspace is connected to a different Google account. Sign in with that account, or disconnect it in Settings first, which removes its reviews and replies.');
+      throw new HttpError(409, 'This workspace is connected to a different Google account. Sign in with that account, or disconnect it, which removes its reviews and replies.', 'google_account_conflict');
     }
     // Google only returns a refresh token on first consent; keep the old one if missing, but only for the same account.
     if (!tokens.refreshToken && !accountChanged) delete values.refreshToken;
