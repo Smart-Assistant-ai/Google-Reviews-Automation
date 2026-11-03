@@ -84,10 +84,27 @@ function ConnectionTab() {
             >
               {syncing ? 'Syncing…' : 'Sync now'}
             </Button>
+            {status.sample && status.provider === 'live' && (
+              <Button
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    await api.delete('/google/sample-data');
+                    await refreshStatus();
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                Stop using sample data
+              </Button>
+            )}
             <Button color="error" onClick={() => setConfirm(true)}>Disconnect</Button>
           </Stack>
         </CardContent>
       </Card>
+      {status.apiError && <Alert severity="info" variant="outlined">{status.apiError}</Alert>}
       <Dialog open={confirm} onClose={() => setConfirm(false)} maxWidth="xs">
         <DialogTitle>Disconnect Google?</DialogTitle>
         <DialogContent>
