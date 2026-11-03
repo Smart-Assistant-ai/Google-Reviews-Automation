@@ -40,8 +40,11 @@ async function handleCallback({ code, state, error }) {
   const existing = await GoogleConnection.findOne({ where: { workspaceId: pending.workspaceId } });
   if (existing) {
     const accountChanged = existing.googleEmail && existing.googleEmail !== tokens.email;
-    // Same policy as disconnect: the old account's profile and data go. Sample data belongs to no account, so it stays.
-    if (accountChanged && !usesSampleData(existing)) await Location.destroy({ where: { workspaceId: pending.workspaceId } });
+    // Signing in must never delete the old account's reviews and replies: only an explicit disconnect does that.
+    // Sample data belongs to no account, so it does not block the switch.
+    if (accountChanged && !usesSampleData(existing) && (await Location.count({ where: { workspaceId: pending.workspaceId } })) > 0) {
+      throw new HttpError(409, 'This workspace is connected to a different Google account. Sign in with that account, or disconnect it in Settings first, which removes its reviews and replies.');
+    }
     // Google only returns a refresh token on first consent; keep the old one if missing, but only for the same account.
     if (!tokens.refreshToken && !accountChanged) delete values.refreshToken;
     await existing.update(values);
