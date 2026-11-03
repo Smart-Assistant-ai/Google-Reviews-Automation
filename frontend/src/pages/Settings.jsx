@@ -12,6 +12,8 @@ import api from '../api/client';
 const ACTION_LABELS = {
   'google.connected': 'Connected Google Business Profile',
   'google.disconnected': 'Disconnected Google Business Profile',
+  'google.sample_enabled': 'Started using sample data',
+  'google.sample_disabled': 'Stopped using sample data',
   'reply.posted': 'Posted a reply',
   'reply.edited': 'Edited a draft',
   'reply.regenerated': 'Asked AI for a new draft',
@@ -59,9 +61,9 @@ function ConnectionTab() {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
             <Box sx={{ flex: 1 }}>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="subtitle2">{status.location?.title || 'No profile connected'}</Typography>
+                <Typography variant="subtitle2">{status.location?.title || 'No profile loaded yet'}</Typography>
                 <Chip size="small" color={status.status === 'healthy' ? 'success' : 'warning'} label={status.status === 'healthy' ? 'Healthy' : 'Needs reconnect'} />
-                {status.provider === 'mock' && <Chip size="small" variant="outlined" label="Demo data" />}
+                {status.sample && <Chip size="small" variant="outlined" label="Sample data" />}
               </Stack>
               <Typography variant="body2" color="text.secondary">{status.location?.address}</Typography>
               <Typography variant="caption" color="text.secondary">
@@ -70,7 +72,15 @@ function ConnectionTab() {
             </Box>
             <Button
               variant="outlined" disabled={syncing}
-              onClick={async () => { setSyncing(true); await api.post('/google/sync'); await refreshStatus(); setSyncing(false); }}
+              onClick={async () => {
+                setSyncing(true);
+                try {
+                  await api.post('/google/recheck');
+                  await refreshStatus();
+                } finally {
+                  setSyncing(false);
+                }
+              }}
             >
               {syncing ? 'Syncing…' : 'Sync now'}
             </Button>
