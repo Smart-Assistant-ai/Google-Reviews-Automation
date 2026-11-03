@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { HttpError } = require('../src/utils/errors');
 const { GoogleConnection, Location, Review, AuditLog } = require('../src/models');
-const { readBlockedMessage, useSampleData } = require('../src/services/connection.service');
+const { readBlockedMessage, useSampleData, stopSampleData } = require('../src/services/connection.service');
 const googleService = require('../src/services/google.service');
 const syncService = require('../src/services/sync.service');
 
@@ -46,6 +46,20 @@ test('a real account with no reviews can switch to sample data', async (t) => {
   const stubs = stubSampleFlow(t, { dataSource: 'google', locations: 1, reviews: 0 });
   await useSampleData('w1', 'u1');
   assert.equal(stubs.destroy.mock.callCount(), 1);
+  assert.equal(stubs.attachProfile.mock.callCount(), 1);
+});
+
+test('stopping sample data is refused on a live connection and keeps its data', async (t) => {
+  const stubs = stubSampleFlow(t, { dataSource: 'google', locations: 1, reviews: 3 });
+  await assert.rejects(stopSampleData('w1', 'u1'), { statusCode: 409 });
+  for (const stub of Object.values(stubs)) assert.equal(stub.mock.callCount(), 0);
+});
+
+test('stopping sample data removes it and switches back to Google', async (t) => {
+  const stubs = stubSampleFlow(t, { dataSource: 'sample', locations: 1, reviews: 12 });
+  await stopSampleData('w1', 'u1');
+  assert.equal(stubs.destroy.mock.callCount(), 1);
+  assert.deepEqual(stubs.update.mock.calls[0].arguments[0], { dataSource: 'google' });
   assert.equal(stubs.attachProfile.mock.callCount(), 1);
 });
 

@@ -50,6 +50,7 @@ async function useSampleData(workspaceId, userId) {
 // Deleting the location also deletes its sample reviews and replies.
 async function stopSampleData(workspaceId, userId) {
   const connection = await requireConnection(workspaceId);
+  if (connection.dataSource !== 'sample') throw new HttpError(409, 'This account is not using sample data');
   await Location.destroy({ where: { workspaceId } });
   await connection.update({ dataSource: 'google' });
   await AuditLog.create({ workspaceId, userId, action: 'google.sample_disabled' });
