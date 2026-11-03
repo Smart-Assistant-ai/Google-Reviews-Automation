@@ -1,6 +1,5 @@
 const { Op } = require('sequelize');
-const { Review, Reply } = require('../models');
-const { selectedLocation } = require('./review.service');
+const { Review, Reply, Location } = require('../models');
 
 const DAY = 86400000;
 
@@ -16,16 +15,18 @@ const round = (n, p = 1) => (n === null ? null : Math.round(n * 10 ** p) / 10 **
 
 // POC computes from the reviews table; production reads the daily aggregates table (design §9).
 async function overview(workspaceId, { days = 90 } = {}) {
-  const location = await selectedLocation(workspaceId);
+  // With no profile loaded yet, these queries return nothing and the dashboard stays empty.
+  const location = await Location.findOne({ where: { workspaceId, isSelected: true } });
+  const locationId = location?.id || null;
   const since = new Date(Date.now() - Number(days) * DAY);
   const reviews = await Review.findAll({
-    where: { locationId: location.id, createTime: { [Op.gte]: since } },
+    where: { locationId, createTime: { [Op.gte]: since } },
     include: [Reply],
     order: [['create_time', 'ASC']],
   });
   const prevSince = new Date(since.getTime() - Number(days) * DAY);
   const previous = await Review.findAll({
-    where: { locationId: location.id, createTime: { [Op.gte]: prevSince, [Op.lt]: since } },
+    where: { locationId, createTime: { [Op.gte]: prevSince, [Op.lt]: since } },
     attributes: ['starRating'],
   });
 
