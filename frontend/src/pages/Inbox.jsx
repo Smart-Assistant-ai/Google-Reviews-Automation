@@ -115,7 +115,7 @@ export default function Inbox() {
       <Box sx={{ p: 2, pb: 1 }}>
         <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
           <Typography variant="h5" sx={{ flex: 1 }}>Inbox</Typography>
-          {connection?.provider === 'mock' && (
+          {connection?.sample && (
             <>
               <Button size="small" variant="outlined" startIcon={<AddCommentRoundedIcon />} onClick={(e) => setSimMenu(e.currentTarget)}>
                 {desktop ? 'Simulate review' : 'Simulate'}

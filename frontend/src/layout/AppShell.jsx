@@ -34,8 +34,8 @@ function ConnectionBadge({ status }) {
         <Typography variant="caption" sx={{ fontWeight: 600 }}>
           {healthy ? 'Google connected' : 'Needs reconnect'}
         </Typography>
-        {status.provider === 'mock' && (
-          <Typography variant="caption" color="text.secondary">· demo</Typography>
+        {status.sample && (
+          <Typography variant="caption" color="text.secondary">· sample data</Typography>
         )}
       </Stack>
       {status.location && (
