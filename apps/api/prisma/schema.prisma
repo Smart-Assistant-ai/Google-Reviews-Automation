@@ -36,12 +36,12 @@ model User {
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  identities         AuthIdentity[]
-  sessions           Session[]
-  oneTimeTokens      OneTimeToken[]
-  memberships        WorkspaceMember[]
-  invitationsSent    WorkspaceInvitation[]
-  auditLogs          AuditLog[]
+  identities      AuthIdentity[]
+  sessions        Session[]
+  oneTimeTokens   OneTimeToken[]
+  memberships     WorkspaceMember[]
+  invitationsSent WorkspaceInvitation[]
+  auditLogs       AuditLog[]
 
   @@map("users")
 }
@@ -236,8 +236,8 @@ model GoogleConnection {
   createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  workspace Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  servedLocations Location[]
+  workspace          Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  servedLocations    Location[]
   reachableLocations ConnectionLocation[]
 
   @@unique([workspaceId, googleUserId])
