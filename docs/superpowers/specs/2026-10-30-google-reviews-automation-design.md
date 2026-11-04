@@ -1,6 +1,6 @@
 # Google Reviews Automation: Product & Build Design (v1)
 
-> **Scope change, 2026-11-02:** V1 targets hotels, starting in San Francisco, with English and Spanish reviews. It has one user and one Business Profile, and a person approves every reply. Auto-replies and multiple locations move to V2. Where this document says otherwise, this note wins.
+> **Scope, November 2026:** The product is for small businesses of any kind. A workspace can connect several Google accounts and manage many locations, with team members limited to chosen locations. A person approves every reply, and auto-replies come in a later version. Where this document says otherwise, this note wins. How the code is built today is in [docs/architecture.md](../../architecture.md).
 
 ## ▶ TODAY: Demo POC (approved scope)
 Goal: a clickable demo today, entirely in **mock mode** (no Google approval needed).

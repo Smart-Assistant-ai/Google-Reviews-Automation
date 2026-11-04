@@ -1,63 +1,64 @@
-# ReplyPilot — Google Reviews Automation (POC)
+# ReplyPilot: Google Reviews Automation
 
-Connect a hotel's Google Business Profile, see every review in one inbox, let AI draft replies in your brand voice, then edit and post.
+Connect a business's Google Business Profile, see every review in one inbox, let AI draft replies in your brand voice, then edit and post. It's built for small businesses of any kind.
 
-> "ReplyPilot" is a placeholder name. Product design: [docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md](docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md)
+> "ReplyPilot" is a placeholder name.
 
-## Layout
-- `backend/` — Node (Fastify) + Sequelize + Postgres. Background jobs run in-process for the POC.
-- `frontend/` — Vite + React + MUI.
+- [How the code is built](docs/architecture.md)
+- [Deploying to production](docs/deploy.md)
+- [Product design](docs/superpowers/specs/2026-10-30-google-reviews-automation-design.md)
+
+## What it handles
+
+- One Google account with many locations, several account groups, or 100+ locations
+- Several Google accounts in one workspace
+- Team members with roles, limited to chosen locations
+- One person in several workspaces
+- Email and password or Google sign-in, with verification, password reset, and sessions that can be ended
 
 ## Setup
-Requirements: Node 20+, a Postgres database.
+
+You need Node 22+, pnpm 10, and a Postgres server you can connect to with a username and password. Docker isn't used.
+
+Create two empty databases, one for development and one for tests. Their names must differ from anything real, and the test database's name must end in `_test`, because the tests wipe every table.
 
 ```bash
-# backend
-cd backend
-cp .env.example .env          # fill DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD, JWT_SECRET, AES_SECRET_KEY
-npm install
-npm run migrate
-npm run seed -- --connected   # demo account with a connected (mock) Google profile + AI drafts
-npm run dev                   # http://localhost:4000
-
-# frontend (new terminal)
-cd frontend
-cp .env.example .env
-npm install
-npm run dev                   # http://localhost:5173
+pnpm install
+cp apps/api/.env.example apps/api/.env
+cp apps/api/.env.test.example apps/api/.env.test
 ```
 
-Demo login: `demo@replypilot.app` / `demo1234`. Running `npm run seed` without `--connected` creates the account but leaves onboarding for you to click through live.
+Fill in `apps/api/.env`, including `DATABASE_URL`. Generate `JWT_SECRET` and `ENCRYPTION_KEY` with `openssl rand -hex 32`. The app refuses to start if either is missing or still a placeholder. Then put the test database's address in `apps/api/.env.test`.
+
+```bash
+pnpm db:generate
+pnpm db:deploy
+pnpm seed
+pnpm dev
+```
+
+Open http://localhost:5173. `pnpm seed` prints a demo login with a fake multi-location business. In development, emails print to the API logs instead of being sent, so that's where to find verification links.
+
+If ports 4000 or 5173 are taken, set `PORT` and `APP_URL` in `apps/api/.env`, then start the web app with `WEB_PORT` and `API_TARGET`.
 
 ## Modes
-| Env | Values | Effect |
+
+| Setting | Values | Effect |
 |---|---|---|
-| `GBP_PROVIDER` | `mock` (default) / `live` | `mock` = a fake Google Business Profile shaped like the real v4 API (with simulated moderation), so everything works before Google approves our API access. `live` = real Google calls (needs `GOOGLE_CLIENT_ID/SECRET` and approved API quota). |
-| `OPENAI_API_KEY` | key or empty | Empty = built-in offline drafter. Set it for real AI drafts. |
-| `MOCK_MODERATION_SECONDS` | number | How long the fake Google takes to approve/reject a posted reply. |
+| `GBP_PROVIDER` | `mock` / `live` | `mock` is a fake Google Business Profile, shaped like the real API, so everything works before Google approves access. Its sign-in screen lets you choose what the account manages. |
+| `GOOGLE_SIGNIN_PROVIDER` | `off` / `mock` / `live` | Whether "Continue with Google" is offered, and with which Google. |
+| `GOOGLE_POSTING_ENABLED` | `true` / `false` | Only production posts real replies by default. Also works as an emergency stop. |
+| `SIGNUP_MODE` | `allowlist` / `open` | `allowlist` only lets in emails added with `pnpm allow-signup`. |
+| `EMAIL_PROVIDER` | `mock` / `resend` | `mock` prints emails to the logs. |
+| `OPENAI_API_KEY` | key or empty | Empty uses the built-in offline drafter. |
 
-## Testing real Google sign-in
-Real sign-in works before Google approves API access. Until then the account connects with 0 reviews, and **Use sample data** loads a fictional business. Sample data uses the fake Google profile, so replies never reach real Google.
+## Checks
 
-1. In the Google Cloud project, set up the OAuth consent screen with the user type **External** and the publishing status **Testing**, and add your Google account as a test user.
-2. Create an OAuth client of type **Web application** with this authorized redirect URI: `http://localhost:4000/api/v1/google/callback`
-3. In `backend/.env`, set `GBP_PROVIDER=live`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then restart the backend.
-4. Sign up with a new account and click **Connect Google Business Profile**.
-
-Once Google approves API access, click **Check Google again** or **Sync now** to load the real profile. Real replies post publicly, so test on your own profile first.
-
-## Demo script (~5 min)
-1. **Sign up** as a new hotel → **Connect Google** (demo consent screen) → you land in the inbox with the reviews of one hotel.
-2. **Inbox**: every recent review already has an AI draft in English or Spanish, matching the reviewer. Open a 2★ review → **Rewrite → More apologetic** → edit → **Post reply** → status goes *Google reviewing* → *Live*.
-3. **Google moderation**: post a reply containing "20% discount" → Google **rejects** it as promotional content; edit and re-post.
-4. **New reviews**: **Simulate review** drops in a new review, and a draft appears a moment later.
-5. **Dashboard**: rating trend, weekly volume by sentiment, what guests praise vs. complain about.
-6. **Settings**: reply voice, Google connection and activity log.
-
-## V1 scope
-One user, one Business Profile, and a person approves every reply. Auto-replies and multiple locations are planned for V2. Their tables and columns stay in the database, unused. Auto-reply code can be restored from commit `351b474`.
-
-## Tests
 ```bash
-cd backend && npm test
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
+
+CI runs all four on every push.
