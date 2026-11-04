@@ -117,3 +117,10 @@ export function currentMember(request: FastifyRequest): MemberContext {
   if (!request.member) throw notFound();
   return request.member;
 }
+
+// Connecting Google or posting acts publicly under the business's name, so the email must be real.
+export function assertEmailVerified(request: FastifyRequest): void {
+  if (!currentAuth(request).user.emailVerifiedAt) {
+    throw new HttpError(403, 'Please confirm your email first', 'email_not_verified');
+  }
+}

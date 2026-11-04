@@ -6,6 +6,7 @@ import { registerErrorHandling } from './plugins/errors';
 import { healthRoutes } from './plugins/health';
 import { authRoutes } from './modules/auth/routes';
 import { googleCallbackRoutes, googleRoutes } from './modules/google/routes';
+import { reviewRoutes } from './modules/reviews/routes';
 import { invitationRoutes, workspaceRoutes } from './modules/workspaces/routes';
 import { securityPlugin, type SecurityOptions } from './plugins/security';
 
@@ -37,6 +38,7 @@ export async function buildApp(options: BuildOptions = {}): Promise<FastifyInsta
   await app.register(invitationRoutes, { prefix: '/api/v1/invitations' });
   await app.register(googleRoutes, { prefix: '/api/v1/workspaces/:workspaceId/google' });
   await app.register(googleCallbackRoutes, { prefix: '/api/v1/google' });
+  await app.register(reviewRoutes, { prefix: '/api/v1/workspaces/:workspaceId' });
   options.extraRoutes?.(app);
 
   await app.ready();

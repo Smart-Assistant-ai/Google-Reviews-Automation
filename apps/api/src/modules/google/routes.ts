@@ -9,15 +9,14 @@ import {
   syncResponse,
   uuidSchema,
 } from '@replypilot/shared';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { env } from '../../config';
 import { randomToken, safeEqual } from '../../lib/crypto';
-import { HttpError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
 import { signState, verifyState } from '../../lib/signed-state';
-import { currentAuth, currentMember } from '../../plugins/access';
+import { assertEmailVerified, currentMember } from '../../plugins/access';
 import { accessibleLocationIds, assertLocationAccess } from '../workspaces/access';
 import { callbackUrl, completeConnect, disconnect, rescan, startUrl, stopSampleData, useSampleData } from './connect.service';
 import { deactivateLocation, disconnectPreview, googleStatus, selectLocations, switchConnection } from './locations.service';
@@ -31,13 +30,6 @@ const connectionParams = workspaceParams.extend({ connectionId: uuidSchema });
 const locationParams = workspaceParams.extend({ locationId: uuidSchema });
 
 const ok = { ok: true as const };
-
-// Connecting Google or posting acts publicly under the business's name, so the email must be real.
-export function assertEmailVerified(request: FastifyRequest): void {
-  if (!currentAuth(request).user.emailVerifiedAt) {
-    throw new HttpError(403, 'Please confirm your email first', 'email_not_verified');
-  }
-}
 
 export async function googleRoutes(instance: FastifyInstance): Promise<void> {
   const app = instance.withTypeProvider<ZodTypeProvider>();
