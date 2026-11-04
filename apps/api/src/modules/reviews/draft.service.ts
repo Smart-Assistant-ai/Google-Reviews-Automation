@@ -1,4 +1,5 @@
 import { DRAFT_TARGET_BYTES, byteLength, type Voice } from '@replypilot/shared';
+import * as Sentry from '@sentry/node';
 import OpenAI from 'openai';
 import { env } from '../../config';
 import { prisma } from '../../lib/prisma';
@@ -82,14 +83,18 @@ async function aiDraft(
 }
 
 // Writes or rewrites the draft for a review. Never touches a reply that has been posted.
-export async function draftForReview(reviewId: string, options: { instructions?: string } = {}) {
+export async function draftForReview(
+  reviewId: string,
+  options: { instructions?: string } = {},
+): Promise<void> {
   const review = await prisma.review.findUnique({
     where: { id: reviewId },
     include: { reply: true },
   });
-  if (!review) return null;
+  if (!review) return;
   const reply = review.reply;
-  if (reply && !['drafting', 'draft', 'rejected', 'failed'].includes(reply.state)) return reply;
+  // A draft only ever fills a row still waiting for one.
+  if (reply?.state !== 'drafting') return;
 
   const { voice } = await effectiveVoice(review.workspaceId, review.locationId);
   const recent = await prisma.reply.findMany({
@@ -119,23 +124,24 @@ export async function draftForReview(reviewId: string, options: { instructions?:
         topics: result.topics?.length ? result.topics.slice(0, 3) : analysis.topics,
       };
     } catch (err) {
+      // Reported, because a wrong model name or key would otherwise fail quietly on every draft.
       console.warn('[draft] AI call failed, using the offline drafter:', (err as Error).message);
+      Sentry.captureException(err);
     }
   }
   text ??= draftFromTemplate({ review, analysis, voice, recentReplies });
 
   await prisma.review.update({ where: { id: review.id }, data: analysis });
-  const values = {
-    text,
-    source: 'ai' as const,
-    state: 'draft' as const,
-    error: null,
-    policyViolation: null,
-    googleReplyState: null,
-  };
-  return reply
-    ? prisma.reply.update({ where: { id: reply.id }, data: values })
-    : prisma.reply.create({
-        data: { workspaceId: review.workspaceId, reviewId: review.id, ...values },
-      });
+  // Someone may have written or posted their own reply while the AI was thinking. Theirs wins.
+  await prisma.reply.updateMany({
+    where: { id: reply.id, state: 'drafting' },
+    data: {
+      text,
+      source: 'ai',
+      state: 'draft',
+      error: null,
+      policyViolation: null,
+      googleReplyState: null,
+    },
+  });
 }

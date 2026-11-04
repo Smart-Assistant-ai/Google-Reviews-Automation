@@ -20,7 +20,10 @@ const hashPassword = (password: string) => bcrypt.hash(password, BCRYPT_COST);
 // Compared when the email is unknown, so timing doesn't reveal which emails have accounts.
 const DUMMY_HASH = bcrypt.hashSync('no-account-has-this-password', BCRYPT_COST);
 
-const loginFailures = new AttemptLimiter(10, 15 * 60_000);
+// Counted per address too, so a stranger failing on purpose can't lock the real owner out.
+// The higher limit per account still stops guessing spread across many addresses.
+const failuresByAddress = new AttemptLimiter(10, 15 * 60_000);
+const failuresByAccount = new AttemptLimiter(100, 15 * 60_000);
 
 export interface Logger {
   error: (obj: object, msg: string) => void;
@@ -139,7 +142,8 @@ export async function signup(input: SignupInput, log: Logger, ip?: string): Prom
 
 export async function login(emailInput: string, password: string, ip?: string): Promise<string> {
   const email = normalizeEmail(emailInput);
-  if (loginFailures.isBlocked(email)) {
+  const addressKey = `${email}|${ip ?? ''}`;
+  if (failuresByAddress.isBlocked(addressKey) || failuresByAccount.isBlocked(email)) {
     throw new HttpError(
       429,
       'Too many failed attempts. Try again in 15 minutes or reset your password.',
@@ -152,12 +156,13 @@ export async function login(emailInput: string, password: string, ip?: string): 
   const matches = await bcrypt.compare(password, hash ?? DUMMY_HASH);
 
   if (!user || !hash || !matches || user.deletedAt || user.status !== 'active') {
-    loginFailures.fail(email);
+    failuresByAddress.fail(addressKey);
+    failuresByAccount.fail(email);
     if (user) await recordAudit({ action: 'auth.login_failed', actorUserId: user.id, ip });
     throw new HttpError(401, 'Invalid email or password', 'invalid_credentials');
   }
 
-  loginFailures.reset(email);
+  failuresByAddress.reset(addressKey);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await recordAudit({ action: 'auth.login', actorUserId: user.id, ip });
   return user.id;

@@ -106,14 +106,20 @@ export const liveGbpProvider: GbpProvider = {
         grant_type: 'refresh_token',
       }),
     });
-    const tokens = (await res.json()) as {
+    const tokens = (await res.json().catch(() => ({}))) as {
       access_token: string;
       refresh_token?: string;
       expires_in: number;
       error_description?: string;
     };
-    if (!res.ok)
-      throw new GoogleApiError(tokens.error_description ?? 'Google token refresh failed', 401);
+    if (!res.ok) {
+      // 400 and 401 mean the token is dead. Anything else is Google having a bad moment, which retries fix.
+      const dead = res.status === 400 || res.status === 401;
+      throw new GoogleApiError(
+        tokens.error_description ?? 'Google token refresh failed',
+        dead ? 401 : 503,
+      );
+    }
     return {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,

@@ -69,6 +69,7 @@ EMAIL_PROVIDER=resend
 RESEND_API_KEY=from-resend
 EMAIL_FROM=ReplyPilot <hello@your-domain.com>
 OPENAI_API_KEY=from-openai
+OPENAI_MODEL=confirm-this-with-your-team
 SENTRY_DSN=optional
 ```
 

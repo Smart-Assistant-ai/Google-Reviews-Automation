@@ -122,7 +122,9 @@ export async function scanConnection(connectionId: string): Promise<{ activated:
         data: { connectionId: other.connectionId, googleAccountName: other.googleAccountName },
       });
     } else if (location.status === 'available') {
-      await prisma.location.delete({ where: { id: location.id } });
+      // One never managed holds nothing and can go. One someone stopped managing keeps its history.
+      const reviews = await prisma.review.count({ where: { locationId: location.id } });
+      if (reviews === 0) await prisma.location.delete({ where: { id: location.id } });
     } else {
       await prisma.location.update({ where: { id: location.id }, data: { status: 'access_lost' } });
     }

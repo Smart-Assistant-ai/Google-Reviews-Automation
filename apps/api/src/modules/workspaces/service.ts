@@ -236,15 +236,20 @@ export async function transferOwnership(
   const target = await findTarget(member, memberId);
   if (target.id === member.id)
     throw new HttpError(400, 'You already own this workspace', 'already_owner');
+  // Both are conditional, so two transfers racing, or a removal racing this, can't leave two owners.
   await prisma.$transaction(async (tx) => {
-    await tx.workspaceMember.update({
-      where: { id: target.id },
-      data: { role: 'owner', scopeAllLocations: true },
-    });
-    await tx.workspaceMember.update({
-      where: { id: member.id },
+    const stepDown = await tx.workspaceMember.updateMany({
+      where: { id: member.id, role: 'owner', removedAt: null },
       data: { role: 'admin', scopeAllLocations: true },
     });
+    if (stepDown.count === 0) {
+      throw new HttpError(403, 'You no longer own this workspace', 'forbidden');
+    }
+    const stepUp = await tx.workspaceMember.updateMany({
+      where: { id: target.id, removedAt: null },
+      data: { role: 'owner', scopeAllLocations: true },
+    });
+    if (stepUp.count === 0) throw notFound('Member not found');
     await replaceLocations(tx, target.id, []);
   });
   await recordAudit({

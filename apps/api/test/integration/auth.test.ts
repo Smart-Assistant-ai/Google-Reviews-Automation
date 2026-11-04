@@ -296,13 +296,13 @@ describe('forgot and reset password', () => {
     expect(known.statusCode).toBe(200);
     expect(unknown.statusCode).toBe(200);
     expect(known.body).toBe(unknown.body);
-    expect(sentEmails.map((m) => m.to)).toEqual([user.email]);
+    await vi.waitFor(() => expect(sentEmails.map((m) => m.to)).toEqual([user.email]));
   });
 
   it('sets the new password, ends every session, and verifies the email', async () => {
     const user = await signup(app);
     await post('/forgot-password', { email: user.email });
-    const token = tokenFromEmail(user.email, '/reset-password');
+    const token = await vi.waitFor(() => tokenFromEmail(user.email, '/reset-password'));
     const res = await post('/reset-password', { token, password: 'a-brand-new-password' });
     expect(res.statusCode).toBe(200);
 
@@ -316,7 +316,7 @@ describe('forgot and reset password', () => {
   it('the reset link works once', async () => {
     const user = await signup(app);
     await post('/forgot-password', { email: user.email });
-    const token = tokenFromEmail(user.email, '/reset-password');
+    const token = await vi.waitFor(() => tokenFromEmail(user.email, '/reset-password'));
     await post('/reset-password', { token, password: 'a-brand-new-password' });
     expect(
       (await post('/reset-password', { token, password: 'another-new-password' })).statusCode,

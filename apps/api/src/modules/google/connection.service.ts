@@ -54,10 +54,11 @@ export async function getContext(
         });
         return decrypt(updated.accessToken) ?? '';
       } catch (err) {
-        await markNeedsReconnect(connectionId);
-        throw err instanceof GoogleApiError
-          ? err
-          : new GoogleApiError('Google token refresh failed', 401);
+        // Only a token Google rejected needs a person. An outage clears up, and the next sync retries.
+        const failure =
+          err instanceof GoogleApiError ? err : new GoogleApiError('Could not reach Google', 503);
+        if (failure.statusCode === 401) await markNeedsReconnect(connectionId);
+        throw failure;
       }
     }
     return decrypt(current.accessToken) ?? '';

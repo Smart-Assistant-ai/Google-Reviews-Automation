@@ -198,8 +198,21 @@ export async function deleteReply(
         'reply_rate_limited',
       );
     }
-    const { provider, ctx } = await getContext(location.connectionId);
-    await provider.deleteReply(ctx, reviewResourceName(location, review.googleReviewId));
+    try {
+      const { provider, ctx } = await getContext(location.connectionId);
+      await provider.deleteReply(ctx, reviewResourceName(location, review.googleReviewId));
+    } catch (err) {
+      const status = (err as { statusCode?: number }).statusCode;
+      // Already gone from Google is what we wanted. Anything else keeps our copy and says so.
+      if (status !== 404) {
+        if (status === 401) await markNeedsReconnect(location.connectionId);
+        throw new HttpError(
+          502,
+          `Google refused the request: ${(err as Error).message}`,
+          'google_refused',
+        );
+      }
+    }
   }
   if (reply) await prisma.reply.delete({ where: { id: reply.id } });
   await recordAudit({

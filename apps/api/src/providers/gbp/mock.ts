@@ -328,6 +328,15 @@ export const mockGbp = {
     save();
     return review;
   },
+  removeReview(reviewName: string) {
+    const path = reviewName.split('/reviews/')[0]!;
+    const account = store.accounts[path.split('/locations/')[0]!];
+    const location = account?.locations[path];
+    if (location?.reviews) location.reviews = location.reviews.filter((r) => r.name !== reviewName);
+  },
+  clearReply(reviewName: string) {
+    delete findReview(reviewName).reviewReply;
+  },
   failReads(email: string, status: number | null) {
     const userId = googleUserIdFor(email);
     const user = store.users[userId] ?? {

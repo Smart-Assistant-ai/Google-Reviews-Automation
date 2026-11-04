@@ -98,10 +98,14 @@ async function importReview(
 
   if (review.reviewReply) {
     await applyGoogleReply(location.workspaceId, row.id, review.reviewReply);
-  } else if (new Date(review.createTime).getTime() >= cutoff) {
-    const hasReply = await prisma.reply.count({ where: { reviewId: row.id } });
+  } else {
+    const local = await prisma.reply.findUnique({ where: { reviewId: row.id } });
+    // A reply that was live and Google no longer lists was removed on Google. One still pending
+    // stays, because Google may not be listing it yet.
+    if (local?.state === 'live') await prisma.reply.delete({ where: { id: local.id } });
+    const hasReply = local !== null && local.state !== 'live';
     // The drafting row is the to-do item. The job runner picks it up, so a restart loses nothing.
-    if (!hasReply)
+    if (!hasReply && new Date(review.createTime).getTime() >= cutoff) {
       await prisma.reply.create({
         data: {
           workspaceId: location.workspaceId,
@@ -110,6 +114,7 @@ async function importReview(
           state: 'drafting',
         },
       });
+    }
   }
   return !existing;
 }
