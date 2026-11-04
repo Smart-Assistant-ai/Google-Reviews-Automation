@@ -1,6 +1,15 @@
 node_modules/
-.env
 dist/
-.DS_Store
 coverage/
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# Secrets stay out of git. Only the checked-in examples are tracked.
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# Fake Google data written by the mock provider in development.
 .mockdata/

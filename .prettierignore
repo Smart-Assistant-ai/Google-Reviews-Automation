@@ -1,0 +1,5 @@
+pnpm-lock.yaml
+apps/api/prisma/migrations
+backend
+frontend
+dist
