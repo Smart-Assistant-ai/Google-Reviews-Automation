@@ -5,6 +5,7 @@ import { accessPlugin } from './plugins/access';
 import { registerErrorHandling } from './plugins/errors';
 import { healthRoutes } from './plugins/health';
 import { authRoutes } from './modules/auth/routes';
+import { invitationRoutes, workspaceRoutes } from './modules/workspaces/routes';
 import { securityPlugin, type SecurityOptions } from './plugins/security';
 
 export interface BuildOptions extends SecurityOptions {
@@ -31,6 +32,8 @@ export async function buildApp(options: BuildOptions = {}): Promise<FastifyInsta
 
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
+  await app.register(workspaceRoutes, { prefix: '/api/v1/workspaces' });
+  await app.register(invitationRoutes, { prefix: '/api/v1/invitations' });
   options.extraRoutes?.(app);
 
   await app.ready();
