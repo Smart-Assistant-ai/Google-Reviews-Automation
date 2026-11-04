@@ -1,21 +1,23 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { CssBaseline, ThemeProvider, useMediaQuery } from '@mui/material';
 import { buildTheme } from './index';
 
-const ColorModeContext = createContext({ mode: 'light', toggle: () => {} });
+type Mode = 'light' | 'dark';
 
-function readStored() {
+const ColorModeContext = createContext<{ mode: Mode; toggle: () => void }>({ mode: 'light', toggle: () => {} });
+
+function readStored(): Mode | null {
   try {
-    return localStorage.getItem('rp_mode');
+    return localStorage.getItem('rp_mode') as Mode | null;
   } catch {
     return null;
   }
 }
 
-export function ColorModeProvider({ children }) {
+export function ColorModeProvider({ children }: { children: ReactNode }) {
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
   const [stored, setStored] = useState(readStored);
-  const mode = stored || (prefersDark ? 'dark' : 'light');
+  const mode: Mode = stored ?? (prefersDark ? 'dark' : 'light');
   const theme = useMemo(() => buildTheme(mode), [mode]);
 
   const toggle = () => {

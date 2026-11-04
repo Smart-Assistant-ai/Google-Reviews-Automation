@@ -1,9 +1,10 @@
-import { createTheme, alpha } from '@mui/material/styles';
+import type { PaletteMode } from '@mui/material';
+import { alpha, createTheme } from '@mui/material/styles';
 
 // Brand: calm emerald accent + warm amber stars on soft neutrals. Deliberately not Google's palette.
 export const brand = { main: '#0F8B6F', light: '#3FB89A', dark: '#0A6650', star: '#F5A524' };
 
-export function buildTheme(mode) {
+export function buildTheme(mode: PaletteMode) {
   const dark = mode === 'dark';
   return createTheme({
     palette: {

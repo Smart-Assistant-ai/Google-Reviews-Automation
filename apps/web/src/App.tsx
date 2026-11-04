@@ -1,13 +1,20 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
+import type { ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import AppShell from './layout/AppShell';
+import AcceptInvite from './pages/AcceptInvite';
+import AuthCallback from './pages/AuthCallback';
 import AuthPage from './pages/AuthPage';
-import Onboarding from './pages/Onboarding';
-import MockGoogleConsent from './pages/MockGoogleConsent';
-import Inbox from './pages/Inbox';
 import Dashboard from './pages/Dashboard';
+import ForgotPassword from './pages/ForgotPassword';
+import Inbox from './pages/Inbox';
+import MockGoogle from './pages/MockGoogle';
+import NoWorkspace from './pages/NoWorkspace';
+import Onboarding from './pages/Onboarding';
+import ResetPassword from './pages/ResetPassword';
 import Settings from './pages/Settings';
+import VerifyEmail from './pages/VerifyEmail';
 
 function FullPageLoader() {
   return (
@@ -17,22 +24,33 @@ function FullPageLoader() {
   );
 }
 
-function RequireAuth({ children, allowOnboarding = false }) {
+function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <FullPageLoader />;
-  if (!session) return <Navigate to="/login" replace />;
-  if (!allowOnboarding && session.workspace.onboardingStep !== 'done') return <Navigate to="/onboarding" replace />;
+  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return children;
 }
 
+function PublicOnly({ children }: { children: ReactNode }) {
+  const { session, loading } = useAuth();
+  if (loading) return <FullPageLoader />;
+  return session ? <Navigate to="/" replace /> : children;
+}
+
 export default function App() {
-  const { session } = useAuth();
   return (
     <Routes>
-      <Route path="/login" element={session ? <Navigate to="/" replace /> : <AuthPage mode="login" />} />
-      <Route path="/signup" element={session ? <Navigate to="/" replace /> : <AuthPage mode="signup" />} />
-      <Route path="/mock-google-consent" element={<MockGoogleConsent />} />
-      <Route path="/onboarding" element={<RequireAuth allowOnboarding><Onboarding /></RequireAuth>} />
+      <Route path="/login" element={<PublicOnly><AuthPage mode="login" /></PublicOnly>} />
+      <Route path="/signup" element={<PublicOnly><AuthPage mode="signup" /></PublicOnly>} />
+      <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/invite" element={<AcceptInvite />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/mock-google" element={<MockGoogle />} />
+      <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
+      <Route path="/no-workspace" element={<RequireAuth><NoWorkspace /></RequireAuth>} />
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/" element={<Navigate to="/inbox" replace />} />
         <Route path="/inbox" element={<Inbox />} />

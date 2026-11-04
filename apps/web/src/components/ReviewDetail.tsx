@@ -1,7 +1,8 @@
+import { GOOGLE_REPLY_MAX_BYTES as MAX_BYTES, byteLength, type Review } from '@replypilot/shared';
 import { useEffect, useState } from 'react';
 import {
   Alert, Avatar, Box, Button, Chip, Divider, IconButton, Link, Menu, MenuItem, Skeleton, Stack, TextField, Tooltip,
-  Typography,
+  Typography, type ChipProps,
 } from '@mui/material';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
@@ -12,28 +13,36 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
-import { byteLength, LANGUAGE_NAMES, timeAgo } from './format';
-import api from '../api/client';
+import { LANGUAGE_NAMES, timeAgo } from './format';
+import { api } from '../api/client';
+import { useWorkspaceId, wsPath } from '../api/hooks';
 
-const MAX_BYTES = 4096;
 const REWRITES = [
-  { label: 'Regenerate', instructions: '' },
+  { label: 'Regenerate', instructions: undefined },
   { label: 'Make it shorter', instructions: 'Make it shorter, 1-2 sentences.' },
   { label: 'More apologetic', instructions: 'Be more apologetic and empathetic.' },
   { label: 'More formal', instructions: 'Use a more formal, professional tone.' },
   { label: 'Mention a return visit', instructions: 'Warmly invite them to visit again.' },
 ];
-const VIOLATIONS = {
+const VIOLATIONS: Record<string, string> = {
   PROMOTIONAL_CONTENT: 'Replies cannot offer discounts, coupons or free items.',
   CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
 };
-const SENTIMENT_COLOR = { positive: 'success', neutral: 'default', negative: 'error' };
+const SENTIMENT_COLOR: Record<string, ChipProps['color']> = { positive: 'success', neutral: 'default', negative: 'error' };
 
-export default function ReviewDetail({ review, onUpdated, onBack }) {
+interface Props {
+  review: Review;
+  onUpdated: (review: Review) => void;
+  onBack: (() => void) | null;
+}
+
+export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
+  const workspaceId = useWorkspaceId();
+  const path = wsPath(workspaceId, `/reviews/${review.id}/reply`);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [menu, setMenu] = useState(null);
+  const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editingPosted, setEditingPosted] = useState(false);
 
   const reply = review.reply;
@@ -44,23 +53,23 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
     setEditingPosted(false);
   }, [review.id, reply?.text, reply?.state]);
 
-  const run = async (key, fn) => {
+  const run = async (key: string, fn: () => Promise<Review>) => {
     setBusy(key);
     setError('');
     try {
       const updated = await fn();
       onUpdated(updated);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setBusy('');
     }
   };
 
-  const regenerate = (instructions) => run('regen', () => api.post(`/reviews/${review.id}/reply/regenerate`, { instructions }));
-  const post = () => run('post', () => api.post(`/reviews/${review.id}/reply/post`, { text }));
-  const saveDraft = () => run('save', () => api.put(`/reviews/${review.id}/reply`, { text }));
-  const remove = () => run('delete', () => api.delete(`/reviews/${review.id}/reply`));
+  const regenerate = (instructions?: string) => run('regen', () => api.post<Review>(`${path}/regenerate`, { instructions }));
+  const post = () => run('post', () => api.post<Review>(`${path}/post`, { text }));
+  const saveDraft = () => run('save', () => api.put<Review>(path, { text }));
+  const remove = () => run('delete', () => api.delete<Review>(path));
 
   const bytes = byteLength(text);
   const posted = ['pending', 'live', 'posting'].includes(status);
@@ -75,26 +84,30 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
         )}
         <Stack direction="row" spacing={2} alignItems="center">
           <Avatar src={review.reviewerPhotoUrl || undefined} sx={{ bgcolor: 'primary.main', width: 44, height: 44 }}>
-            {(review.reviewerName || '?')[0]}
+            {(review.reviewerName ?? '?')[0]}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h6" noWrap>{review.reviewerName}</Typography>
+            <Typography variant="h6" noWrap>{review.reviewerName ?? 'Reviewer'}</Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               <Stars value={review.starRating} />
-              <Typography variant="body2" color="text.secondary">{timeAgo(review.createTime)}</Typography>
+              <Typography variant="body2" color="text.secondary">{timeAgo(review.createTime)} · {review.location.title}</Typography>
             </Stack>
           </Box>
           <StatusChip status={status} size="medium" />
         </Stack>
 
         <Typography sx={{ mt: 3, fontSize: 17, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-          {review.comment || <Box component="span" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>Rating only, no written review.</Box>}
+          {review.comment ?? (
+            <Box component="span" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+              {review.purged ? 'Removed after 30 days, as Google requires. It comes back if Google still lists this review.' : 'Rating only, no written review.'}
+            </Box>
+          )}
         </Typography>
 
         <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', gap: 1 }}>
-          {review.sentiment && <Chip size="small" label={review.sentiment} color={SENTIMENT_COLOR[review.sentiment]} variant="outlined" />}
-          {review.language && review.language !== 'en' && <Chip size="small" label={LANGUAGE_NAMES[review.language] || review.language} variant="outlined" />}
-          {(review.topics || []).map((t) => <Chip key={t} size="small" label={t} />)}
+          {review.sentiment && <Chip size="small" label={review.sentiment} color={SENTIMENT_COLOR[review.sentiment] ?? 'default'} variant="outlined" />}
+          {review.language && review.language !== 'en' && <Chip size="small" label={LANGUAGE_NAMES[review.language] ?? review.language} variant="outlined" />}
+          {review.topics.map((t) => <Chip key={t} size="small" label={t} />)}
         </Stack>
       </Box>
 
@@ -106,7 +119,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
         {status === 'rejected' && (
           <Alert severity="error" sx={{ mb: 2 }}>
             Google rejected this reply{reply?.policyViolation ? ` (${reply.policyViolation.replace(/_/g, ' ').toLowerCase()})` : ''}.
-            {' '}{VIOLATIONS[reply?.policyViolation] || 'Edit it and post again.'}
+            {' '}{(reply?.policyViolation && VIOLATIONS[reply.policyViolation]) || 'Edit it and post again.'}
           </Alert>
         )}
         {status === 'failed' && <Alert severity="error" sx={{ mb: 2 }}>Couldn&apos;t post: {reply?.error}</Alert>}
@@ -134,7 +147,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
               </Button>
               <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
                 {REWRITES.map((r) => (
-                  <MenuItem key={r.label} onClick={() => { setMenu(null); regenerate(r.instructions); }}>{r.label}</MenuItem>
+                  <MenuItem key={r.label} onClick={() => { setMenu(null); void regenerate(r.instructions); }}>{r.label}</MenuItem>
                 ))}
               </Menu>
             </>
@@ -142,7 +155,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
           {posted && !editingPosted && (
             <>
               <Tooltip title="Edit reply"><IconButton size="small" onClick={() => setEditingPosted(true)}><EditRoundedIcon fontSize="small" /></IconButton></Tooltip>
-              <Tooltip title="Delete reply from Google"><IconButton size="small" onClick={remove} disabled={!!busy}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton></Tooltip>
+              <Tooltip title="Delete reply from Google"><IconButton size="small" onClick={() => void remove()} disabled={!!busy}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton></Tooltip>
             </>
           )}
         </Stack>
@@ -156,7 +169,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
           <>
             {!reply && (status === 'needs_reply' || status === 'backlog') && !text ? (
               <Stack direction="row" spacing={1.5}>
-                <Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={() => regenerate('')} disabled={!!busy}>
+                <Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={() => void regenerate()} disabled={!!busy}>
                   Draft reply with AI
                 </Button>
                 <Button onClick={() => setText(' ')}>Write my own</Button>
@@ -176,10 +189,10 @@ export default function ReviewDetail({ review, onUpdated, onBack }) {
                   </Typography>
                   {editable && (
                     <>
-                      {dirty && <Button onClick={saveDraft} disabled={!!busy}>Save draft</Button>}
+                      {dirty && <Button onClick={() => void saveDraft()} disabled={!!busy}>Save draft</Button>}
                       {editingPosted && <Button onClick={() => { setEditingPosted(false); setText(reply?.text || ''); }}>Cancel</Button>}
                       <Button
-                        variant="contained" endIcon={<SendRoundedIcon />} onClick={post}
+                        variant="contained" endIcon={<SendRoundedIcon />} onClick={() => void post()}
                         disabled={!!busy || !text.trim() || bytes > MAX_BYTES}
                       >
                         {editingPosted ? 'Update reply' : 'Post reply'}

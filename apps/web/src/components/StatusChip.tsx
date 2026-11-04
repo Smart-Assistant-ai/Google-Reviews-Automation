@@ -1,6 +1,7 @@
-import { Chip } from '@mui/material';
+import type { ReviewStatus } from '@replypilot/shared';
+import { Chip, type ChipProps } from '@mui/material';
 
-const MAP = {
+const MAP: Record<ReviewStatus, { label: string; color: ChipProps['color'] }> = {
   needs_reply: { label: 'Needs reply', color: 'default' },
   backlog: { label: 'Backlog', color: 'default' },
   drafting: { label: 'Drafting…', color: 'default' },
@@ -12,7 +13,7 @@ const MAP = {
   failed: { label: 'Failed to post', color: 'error' },
 };
 
-export default function StatusChip({ status, size = 'small' }) {
-  const s = MAP[status] || MAP.needs_reply;
+export default function StatusChip({ status, size = 'small' }: { status: ReviewStatus; size?: ChipProps['size'] }) {
+  const s = MAP[status];
   return <Chip size={size} label={s.label} color={s.color} variant={s.color === 'default' ? 'outlined' : 'filled'} />;
 }

@@ -1,21 +1,26 @@
-import { useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
+import type { Connection } from '@replypilot/shared';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import api from '../api/client';
+import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
+import { useState } from 'react';
+import { api } from '../api/client';
+import { useRefreshWorkspaceData, useWorkspaceId, wsPath } from '../api/hooks';
 
-// Shown when real Google sign-in worked but there are no reviews to show yet.
-export default function GoogleEmptyState({ status, onChanged }) {
+// Shown when a Google sign-in worked but there is nothing to show yet, often because
+// Google has not approved API access.
+export default function GoogleEmptyState({ connection }: { connection: Connection }) {
+  const workspaceId = useWorkspaceId();
+  const refresh = useRefreshWorkspaceData();
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
-  const run = (key, request) => async () => {
+  const run = (key: string, path: string) => async () => {
     setBusy(key);
     setError('');
     try {
-      await request();
-      await onChanged();
+      await api.post(wsPath(workspaceId, `/google/connections/${connection.id}${path}`));
+      await refresh();
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setBusy('');
     }
@@ -31,20 +36,20 @@ export default function GoogleEmptyState({ status, onChanged }) {
               <Typography variant="h6">Google account connected</Typography>
             </Stack>
             <Typography color="text.secondary">
-              Signed in as <strong>{status.email}</strong>. There are 0 reviews to show right now.
+              Signed in as <strong>{connection.email}</strong>. There are no reviews to show right now.
             </Typography>
-            {status.apiError && <Alert severity="info" sx={{ alignSelf: 'stretch' }}>{status.apiError}</Alert>}
+            {connection.apiError && <Alert severity="info" sx={{ alignSelf: 'stretch' }}>{connection.apiError}</Alert>}
             {error && <Alert severity="error" sx={{ alignSelf: 'stretch' }}>{error}</Alert>}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-              <Button variant="contained" disabled={!!busy} onClick={run('sample', () => api.post('/google/sample-data'))}>
+              <Button variant="contained" disabled={!!busy} onClick={run('sample', '/sample-data')}>
                 {busy === 'sample' ? 'Loading…' : 'Use sample data'}
               </Button>
-              <Button variant="outlined" disabled={!!busy} onClick={run('recheck', () => api.post('/google/recheck'))}>
-                {busy === 'recheck' ? 'Checking…' : 'Check Google again'}
+              <Button variant="outlined" disabled={!!busy} onClick={run('rescan', '/rescan')}>
+                {busy === 'rescan' ? 'Checking…' : 'Check Google again'}
               </Button>
             </Stack>
             <Typography variant="caption" color="text.secondary">
-              Sample data is a fictional business. Replies you post to it stay in this demo and never reach Google.
+              Sample data is a fictional business. Replies you post to it never reach Google.
             </Typography>
           </Stack>
         </CardContent>

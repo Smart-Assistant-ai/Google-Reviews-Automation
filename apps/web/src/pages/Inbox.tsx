@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import {
-  Badge, Box, Button, Chip, InputAdornment, List, ListItemButton, Menu, MenuItem, Snackbar, Stack, Tab, Tabs,
-  TextField, Typography, useMediaQuery, CircularProgress,
-} from '@mui/material';
-import { useTheme } from '@mui/material/styles';
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import type { ReviewStatus, ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import {
+  Badge, Box, Button, Chip, CircularProgress, InputAdornment, List, ListItemButton, Menu, MenuItem, Pagination, Snackbar,
+  Stack, Tab, Tabs, TextField, Typography, useMediaQuery,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { api } from '../api/client';
+import { useRefreshWorkspaceData, useReview, useReviews, useWorkspaceId, wsPath } from '../api/hooks';
+import ReviewDetail from '../components/ReviewDetail';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
-import ReviewDetail from '../components/ReviewDetail';
-import GoogleEmptyState from '../components/GoogleEmptyState';
 import { timeAgo } from '../components/format';
-import api from '../api/client';
+import { managedLocations, useShell } from '../layout/ShellContext';
 
-const TABS = [
+const TABS: { key: ReviewTab; label: string }[] = [
   { key: 'todo', label: 'To reply' },
   { key: 'posted', label: 'Posted' },
   { key: 'backlog', label: 'Backlog' },
@@ -27,110 +28,108 @@ const STAR_FILTERS = [
   { key: '3', label: '3★' },
   { key: '4,5', label: '4–5★' },
 ];
-const LIVE_STATES = ['drafting', 'pending', 'posting'];
+const IN_MOTION: ReviewStatus[] = ['drafting', 'pending', 'posting'];
+const PAGE_SIZE = 50;
+
+interface SimulatedReview {
+  stars?: number;
+  text?: string;
+}
 
 export default function Inbox() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
-  const { status: connection, refreshStatus } = useOutletContext();
-  const [tab, setTab] = useState('todo');
+  const workspaceId = useWorkspaceId();
+  const refresh = useRefreshWorkspaceData();
+  const { status, locationId } = useShell();
+  const managed = managedLocations(status);
+  const sampleLocation = managed.find((l) => l.id === locationId && l.sample) ?? (locationId ? undefined : managed.find((l) => l.sample));
+
+  const [tab, setTab] = useState<ReviewTab>('todo');
   const [stars, setStars] = useState('');
+  const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
-  const [data, setData] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [simMenu, setSimMenu] = useState(null);
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
-  const selectedRef = useRef(null);
-
-  const load = useCallback(async () => {
-    const res = await api.get('/reviews', { params: { tab, stars: stars || undefined, q: q || undefined } });
-    setData(res);
-    return res;
-  }, [tab, stars, q]);
 
   useEffect(() => {
-    const t = setTimeout(load, q ? 250 : 0);
-    return () => clearTimeout(t);
-  }, [load, q]);
+    const timer = setTimeout(() => setQ(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  useEffect(() => setPage(1), [tab, stars, q, locationId, workspaceId]);
+  useEffect(() => setSelectedId(null), [workspaceId, locationId]);
 
-  // Auto-select the first review on desktop.
-  useEffect(() => {
-    if (desktop && data && !data.reviews.find((r) => r.id === selectedId)) {
-      if (!selectedRef.current || !data.reviews.length) setSelectedId(data.reviews[0]?.id || null);
-    }
-  }, [data, desktop, selectedId]);
-
-  const [detail, setDetail] = useState(null);
-  useEffect(() => {
-    selectedRef.current = selectedId;
-    if (!selectedId) {
-      setDetail(null);
-      return;
-    }
-    api.get(`/reviews/${selectedId}`).then(setDetail).catch(() => setDetail(null));
-  }, [selectedId]);
-
-  // Poll while anything is in motion (drafting, waiting on Google moderation).
-  const busy = useMemo(
-    () => (data?.reviews || []).some((r) => LIVE_STATES.includes(r.status)) || LIVE_STATES.includes(detail?.status),
-    [data, detail],
+  const [poll, setPoll] = useState(false);
+  const filters = useMemo(
+    () => ({ tab, page, pageSize: PAGE_SIZE, locationId, stars: stars || undefined, q: q || undefined }),
+    [tab, page, locationId, stars, q],
   );
-  useEffect(() => {
-    if (!busy) return undefined;
-    const t = setInterval(async () => {
-      await load();
-      if (selectedRef.current) api.get(`/reviews/${selectedRef.current}`).then(setDetail).catch(() => {});
-    }, 3000);
-    return () => clearInterval(t);
-  }, [busy, load]);
+  const { data, isLoading } = useReviews(filters, poll);
+  const { data: detail } = useReview(selectedId, poll);
 
-  // j / k to move through the list.
+  // Refresh while anything is in motion, such as a draft being written or Google reviewing a reply.
   useEffect(() => {
-    const onKey = (e) => {
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    const moving = (data?.reviews ?? []).some((r) => IN_MOTION.includes(r.status)) || (detail ? IN_MOTION.includes(detail.status) : false);
+    setPoll(moving);
+  }, [data, detail]);
+
+  // On desktop the first review opens by itself.
+  useEffect(() => {
+    if (desktop && data && !data.reviews.some((r) => r.id === selectedId) && !detail) {
+      setSelectedId(data.reviews[0]?.id ?? null);
+    }
+  }, [data, desktop, selectedId, detail]);
+
+  // j and k move through the list.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')) return;
       if (!data?.reviews.length || !['j', 'k'].includes(e.key)) return;
-      const idx = data.reviews.findIndex((r) => r.id === selectedId);
-      const next = e.key === 'j' ? Math.min(idx + 1, data.reviews.length - 1) : Math.max(idx - 1, 0);
-      setSelectedId(data.reviews[next].id);
+      const index = data.reviews.findIndex((r) => r.id === selectedId);
+      const next = e.key === 'j' ? Math.min(index + 1, data.reviews.length - 1) : Math.max(index - 1, 0);
+      setSelectedId(data.reviews[next]?.id ?? null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [data, selectedId]);
 
-  const onUpdated = (updated) => {
-    setDetail(updated);
-    load();
+  const onUpdated = useCallback(() => void refresh(), [refresh]);
+
+  const simulate = async (body: SimulatedReview) => {
+    setSimMenu(null);
+    if (!sampleLocation) return;
+    await api.post(wsPath(workspaceId, '/dev/simulate-review'), { locationId: sampleLocation.id, ...body });
+    setToast(`New review added to ${sampleLocation.title}`);
+    setTab('todo');
+    await refresh();
   };
 
-  const simulate = async (body) => {
-    setSimMenu(null);
-    const res = await api.post('/dev/simulate-review', body);
-    setToast(`New ${res.review.starRating ? '' : ''}review from ${res.review.reviewer.displayName}`);
-    setTab('todo');
-    await load();
-  };
+  const showLocation = managed.length > 1 && !locationId;
+  const pages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   const list = (
     <Stack sx={{ height: '100%', borderRight: { md: 1 }, borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Box sx={{ p: 2, pb: 1 }}>
         <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>
           <Typography variant="h5" sx={{ flex: 1 }}>Inbox</Typography>
-          {connection?.sample && (
+          {sampleLocation && (
             <>
               <Button size="small" variant="outlined" startIcon={<AddCommentRoundedIcon />} onClick={(e) => setSimMenu(e.currentTarget)}>
                 {desktop ? 'Simulate review' : 'Simulate'}
               </Button>
               <Menu anchorEl={simMenu} open={!!simMenu} onClose={() => setSimMenu(null)}>
-                <MenuItem onClick={() => simulate({})}>Random review</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 5, text: '' })}>5★ rating only</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 5, text: 'Fantastic stay. The room had a great view and the staff were lovely!' })}>5★ with text</MenuItem>
-                <MenuItem onClick={() => simulate({ stars: 1, text: 'We arrived at 8 and our room was not ready until 9:15. Nobody apologized.' })}>1★ complaint</MenuItem>
+                <MenuItem onClick={() => void simulate({})}>Random review</MenuItem>
+                <MenuItem onClick={() => void simulate({ stars: 5, text: '' })}>5★ rating only</MenuItem>
+                <MenuItem onClick={() => void simulate({ stars: 5, text: 'Fantastic experience. The team was lovely and everything was spotless!' })}>5★ with text</MenuItem>
+                <MenuItem onClick={() => void simulate({ stars: 1, text: 'We arrived on time and still waited over an hour. Nobody apologized.' })}>1★ complaint</MenuItem>
               </Menu>
             </>
           )}
         </Stack>
         <TextField
-          size="small" fullWidth placeholder="Search reviews" value={q} onChange={(e) => setQ(e.target.value)}
+          size="small" fullWidth placeholder="Search reviews" value={search} onChange={(e) => setSearch(e.target.value)}
           InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon fontSize="small" /></InputAdornment> }}
         />
         <Stack direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 0.75 }}>
@@ -143,16 +142,18 @@ export default function Inbox() {
           ))}
         </Stack>
       </Box>
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" sx={{ px: 1, borderBottom: 1, borderColor: 'divider', minHeight: 40 }}>
+      <Tabs value={tab} onChange={(_, v: ReviewTab) => setTab(v)} variant="scrollable" sx={{ px: 1, borderBottom: 1, borderColor: 'divider', minHeight: 40 }}>
         {TABS.map((t) => (
           <Tab
             key={t.key} value={t.key} sx={{ minHeight: 40, px: 1.5 }}
             label={
               <Stack direction="row" spacing={0.75} alignItems="center">
                 <span>{t.label}</span>
-                {data?.counts?.[t.key] > 0 && t.key !== 'all' && (
-                  <Badge badgeContent={data.counts[t.key]} color={t.key === 'todo' ? 'primary' : 'default'} max={99}
-                    sx={{ '& .MuiBadge-badge': { position: 'static', transform: 'none' } }} />
+                {!!data?.counts[t.key] && t.key !== 'all' && (
+                  <Badge
+                    badgeContent={data.counts[t.key]} color={t.key === 'todo' ? 'primary' : 'default'} max={99}
+                    sx={{ '& .MuiBadge-badge': { position: 'static', transform: 'none' } }}
+                  />
                 )}
               </Stack>
             }
@@ -160,12 +161,14 @@ export default function Inbox() {
         ))}
       </Tabs>
       <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        {!data ? (
+        {isLoading || !data ? (
           <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress size={24} /></Box>
         ) : data.reviews.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ p: 6, color: 'text.secondary' }}>
             <InboxRoundedIcon sx={{ fontSize: 40 }} />
-            <Typography variant="body2">{tab === 'todo' ? 'All caught up. Nice work!' : 'Nothing here.'}</Typography>
+            <Typography variant="body2" align="center">
+              {managed.length === 0 ? 'No locations yet. Ask an admin to give you access.' : tab === 'todo' ? 'All caught up. Nice work!' : 'Nothing here.'}
+            </Typography>
           </Stack>
         ) : (
           <List disablePadding>
@@ -176,19 +179,24 @@ export default function Inbox() {
               >
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Stars value={r.starRating} size={15} />
-                  <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>{r.reviewerName}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>{r.reviewerName ?? 'Reviewer'}</Typography>
                   <Typography variant="caption" color="text.secondary">{timeAgo(r.createTime)}</Typography>
                 </Stack>
-                <Typography
-                  variant="body2" color="text.secondary"
-                  sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                >
-                  {r.comment || 'Rating only'}
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {r.comment ?? (r.purged ? 'Removed after 30 days' : 'Rating only')}
                 </Typography>
-                <Box sx={{ mt: 1 }}><StatusChip status={r.status} /></Box>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                  <StatusChip status={r.status} />
+                  {showLocation && <Typography variant="caption" color="text.secondary" noWrap>{r.location.title}</Typography>}
+                </Stack>
               </ListItemButton>
             ))}
           </List>
+        )}
+        {pages > 1 && (
+          <Stack alignItems="center" sx={{ py: 2 }}>
+            <Pagination count={pages} page={page} onChange={(_, value) => setPage(value)} size="small" />
+          </Stack>
         )}
       </Box>
     </Stack>
@@ -201,10 +209,6 @@ export default function Inbox() {
       <Typography variant="body2">Select a review</Typography>
     </Stack>
   );
-
-  if (connection?.connected && !connection.sample && data?.counts.all === 0 && !q && !stars) {
-    return <GoogleEmptyState status={connection} onChanged={async () => { await refreshStatus(); await load(); }} />;
-  }
 
   return (
     <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: '100vh' }, display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '380px minmax(0, 1fr)' } }}>

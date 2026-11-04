@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
 import {
   Box, Card, CardContent, CircularProgress, Grid, Stack, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
@@ -11,8 +10,8 @@ import {
 } from 'recharts';
 import { chartColors } from '../theme/chartColors';
 import { brand } from '../theme';
-import GoogleEmptyState from '../components/GoogleEmptyState';
-import api from '../api/client';
+import { useStats } from '../api/hooks';
+import { useShell } from '../layout/ShellContext';
 
 const RANGES = [
   { value: 30, label: '30d' },
@@ -20,10 +19,18 @@ const RANGES = [
   { value: 365, label: '12m' },
 ];
 
-const weekLabel = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+const weekLabel = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
-function Kpi({ label, value, suffix, delta, hint }) {
-  const up = delta > 0;
+interface KpiProps {
+  label: string;
+  value: number | null;
+  suffix?: string;
+  delta?: number | null;
+  hint?: string;
+}
+
+function Kpi({ label, value, suffix, delta, hint }: KpiProps) {
+  const up = (delta ?? 0) > 0;
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
@@ -47,7 +54,15 @@ function Kpi({ label, value, suffix, delta, hint }) {
   );
 }
 
-function ChartCard({ title, subtitle, legend, children, height = 260 }) {
+interface ChartCardProps {
+  title: string;
+  subtitle?: string;
+  legend?: ReactNode;
+  children: ReactNode;
+  height?: number;
+}
+
+function ChartCard({ title, subtitle, legend, children, height = 260 }: ChartCardProps) {
   return (
     <Card sx={{ height: '100%' }}>
       <CardContent>
@@ -64,7 +79,7 @@ function ChartCard({ title, subtitle, legend, children, height = 260 }) {
   );
 }
 
-function Legend({ items }) {
+function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
     <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
       {items.map((i) => (
@@ -77,12 +92,27 @@ function Legend({ items }) {
   );
 }
 
-function ChartTooltip({ active, payload, label, formatLabel }) {
+interface TooltipEntry {
+  dataKey?: string | number;
+  name?: string;
+  value?: number | string;
+  color?: string;
+  fill?: string;
+}
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+  formatLabel?: (label: string) => string;
+}
+
+function ChartTooltip({ active, payload, label, formatLabel }: ChartTooltipProps) {
   const theme = useTheme();
   if (!active || !payload?.length) return null;
   return (
     <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1.5, p: 1.25, boxShadow: theme.shadows[3] }}>
-      <Typography variant="caption" sx={{ fontWeight: 600 }} component="div">{formatLabel ? formatLabel(label) : label}</Typography>
+      <Typography variant="caption" sx={{ fontWeight: 600 }} component="div">{formatLabel && label ? formatLabel(label) : label}</Typography>
       {payload.map((p) => (
         <Stack key={p.dataKey} direction="row" spacing={1} alignItems="center">
           <Box sx={{ width: 8, height: 8, borderRadius: '2px', bgcolor: p.color || p.fill }} />
@@ -98,34 +128,24 @@ export default function Dashboard() {
   const theme = useTheme();
   const c = chartColors(theme.palette.mode);
   const [days, setDays] = useState(90);
-  const [data, setData] = useState(null);
-  const { status, refreshStatus } = useOutletContext();
-  const hasLocation = !!status?.location;
-
-  useEffect(() => {
-    setData(null);
-    api.get('/stats', { params: { days } }).then(setData);
-  }, [days, hasLocation]);
-
-  if (status?.connected && !status.sample && !status.location) {
-    return <GoogleEmptyState status={status} onChanged={refreshStatus} />;
-  }
+  const { locationId } = useShell();
+  const { data } = useStats(days, locationId);
 
   const axis = { fontSize: 12, fill: theme.palette.text.secondary };
-  const weekly = (data?.weekly || []).map((w) => ({
+  const weekly = (data?.weekly ?? []).map((w) => ({
     ...w, negative: w[1] + w[2], neutral: w[3], positive: w[4] + w[5],
   }));
-  const topics = (data?.topics || []).map((t) => ({ ...t, complained: -t.negative, praised: t.positive }));
-  const maxStar = Math.max(1, ...(data?.starDistribution || []).map((s) => s.count));
+  const topics = (data?.topics ?? []).map((t) => ({ ...t, complained: -t.negative, praised: t.positive }));
+  const maxStar = Math.max(1, ...(data?.starDistribution ?? []).map((s) => s.count));
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1280, mx: 'auto' }}>
       <Stack direction="row" alignItems="center" sx={{ mb: 3 }}>
         <Box sx={{ flex: 1 }}>
           <Typography variant="h5">Dashboard</Typography>
-          <Typography variant="body2" color="text.secondary">How guests feel, and how fast you respond.</Typography>
+          <Typography variant="body2" color="text.secondary">How customers feel, and how fast you respond.</Typography>
         </Box>
-        <ToggleButtonGroup size="small" exclusive value={days} onChange={(_, v) => v && setDays(v)}>
+        <ToggleButtonGroup size="small" exclusive value={days} onChange={(_, v: number | null) => v && setDays(v)}>
           {RANGES.map((r) => <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>{r.label}</ToggleButton>)}
         </ToggleButtonGroup>
       </Stack>
@@ -150,7 +170,7 @@ export default function Dashboard() {
                   <CartesianGrid stroke={c.grid} vertical={false} />
                   <XAxis dataKey="week" tickFormatter={weekLabel} tick={axis} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={axis} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip formatLabel={(l) => `Week of ${weekLabel(l)}`} />} cursor={{ stroke: theme.palette.text.secondary, strokeDasharray: '3 3' }} />
+                  <Tooltip content={<ChartTooltip formatLabel={(l: string) => `Week of ${weekLabel(l)}`} />} cursor={{ stroke: theme.palette.text.secondary, strokeDasharray: '3 3' }} />
                   <Line animationDuration={500} type="monotone" dataKey="avgRating" name="Avg rating" stroke={c.line} strokeWidth={2}
                     dot={{ r: 4, fill: c.line, stroke: c.surface, strokeWidth: 2 }} activeDot={{ r: 6, stroke: c.surface, strokeWidth: 2 }} />
                 </LineChart>
@@ -184,7 +204,7 @@ export default function Dashboard() {
                   <CartesianGrid stroke={c.grid} vertical={false} />
                   <XAxis dataKey="week" tickFormatter={weekLabel} tick={axis} axisLine={false} tickLine={false} minTickGap={24} />
                   <YAxis allowDecimals={false} tick={axis} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip formatLabel={(l) => `Week of ${weekLabel(l)}`} />} cursor={{ fill: theme.palette.action.hover }} />
+                  <Tooltip content={<ChartTooltip formatLabel={(l: string) => `Week of ${weekLabel(l)}`} />} cursor={{ fill: theme.palette.action.hover }} />
                   <Bar animationDuration={500} dataKey="negative" name="1–2★" stackId="s" fill={c.negative} stroke={c.surface} strokeWidth={2} />
                   <Bar animationDuration={500} dataKey="neutral" name="3★" stackId="s" fill={c.neutral} stroke={c.surface} strokeWidth={2} />
                   <Bar animationDuration={500} dataKey="positive" name="4–5★" stackId="s" fill={c.positive} stroke={c.surface} strokeWidth={2} radius={[4, 4, 0, 0]} />
@@ -195,7 +215,7 @@ export default function Dashboard() {
 
           <Grid item xs={12} md={5}>
             <ChartCard
-              title="What guests talk about"
+              title="What customers talk about"
               subtitle="Mentions in negative vs positive reviews"
               legend={<Legend items={[{ label: 'Complained', color: c.negative }, { label: 'Praised', color: c.positive }]} />}
             >
@@ -205,12 +225,12 @@ export default function Dashboard() {
                 <ResponsiveContainer>
                   <BarChart data={topics} layout="vertical" stackOffset="sign" margin={{ top: 0, right: 8, left: 8, bottom: 0 }} barCategoryGap="25%">
                     <CartesianGrid stroke={c.grid} horizontal={false} />
-                    <XAxis type="number" tick={axis} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={(v) => Math.abs(v)} />
+                    <XAxis type="number" tick={axis} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={(v: number) => String(Math.abs(v))} />
                     <YAxis type="category" dataKey="topic" tick={axis} axisLine={false} tickLine={false} width={100} />
                     <Tooltip
                       content={({ active, payload, label }) => (
-                        <ChartTooltip active={active} label={label}
-                          payload={payload?.map((p) => ({ ...p, value: Math.abs(p.value) }))} />
+                        <ChartTooltip active={active} label={String(label)}
+                          payload={payload?.map((p) => ({ dataKey: p.dataKey as string, name: String(p.name), color: p.color, value: Math.abs(Number(p.value)) }))} />
                       )}
                       cursor={{ fill: theme.palette.action.hover }}
                     />

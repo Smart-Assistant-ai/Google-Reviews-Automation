@@ -1,7 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { brand } from '../theme';
 
-export default function Logo({ size = 28 }) {
+export default function Logo({ size = 28 }: { size?: number }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
       <Box
