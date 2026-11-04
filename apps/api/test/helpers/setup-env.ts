@@ -11,3 +11,4 @@ process.env.GOOGLE_SIGNIN_PROVIDER ??= 'mock';
 process.env.EMAIL_PROVIDER ??= 'mock';
 process.env.SIGNUP_MODE ??= 'open';
 process.env.LOG_LEVEL ??= 'silent';
+process.env.MOCK_MODERATION_SECONDS ??= '0';
