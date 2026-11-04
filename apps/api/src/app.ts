@@ -4,6 +4,7 @@ import { env } from './config';
 import { accessPlugin } from './plugins/access';
 import { registerErrorHandling } from './plugins/errors';
 import { healthRoutes } from './plugins/health';
+import { authRoutes } from './modules/auth/routes';
 import { securityPlugin, type SecurityOptions } from './plugins/security';
 
 export interface BuildOptions extends SecurityOptions {
@@ -29,6 +30,7 @@ export async function buildApp(options: BuildOptions = {}): Promise<FastifyInsta
   await app.register(accessPlugin);
 
   await app.register(healthRoutes);
+  await app.register(authRoutes, { prefix: '/api/v1/auth' });
   options.extraRoutes?.(app);
 
   await app.ready();
