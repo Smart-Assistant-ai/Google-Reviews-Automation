@@ -32,10 +32,17 @@ function memberDto(row: MemberRow, currentUserId: string) {
   };
 }
 
-export async function assertLocationsInWorkspace(workspaceId: string, locationIds: string[]): Promise<void> {
+export async function assertLocationsInWorkspace(
+  workspaceId: string,
+  locationIds: string[],
+): Promise<void> {
   const found = await prisma.location.count({ where: { id: { in: locationIds }, workspaceId } });
   if (found !== new Set(locationIds).size) {
-    throw new HttpError(400, 'One of those locations is not in this workspace', 'invalid_locations');
+    throw new HttpError(
+      400,
+      'One of those locations is not in this workspace',
+      'invalid_locations',
+    );
   }
 }
 
@@ -55,25 +62,54 @@ export async function listWorkspaces(userId: string) {
 
 export async function createWorkspace(userId: string, name: string, ip?: string) {
   const workspace = await prisma.$transaction((tx) => createWorkspaceWithOwner(tx, name, userId));
-  await recordAudit({ action: 'workspace.created', workspaceId: workspace.id, actorUserId: userId, ip });
-  return { id: workspace.id, name: workspace.name, role: 'owner' as const, scopeAllLocations: true };
+  await recordAudit({
+    action: 'workspace.created',
+    workspaceId: workspace.id,
+    actorUserId: userId,
+    ip,
+  });
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    role: 'owner' as const,
+    scopeAllLocations: true,
+  };
 }
 
 export async function getWorkspace(member: MemberContext) {
   const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: member.workspaceId } });
-  return { id: workspace.id, name: workspace.name, role: member.role, scopeAllLocations: member.scopeAllLocations };
+  return {
+    id: workspace.id,
+    name: workspace.name,
+    role: member.role,
+    scopeAllLocations: member.scopeAllLocations,
+  };
 }
 
 export async function renameWorkspace(member: MemberContext, name: string, ip?: string) {
   await prisma.workspace.update({ where: { id: member.workspaceId }, data: { name } });
-  await recordAudit({ action: 'workspace.renamed', workspaceId: member.workspaceId, actorUserId: member.userId, meta: { name }, ip });
+  await recordAudit({
+    action: 'workspace.renamed',
+    workspaceId: member.workspaceId,
+    actorUserId: member.userId,
+    meta: { name },
+    ip,
+  });
   return getWorkspace(member);
 }
 
 export async function deleteWorkspace(member: MemberContext, ip?: string): Promise<void> {
   await runWorkspaceCleanups(member.workspaceId, member.userId);
-  await prisma.workspace.update({ where: { id: member.workspaceId }, data: { deletedAt: new Date() } });
-  await recordAudit({ action: 'workspace.deleted', workspaceId: member.workspaceId, actorUserId: member.userId, ip });
+  await prisma.workspace.update({
+    where: { id: member.workspaceId },
+    data: { deletedAt: new Date() },
+  });
+  await recordAudit({
+    action: 'workspace.deleted',
+    workspaceId: member.workspaceId,
+    actorUserId: member.userId,
+    ip,
+  });
 }
 
 export async function listMembers(member: MemberContext) {
@@ -96,13 +132,23 @@ async function findTarget(member: MemberContext, memberId: string): Promise<Memb
 
 function assertNotOwner(target: WorkspaceMember): void {
   if (target.role === 'owner') {
-    throw new HttpError(403, 'The owner can only change through a transfer of ownership', 'forbidden');
+    throw new HttpError(
+      403,
+      'The owner can only change through a transfer of ownership',
+      'forbidden',
+    );
   }
 }
 
-async function replaceLocations(tx: Prisma.TransactionClient, memberId: string, locationIds: string[]): Promise<void> {
+async function replaceLocations(
+  tx: Prisma.TransactionClient,
+  memberId: string,
+  locationIds: string[],
+): Promise<void> {
   await tx.workspaceMemberLocation.deleteMany({ where: { memberId } });
-  await tx.workspaceMemberLocation.createMany({ data: locationIds.map((locationId) => ({ memberId, locationId })) });
+  await tx.workspaceMemberLocation.createMany({
+    data: locationIds.map((locationId) => ({ memberId, locationId })),
+  });
 }
 
 export interface MemberChanges {
@@ -111,13 +157,20 @@ export interface MemberChanges {
   locationIds?: string[];
 }
 
-export async function updateMember(member: MemberContext, memberId: string, changes: MemberChanges, ip?: string) {
+export async function updateMember(
+  member: MemberContext,
+  memberId: string,
+  changes: MemberChanges,
+  ip?: string,
+) {
   const target = await findTarget(member, memberId);
   assertNotOwner(target);
-  if (changes.locationIds) await assertLocationsInWorkspace(member.workspaceId, changes.locationIds);
+  if (changes.locationIds)
+    await assertLocationsInWorkspace(member.workspaceId, changes.locationIds);
 
   const role = changes.role ?? target.role;
-  const scopeAllLocations = role === 'member' ? (changes.scopeAllLocations ?? target.scopeAllLocations) : true;
+  const scopeAllLocations =
+    role === 'member' ? (changes.scopeAllLocations ?? target.scopeAllLocations) : true;
 
   await prisma.$transaction(async (tx) => {
     await tx.workspaceMember.update({ where: { id: memberId }, data: { role, scopeAllLocations } });
@@ -143,7 +196,11 @@ async function markRemoved(memberId: string): Promise<void> {
   });
 }
 
-export async function removeMember(member: MemberContext, memberId: string, ip?: string): Promise<void> {
+export async function removeMember(
+  member: MemberContext,
+  memberId: string,
+  ip?: string,
+): Promise<void> {
   const target = await findTarget(member, memberId);
   assertNotOwner(target);
   await markRemoved(memberId);
@@ -163,15 +220,31 @@ export async function leaveWorkspace(member: MemberContext, ip?: string): Promis
     throw new HttpError(409, 'Transfer ownership to someone else before you leave', 'last_owner');
   }
   await markRemoved(member.id);
-  await recordAudit({ action: 'member.left', workspaceId: member.workspaceId, actorUserId: member.userId, ip });
+  await recordAudit({
+    action: 'member.left',
+    workspaceId: member.workspaceId,
+    actorUserId: member.userId,
+    ip,
+  });
 }
 
-export async function transferOwnership(member: MemberContext, memberId: string, ip?: string): Promise<void> {
+export async function transferOwnership(
+  member: MemberContext,
+  memberId: string,
+  ip?: string,
+): Promise<void> {
   const target = await findTarget(member, memberId);
-  if (target.id === member.id) throw new HttpError(400, 'You already own this workspace', 'already_owner');
+  if (target.id === member.id)
+    throw new HttpError(400, 'You already own this workspace', 'already_owner');
   await prisma.$transaction(async (tx) => {
-    await tx.workspaceMember.update({ where: { id: target.id }, data: { role: 'owner', scopeAllLocations: true } });
-    await tx.workspaceMember.update({ where: { id: member.id }, data: { role: 'admin', scopeAllLocations: true } });
+    await tx.workspaceMember.update({
+      where: { id: target.id },
+      data: { role: 'owner', scopeAllLocations: true },
+    });
+    await tx.workspaceMember.update({
+      where: { id: member.id },
+      data: { role: 'admin', scopeAllLocations: true },
+    });
     await replaceLocations(tx, target.id, []);
   });
   await recordAudit({
@@ -206,7 +279,12 @@ export async function listActivity(member: MemberContext, limit: number) {
 // People to tell when something needs attention, such as a Google connection dying.
 export async function adminEmails(workspaceId: string): Promise<string[]> {
   const rows = await prisma.workspaceMember.findMany({
-    where: { workspaceId, removedAt: null, role: { in: ['owner', 'admin'] }, user: { deletedAt: null } },
+    where: {
+      workspaceId,
+      removedAt: null,
+      role: { in: ['owner', 'admin'] },
+      user: { deletedAt: null },
+    },
     select: { user: { select: { email: true } } },
   });
   return rows.map((row) => normalizeEmail(row.user.email));

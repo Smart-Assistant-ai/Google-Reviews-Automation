@@ -1,4 +1,13 @@
-import { Alert, Button, Card, CardContent, Link, Stack, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  Link,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useState, type FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -34,18 +43,35 @@ export default function ResetPassword() {
     <AuthLayout>
       <Card>
         <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-          <Typography variant="h5" sx={{ mb: 2 }}>Choose a new password</Typography>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Choose a new password
+          </Typography>
           {done ? (
             <>
-              <Alert severity="success">Your password is changed, and you&apos;ve been logged out on every device.</Alert>
-              <Link component={RouterLink} to="/login" sx={{ display: 'block', mt: 3 }}>Log in</Link>
+              <Alert severity="success">
+                Your password is changed, and you&apos;ve been logged out on every device.
+              </Alert>
+              <Link component={RouterLink} to="/login" sx={{ display: 'block', mt: 3 }}>
+                Log in
+              </Link>
             </>
           ) : (
             <form onSubmit={(e) => void submit(e)}>
               <Stack spacing={2}>
                 {error && <Alert severity="error">{error}</Alert>}
-                <TextField label="New password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required fullWidth helperText="At least 8 characters" autoComplete="new-password" />
-                <Button type="submit" variant="contained" size="large" disabled={busy}>Change password</Button>
+                <TextField
+                  label="New password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  fullWidth
+                  helperText="At least 8 characters"
+                  autoComplete="new-password"
+                />
+                <Button type="submit" variant="contained" size="large" disabled={busy}>
+                  Change password
+                </Button>
               </Stack>
             </form>
           )}

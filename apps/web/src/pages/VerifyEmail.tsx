@@ -36,12 +36,16 @@ export default function VerifyEmail() {
     <AuthLayout>
       <Card>
         <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-          <Typography variant="h5" sx={{ mb: 2 }}>Confirm your email</Typography>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Confirm your email
+          </Typography>
           {state === 'working' && <CircularProgress />}
           {state === 'done' && <Alert severity="success">Your email is confirmed.</Alert>}
           {state === 'failed' && <Alert severity="error">{error}</Alert>}
           {state !== 'working' && (
-            <Button component={RouterLink} to="/" variant="contained" sx={{ mt: 3 }}>Continue</Button>
+            <Button component={RouterLink} to="/" variant="contained" sx={{ mt: 3 }}>
+              Continue
+            </Button>
           )}
         </CardContent>
       </Card>

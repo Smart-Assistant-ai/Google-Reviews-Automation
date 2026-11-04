@@ -45,17 +45,58 @@ function PublicOnly({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<PublicOnly><AuthPage mode="login" /></PublicOnly>} />
-      <Route path="/signup" element={<PublicOnly><AuthPage mode="signup" /></PublicOnly>} />
-      <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
+      <Route
+        path="/login"
+        element={
+          <PublicOnly>
+            <AuthPage mode="login" />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <PublicOnly>
+            <AuthPage mode="signup" />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicOnly>
+            <ForgotPassword />
+          </PublicOnly>
+        }
+      />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/invite" element={<AcceptInvite />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/mock-google" element={<MockGoogle />} />
-      <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
-      <Route path="/no-workspace" element={<RequireAuth><NoWorkspace /></RequireAuth>} />
-      <Route element={<RequireAuth><AppShell /></RequireAuth>}>
+      <Route
+        path="/onboarding"
+        element={
+          <RequireAuth>
+            <Onboarding />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/no-workspace"
+        element={
+          <RequireAuth>
+            <NoWorkspace />
+          </RequireAuth>
+        }
+      />
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
         <Route path="/" element={<Navigate to="/inbox" replace />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/dashboard" element={<Dashboard />} />

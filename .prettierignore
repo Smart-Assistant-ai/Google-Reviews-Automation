@@ -3,3 +3,5 @@ apps/api/prisma/migrations
 backend
 frontend
 dist
+docs/superpowers
+.mockdata

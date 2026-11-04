@@ -34,13 +34,20 @@ export const googleStatusResponse = z.object({
 });
 export type GoogleStatus = z.infer<typeof googleStatusResponse>;
 
-export const startConnectResponse = z.object({ url: z.string(), provider: z.enum(['mock', 'live']) });
+export const startConnectResponse = z.object({
+  url: z.string(),
+  provider: z.enum(['mock', 'live']),
+});
 
 export const selectLocationsBody = z.object({ locationIds: z.array(uuidSchema).min(1) });
 export const switchConnectionBody = z.object({ connectionId: uuidSchema });
 export const syncBody = z.object({ locationId: uuidSchema.optional() });
 
-export const syncResponse = z.object({ synced: z.number(), fetched: z.number(), created: z.number() });
+export const syncResponse = z.object({
+  synced: z.number(),
+  fetched: z.number(),
+  created: z.number(),
+});
 
 export const disconnectPreviewResponse = z.object({
   removes: z.array(z.object({ id: z.string(), title: z.string() })),

@@ -35,11 +35,32 @@ export async function connectGoogle(
   return { callback, redirect: new URL(callback.headers.location as string) };
 }
 
-export async function googleStatus(app: FastifyInstance, user: TestUser, workspaceId = user.workspaceId) {
-  const res = await app.inject({ url: `/api/v1/workspaces/${workspaceId}/google/status`, headers: user.headers });
+export async function googleStatus(
+  app: FastifyInstance,
+  user: TestUser,
+  workspaceId = user.workspaceId,
+) {
+  const res = await app.inject({
+    url: `/api/v1/workspaces/${workspaceId}/google/status`,
+    headers: user.headers,
+  });
   return res.json() as {
-    connections: { id: string; email: string; status: string; sample: boolean; apiError: string | null; locationCount: number }[];
-    locations: { id: string; title: string; status: string; connectionId: string; alternativeConnections: { id: string }[]; lastSyncError: string | null }[];
+    connections: {
+      id: string;
+      email: string;
+      status: string;
+      sample: boolean;
+      apiError: string | null;
+      locationCount: number;
+    }[];
+    locations: {
+      id: string;
+      title: string;
+      status: string;
+      connectionId: string;
+      alternativeConnections: { id: string }[];
+      lastSyncError: string | null;
+    }[];
   };
 }
 

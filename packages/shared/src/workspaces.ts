@@ -81,4 +81,6 @@ export const memberListResponse = z.object({ members: z.array(memberSchema) });
 export const invitationListResponse = z.object({ invitations: z.array(invitationSchema) });
 export const createdInvitationResponse = invitationSchema.extend({ emailSent: z.boolean() });
 export const activityResponse = z.object({ items: z.array(activityItemSchema) });
-export const activityQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) });
+export const activityQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});

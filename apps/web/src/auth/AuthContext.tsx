@@ -1,6 +1,14 @@
 import type { Me, SessionResponse, WorkspaceSummary } from '@replypilot/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { api, refreshSession, setAccessToken, setSessionLostHandler } from '../api/client';
 
 interface AuthValue {

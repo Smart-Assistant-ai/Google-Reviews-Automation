@@ -29,18 +29,26 @@ export async function joinFromInvitation(
     where: { id: invitation.id, acceptedAt: null, revokedAt: null },
     data: { acceptedAt: new Date() },
   });
-  if (claimed.count === 0) throw new HttpError(410, 'This invitation has already been used', 'invitation_used');
+  if (claimed.count === 0)
+    throw new HttpError(410, 'This invitation has already been used', 'invitation_used');
 
   const { workspaceId } = invitation;
-  const existing = await tx.workspaceMember.findUnique({ where: { workspaceId_userId: { workspaceId, userId } } });
-  if (existing && !existing.removedAt) throw new HttpError(409, 'You are already in this workspace', 'already_member');
+  const existing = await tx.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+  });
+  if (existing && !existing.removedAt)
+    throw new HttpError(409, 'You are already in this workspace', 'already_member');
 
   // A location may have been removed since the invitation was sent.
   const stillThere = await tx.location.findMany({
     where: { id: { in: invitation.locationIds }, workspaceId },
     select: { id: true },
   });
-  const values = { role: invitation.role, scopeAllLocations: invitation.scopeAllLocations, removedAt: null };
+  const values = {
+    role: invitation.role,
+    scopeAllLocations: invitation.scopeAllLocations,
+    removedAt: null,
+  };
   const member = await tx.workspaceMember.upsert({
     where: { workspaceId_userId: { workspaceId, userId } },
     create: { workspaceId, userId, ...values },

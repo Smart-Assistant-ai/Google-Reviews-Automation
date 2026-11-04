@@ -31,13 +31,17 @@ type Variant = (name: string, topic: string | null) => string;
 
 const EN_POSITIVE: Record<string, Variant[]> = {
   warm: [
-    (n, t) => `Hi ${n}, thank you so much for the lovely words${t ? ` about our ${t}` : ''}! It genuinely made our day.`,
-    (n, t) => `${n}, this is wonderful to read, thank you!${t ? ` We'll pass your note about our ${t} to the whole team.` : ''}`,
+    (n, t) =>
+      `Hi ${n}, thank you so much for the lovely words${t ? ` about our ${t}` : ''}! It genuinely made our day.`,
+    (n, t) =>
+      `${n}, this is wonderful to read, thank you!${t ? ` We'll pass your note about our ${t} to the whole team.` : ''}`,
     (n) => `Thanks a ton, ${n}! Customers like you are the reason we love what we do.`,
-    (n, t) => `What a kind review, ${n}.${t ? ` So glad our ${t} made your visit better.` : ''} We can't wait to see you again.`,
+    (n, t) =>
+      `What a kind review, ${n}.${t ? ` So glad our ${t} made your visit better.` : ''} We can't wait to see you again.`,
   ],
   professional: [
-    (n, t) => `Dear ${n}, thank you for your review${t ? ` and your kind remarks on our ${t}` : ''}. We look forward to serving you again.`,
+    (n, t) =>
+      `Dear ${n}, thank you for your review${t ? ` and your kind remarks on our ${t}` : ''}. We look forward to serving you again.`,
     (n) => `Thank you, ${n}. We appreciate you taking the time to share your experience.`,
   ],
   playful: [
@@ -47,18 +51,24 @@ const EN_POSITIVE: Record<string, Variant[]> = {
 };
 
 const EN_NEUTRAL: Variant[] = [
-  (n, t) => `Hi ${n}, thanks for the honest feedback${t ? ` about ${t}` : ''}. We're looking into it and hope to earn five stars next time.`,
-  (n, t) => `Thank you, ${n}. Glad parts of your visit worked for you.${t ? ` We've noted your point about ${t}` : ' We have noted your feedback'} and are on it.`,
+  (n, t) =>
+    `Hi ${n}, thanks for the honest feedback${t ? ` about ${t}` : ''}. We're looking into it and hope to earn five stars next time.`,
+  (n, t) =>
+    `Thank you, ${n}. Glad parts of your visit worked for you.${t ? ` We've noted your point about ${t}` : ' We have noted your feedback'} and are on it.`,
 ];
 
 const EN_NEGATIVE: Variant[] = [
-  (n, t) => `Hi ${n}, we're truly sorry${t ? ` about ${t}` : ' we fell short'}. That's not the experience we want for anyone. Please reach out to us directly so we can make this right.`,
-  (n, t) => `${n}, thank you for telling us, and we apologize.${t ? ` Your feedback about ${t} has been shared with our team` : ' Your feedback has been shared with our team'} so it doesn't happen again. We'd love the chance to do better.`,
-  (n) => `We're sorry, ${n}. This isn't our standard, and we're reviewing what went wrong. Please contact our manager so we can follow up personally.`,
+  (n, t) =>
+    `Hi ${n}, we're truly sorry${t ? ` about ${t}` : ' we fell short'}. That's not the experience we want for anyone. Please reach out to us directly so we can make this right.`,
+  (n, t) =>
+    `${n}, thank you for telling us, and we apologize.${t ? ` Your feedback about ${t} has been shared with our team` : ' Your feedback has been shared with our team'} so it doesn't happen again. We'd love the chance to do better.`,
+  (n) =>
+    `We're sorry, ${n}. This isn't our standard, and we're reviewing what went wrong. Please contact our manager so we can follow up personally.`,
 ];
 
 const SPANISH: Record<string, (name: string) => string> = {
-  positive: (n) => `¡Muchas gracias, ${n}! Nos alegra muchísimo que hayas disfrutado tu visita. ¡Te esperamos pronto!`,
+  positive: (n) =>
+    `¡Muchas gracias, ${n}! Nos alegra muchísimo que hayas disfrutado tu visita. ¡Te esperamos pronto!`,
   neutral: (n) => `Gracias por tu opinión, ${n}. Ya estamos trabajando para mejorar.`,
   negative: (n) => `Lo sentimos mucho, ${n}. Por favor contáctanos para poder solucionarlo.`,
 };
@@ -77,7 +87,12 @@ export interface DraftInput {
   recentReplies?: string[];
 }
 
-export function draftFromTemplate({ review, analysis, voice, recentReplies = [] }: DraftInput): string {
+export function draftFromTemplate({
+  review,
+  analysis,
+  voice,
+  recentReplies = [],
+}: DraftInput): string {
   const name = firstName(review.reviewerName);
   const topic = topicPhrase(analysis.topics, analysis.sentiment);
   const language = voice.languageMode === 'english' ? 'en' : analysis.language;
@@ -96,7 +111,9 @@ export function draftFromTemplate({ review, analysis, voice, recentReplies = [] 
           : EN_NEGATIVE;
     const openers = new Set(recentReplies.map((reply) => reply.slice(0, 25)));
     const candidates = variants.map((variant) => variant(name, topic));
-    body = candidates.find((candidate) => !openers.has(candidate.slice(0, 25))) ?? candidates[Math.floor(Math.random() * candidates.length)]!;
+    body =
+      candidates.find((candidate) => !openers.has(candidate.slice(0, 25))) ??
+      candidates[Math.floor(Math.random() * candidates.length)]!;
   }
 
   const signOff = voice.signOff ?? (voice.ownerName ? `– ${voice.ownerName}` : '');

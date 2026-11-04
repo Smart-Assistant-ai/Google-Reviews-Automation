@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { GOOGLE_REPLY_MAX_BYTES, byteLength, emailSchema, hasAtLeast, passwordSchema } from '../src';
+import {
+  GOOGLE_REPLY_MAX_BYTES,
+  byteLength,
+  emailSchema,
+  hasAtLeast,
+  passwordSchema,
+} from '../src';
 
 describe('emailSchema', () => {
   it('stores every email in one form, so lookups and duplicates behave', () => {

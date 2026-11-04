@@ -1,7 +1,17 @@
 import { z } from 'zod';
 import { uuidSchema } from './common';
 
-export const reviewStatusSchema = z.enum(['needs_reply', 'backlog', 'drafting', 'draft', 'posting', 'pending', 'live', 'rejected', 'failed']);
+export const reviewStatusSchema = z.enum([
+  'needs_reply',
+  'backlog',
+  'drafting',
+  'draft',
+  'posting',
+  'pending',
+  'live',
+  'rejected',
+  'failed',
+]);
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 
 export const replySchema = z.object({
@@ -40,13 +50,21 @@ export type ReviewTab = z.infer<typeof reviewTabSchema>;
 export const reviewListQuery = z.object({
   locationId: uuidSchema.optional(),
   tab: reviewTabSchema.default('todo'),
-  stars: z.string().regex(/^[1-5](,[1-5])*$/).optional(),
+  stars: z
+    .string()
+    .regex(/^[1-5](,[1-5])*$/)
+    .optional(),
   q: z.string().trim().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
 
-export const reviewCountsSchema = z.object({ todo: z.number(), posted: z.number(), backlog: z.number(), all: z.number() });
+export const reviewCountsSchema = z.object({
+  todo: z.number(),
+  posted: z.number(),
+  backlog: z.number(),
+  all: z.number(),
+});
 export type ReviewCounts = z.infer<typeof reviewCountsSchema>;
 
 export const reviewListResponse = z.object({
@@ -60,7 +78,9 @@ export type ReviewList = z.infer<typeof reviewListResponse>;
 
 const replyText = z.string().max(20_000);
 export const saveReplyBody = z.object({ text: replyText });
-export const regenerateReplyBody = z.object({ instructions: z.string().trim().max(500).optional() });
+export const regenerateReplyBody = z.object({
+  instructions: z.string().trim().max(500).optional(),
+});
 export const postReplyBody = z.object({ text: replyText.optional() });
 
 export const simulateReviewBody = z.object({
@@ -132,6 +152,13 @@ export const statsResponse = z.object({
     }),
   ),
   sentiment: z.object({ positive: z.number(), neutral: z.number(), negative: z.number() }),
-  topics: z.array(z.object({ topic: z.string(), positive: z.number(), negative: z.number(), neutral: z.number() })),
+  topics: z.array(
+    z.object({
+      topic: z.string(),
+      positive: z.number(),
+      negative: z.number(),
+      neutral: z.number(),
+    }),
+  ),
 });
 export type Stats = z.infer<typeof statsResponse>;

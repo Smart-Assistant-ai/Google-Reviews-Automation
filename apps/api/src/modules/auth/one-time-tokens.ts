@@ -12,9 +12,17 @@ const TTL_MS: Record<OneTimeTokenPurpose, number> = {
 export async function issueToken(userId: string, purpose: OneTimeTokenPurpose): Promise<string> {
   const token = randomToken();
   await prisma.$transaction([
-    prisma.oneTimeToken.updateMany({ where: { userId, purpose, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.oneTimeToken.updateMany({
+      where: { userId, purpose, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
     prisma.oneTimeToken.create({
-      data: { userId, purpose, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + TTL_MS[purpose]) },
+      data: {
+        userId,
+        purpose,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + TTL_MS[purpose]),
+      },
     }),
   ]);
   return token;
@@ -27,7 +35,8 @@ export async function consumeToken(token: string, purpose: OneTimeTokenPurpose):
     where: { tokenHash, purpose, usedAt: null, expiresAt: { gt: new Date() } },
     data: { usedAt: new Date() },
   });
-  if (claimed.count === 0) throw new HttpError(400, 'This link has expired or was already used', 'invalid_token');
+  if (claimed.count === 0)
+    throw new HttpError(400, 'This link has expired or was already used', 'invalid_token');
   const row = await prisma.oneTimeToken.findUniqueOrThrow({ where: { tokenHash } });
   return row.userId;
 }

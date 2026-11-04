@@ -75,18 +75,34 @@ export interface SignupInput {
 export async function signup(input: SignupInput, log: Logger, ip?: string): Promise<string> {
   const email = normalizeEmail(input.email);
   if (await prisma.user.findUnique({ where: { email } })) {
-    throw new HttpError(409, 'An account with this email already exists. Try logging in.', 'email_taken');
+    throw new HttpError(
+      409,
+      'An account with this email already exists. Try logging in.',
+      'email_taken',
+    );
   }
 
   const invitation = input.inviteToken ? await findUsableInvitation(input.inviteToken) : null;
   if (input.inviteToken && !invitation) {
-    throw new HttpError(400, 'This invitation has expired or was already used', 'invalid_invitation');
+    throw new HttpError(
+      400,
+      'This invitation has expired or was already used',
+      'invalid_invitation',
+    );
   }
   if (invitation && invitation.email !== email) {
-    throw new HttpError(400, 'This invitation was sent to a different email address', 'invitation_email_mismatch');
+    throw new HttpError(
+      400,
+      'This invitation was sent to a different email address',
+      'invitation_email_mismatch',
+    );
   }
   if (!invitation && !(await isSignupAllowed(email))) {
-    throw new HttpError(403, 'Signup is by invitation only for now. Please contact us to get access.', 'signup_not_allowed');
+    throw new HttpError(
+      403,
+      'Signup is by invitation only for now. Please contact us to get access.',
+      'signup_not_allowed',
+    );
   }
 
   const passwordHash = await hashPassword(input.password);
@@ -103,19 +119,32 @@ export async function signup(input: SignupInput, log: Logger, ip?: string): Prom
       data: { userId: created.id, provider: 'password', providerUserId: created.id, passwordHash },
     });
     if (invitation) await joinFromInvitation(tx, invitation, created.id);
-    else await createWorkspaceWithOwner(tx, input.businessName ?? defaultWorkspaceName(input.name, email), created.id);
+    else
+      await createWorkspaceWithOwner(
+        tx,
+        input.businessName ?? defaultWorkspaceName(input.name, email),
+        created.id,
+      );
     return created;
   });
 
   await recordAudit({ action: 'auth.signup', actorUserId: user.id, ip });
-  if (!invitation) await sendEmailSafely(verifyEmailMessage(email, await issueToken(user.id, 'verify_email')), log);
+  if (!invitation)
+    await sendEmailSafely(
+      verifyEmailMessage(email, await issueToken(user.id, 'verify_email')),
+      log,
+    );
   return user.id;
 }
 
 export async function login(emailInput: string, password: string, ip?: string): Promise<string> {
   const email = normalizeEmail(emailInput);
   if (loginFailures.isBlocked(email)) {
-    throw new HttpError(429, 'Too many failed attempts. Try again in 15 minutes or reset your password.', 'too_many_attempts');
+    throw new HttpError(
+      429,
+      'Too many failed attempts. Try again in 15 minutes or reset your password.',
+      'too_many_attempts',
+    );
   }
 
   const user = await prisma.user.findUnique({ where: { email }, include: { identities: true } });
@@ -143,14 +172,20 @@ export async function verifyEmail(token: string): Promise<void> {
 export async function resendVerification(userId: string, log: Logger): Promise<void> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   if (user.emailVerifiedAt) return;
-  await sendEmailSafely(verifyEmailMessage(user.email, await issueToken(userId, 'verify_email')), log);
+  await sendEmailSafely(
+    verifyEmailMessage(user.email, await issueToken(userId, 'verify_email')),
+    log,
+  );
 }
 
 // Answers the same either way, so this can't be used to find out who has an account.
 export async function forgotPassword(emailInput: string, log: Logger): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email: normalizeEmail(emailInput) } });
   if (!user || user.deletedAt || user.status !== 'active') return;
-  await sendEmailSafely(resetPasswordMessage(user.email, await issueToken(user.id, 'reset_password')), log);
+  await sendEmailSafely(
+    resetPasswordMessage(user.email, await issueToken(user.id, 'reset_password')),
+    log,
+  );
 }
 
 async function setPassword(userId: string, password: string): Promise<void> {
@@ -179,9 +214,14 @@ export async function changePassword(
   newPassword: string,
   ip?: string,
 ): Promise<void> {
-  const identity = await prisma.authIdentity.findUnique({ where: { userId_provider: { userId, provider: 'password' } } });
+  const identity = await prisma.authIdentity.findUnique({
+    where: { userId_provider: { userId, provider: 'password' } },
+  });
   // A Google-only account has no password yet, so there is nothing to confirm.
-  if (identity?.passwordHash && !(await bcrypt.compare(currentPassword ?? '', identity.passwordHash))) {
+  if (
+    identity?.passwordHash &&
+    !(await bcrypt.compare(currentPassword ?? '', identity.passwordHash))
+  ) {
     throw new HttpError(401, 'Your current password is not right', 'invalid_credentials');
   }
   await setPassword(userId, newPassword);
@@ -193,8 +233,14 @@ export async function updateProfile(userId: string, name: string): Promise<void>
   await prisma.user.update({ where: { id: userId }, data: { name } });
 }
 
-export async function deleteAccount(userId: string, password: string | undefined, ip?: string): Promise<void> {
-  const identity = await prisma.authIdentity.findUnique({ where: { userId_provider: { userId, provider: 'password' } } });
+export async function deleteAccount(
+  userId: string,
+  password: string | undefined,
+  ip?: string,
+): Promise<void> {
+  const identity = await prisma.authIdentity.findUnique({
+    where: { userId_provider: { userId, provider: 'password' } },
+  });
   if (identity?.passwordHash && !(await bcrypt.compare(password ?? '', identity.passwordHash))) {
     throw new HttpError(401, 'Your password is not right', 'invalid_credentials');
   }
@@ -208,7 +254,11 @@ export async function deleteAccount(userId: string, password: string | undefined
       where: { workspaceId: membership.workspaceId, removedAt: null, userId: { not: userId } },
     });
     if (others > 0) {
-      throw new HttpError(409, 'Transfer ownership of your workspace to someone else first', 'transfer_ownership_first');
+      throw new HttpError(
+        409,
+        'Transfer ownership of your workspace to someone else first',
+        'transfer_ownership_first',
+      );
     }
     soloWorkspaces.push(membership.workspaceId);
   }
@@ -217,15 +267,26 @@ export async function deleteAccount(userId: string, password: string | undefined
 
   const now = new Date();
   await prisma.$transaction([
-    prisma.workspace.updateMany({ where: { id: { in: soloWorkspaces } }, data: { deletedAt: now } }),
-    prisma.workspaceMember.updateMany({ where: { userId, removedAt: null }, data: { removedAt: now } }),
+    prisma.workspace.updateMany({
+      where: { id: { in: soloWorkspaces } },
+      data: { deletedAt: now },
+    }),
+    prisma.workspaceMember.updateMany({
+      where: { userId, removedAt: null },
+      data: { removedAt: now },
+    }),
     prisma.authIdentity.deleteMany({ where: { userId } }),
     prisma.oneTimeToken.deleteMany({ where: { userId } }),
     prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
     // Personal details go, and the email is free to sign up again. The row stays for audit history.
     prisma.user.update({
       where: { id: userId },
-      data: { email: `deleted-${userId}@deleted.invalid`, name: null, deletedAt: now, status: 'suspended' },
+      data: {
+        email: `deleted-${userId}@deleted.invalid`,
+        name: null,
+        deletedAt: now,
+        status: 'suspended',
+      },
     }),
   ]);
   await recordAudit({ action: 'auth.account_deleted', actorUserId: userId, ip });

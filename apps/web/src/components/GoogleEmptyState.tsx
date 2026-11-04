@@ -36,10 +36,19 @@ export default function GoogleEmptyState({ connection }: { connection: Connectio
               <Typography variant="h6">Google account connected</Typography>
             </Stack>
             <Typography color="text.secondary">
-              Signed in as <strong>{connection.email}</strong>. There are no reviews to show right now.
+              Signed in as <strong>{connection.email}</strong>. There are no reviews to show right
+              now.
             </Typography>
-            {connection.apiError && <Alert severity="info" sx={{ alignSelf: 'stretch' }}>{connection.apiError}</Alert>}
-            {error && <Alert severity="error" sx={{ alignSelf: 'stretch' }}>{error}</Alert>}
+            {connection.apiError && (
+              <Alert severity="info" sx={{ alignSelf: 'stretch' }}>
+                {connection.apiError}
+              </Alert>
+            )}
+            {error && (
+              <Alert severity="error" sx={{ alignSelf: 'stretch' }}>
+                {error}
+              </Alert>
+            )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button variant="contained" disabled={!!busy} onClick={run('sample', '/sample-data')}>
                 {busy === 'sample' ? 'Loading…' : 'Use sample data'}

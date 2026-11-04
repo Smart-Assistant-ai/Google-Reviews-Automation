@@ -7,6 +7,12 @@ export function getProvider(kind: 'mock' | 'live' = env.GBP_PROVIDER): GbpProvid
   return kind === 'live' ? liveGbpProvider : mockGbpProvider;
 }
 
-export const STAR_TO_NUMBER: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
+export const STAR_TO_NUMBER: Record<string, number> = {
+  ONE: 1,
+  TWO: 2,
+  THREE: 3,
+  FOUR: 4,
+  FIVE: 5,
+};
 
 export * from './types';

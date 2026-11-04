@@ -3,7 +3,13 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { env } from '../../config';
 import { SAMPLE_BUSINESS, SEED_REVIEWS, SIMULATED_POOL, STAR, type SeedReview } from './fixtures';
-import { GoogleApiError, type GbpContext, type GbpProvider, type GbpReply, type GbpReview } from './types';
+import {
+  GoogleApiError,
+  type GbpContext,
+  type GbpProvider,
+  type GbpReply,
+  type GbpReview,
+} from './types';
 
 // A fake Google Business Profile shaped like the real API, including reply moderation, so the whole
 // product works before Google approves access. It lives in memory, and in a file during development.
@@ -66,14 +72,20 @@ function buildAccount(userId: string, index: number, locationCount: number): str
   const locations: Record<string, MockLocation> = {};
   for (let i = 0; i < locationCount; i += 1) {
     const branch = SAMPLE_BUSINESS.branches[i % SAMPLE_BUSINESS.branches.length];
-    const title = locationCount === 1 ? SAMPLE_BUSINESS.title : `${SAMPLE_BUSINESS.title} ${branch}${i >= SAMPLE_BUSINESS.branches.length ? ` ${i + 1}` : ''}`;
+    const title =
+      locationCount === 1
+        ? SAMPLE_BUSINESS.title
+        : `${SAMPLE_BUSINESS.title} ${branch}${i >= SAMPLE_BUSINESS.branches.length ? ` ${i + 1}` : ''}`;
     locations[`${name}/locations/${userId}-${index}-${1001 + i}`] = {
       title,
       address: SAMPLE_BUSINESS.address,
       seedOffset: index * 3 + i * 5,
     };
   }
-  store.accounts[name] = { accountName: index === 0 ? SAMPLE_BUSINESS.group : `${SAMPLE_BUSINESS.group} ${index + 1}`, locations };
+  store.accounts[name] = {
+    accountName: index === 0 ? SAMPLE_BUSINESS.group : `${SAMPLE_BUSINESS.group} ${index + 1}`,
+    locations,
+  };
   return name;
 }
 
@@ -89,12 +101,20 @@ function ensureUser(userId: string, scenario: MockScenario = 'single'): MockUser
   const existing = store.users[userId];
   if (existing && existing.accounts.length > 0) return existing;
   const accounts = SCENARIOS[scenario].map((count, index) => buildAccount(userId, index, count));
-  const user: MockUser = { readError: existing?.readError ?? null, sharedAccounts: existing?.sharedAccounts ?? [], scenario, accounts };
+  const user: MockUser = {
+    readError: existing?.readError ?? null,
+    sharedAccounts: existing?.sharedAccounts ?? [],
+    scenario,
+    accounts,
+  };
   store.users[userId] = user;
   return user;
 }
 
-const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000 - Math.floor(Math.random() * 6) * 3_600_000).toISOString();
+const daysAgo = (days: number) =>
+  new Date(
+    Date.now() - days * 86_400_000 - Math.floor(Math.random() * 6) * 3_600_000,
+  ).toISOString();
 
 function buildReview(locationPath: string, seed: SeedReview, createTime: string): StoredReview {
   const reviewId = randomBytes(10).toString('hex');
@@ -117,7 +137,9 @@ function buildReview(locationPath: string, seed: SeedReview, createTime: string)
 
 function reviewsOf(locationPath: string, location: MockLocation): StoredReview[] {
   if (!location.reviews) {
-    const rotated = SEED_REVIEWS.map((_, i) => SEED_REVIEWS[(i + location.seedOffset) % SEED_REVIEWS.length]!);
+    const rotated = SEED_REVIEWS.map(
+      (_, i) => SEED_REVIEWS[(i + location.seedOffset) % SEED_REVIEWS.length]!,
+    );
     location.reviews = rotated
       .map((seed, i) => ({ seed, days: SEED_REVIEWS[i]!.days ?? 1 }))
       .map(({ seed, days }) => buildReview(locationPath, seed, daysAgo(days)));
@@ -126,14 +148,21 @@ function reviewsOf(locationPath: string, location: MockLocation): StoredReview[]
 }
 
 function moderationVerdict(comment: string): string | null {
-  if (/\b(discounts?|coupons?|vouchers?|promo codes?|free \w+)\b|\d+\s*% off/i.test(comment)) return 'PROMOTIONAL_CONTENT';
+  if (/\b(discounts?|coupons?|vouchers?|promo codes?|free \w+)\b|\d+\s*% off/i.test(comment))
+    return 'PROMOTIONAL_CONTENT';
   if (/(\+?\d[\d\s-]{8,}\d)|https?:\/\//i.test(comment)) return 'CONTACT_INFORMATION';
   return null;
 }
 
 function settle(review: StoredReview): void {
   const reply = review.reviewReply;
-  if (!reply || reply.replyState !== 'PENDING' || reply.moderateAt === undefined || Date.now() < reply.moderateAt) return;
+  if (
+    !reply ||
+    reply.replyState !== 'PENDING' ||
+    reply.moderateAt === undefined ||
+    Date.now() < reply.moderateAt
+  )
+    return;
   const violation = moderationVerdict(reply.comment);
   reply.replyState = violation ? 'REJECTED' : 'APPROVED';
   if (violation) reply.policyViolation = violation;
@@ -163,10 +192,17 @@ function findReview(reviewName: string): StoredReview {
   return review;
 }
 
-function page<T>(items: T[], size: number, pageToken?: string): { items: T[]; nextPageToken?: string } {
+function page<T>(
+  items: T[],
+  size: number,
+  pageToken?: string,
+): { items: T[]; nextPageToken?: string } {
   const start = pageToken ? Number(pageToken) : 0;
   const end = start + size;
-  return { items: items.slice(start, end), nextPageToken: end < items.length ? String(end) : undefined };
+  return {
+    items: items.slice(start, end),
+    nextPageToken: end < items.length ? String(end) : undefined,
+  };
 }
 
 export const mockGbpProvider: GbpProvider = {
@@ -177,7 +213,10 @@ export const mockGbpProvider: GbpProvider = {
   },
 
   async exchangeCode(code) {
-    const { scenario, email } = JSON.parse(Buffer.from(code, 'base64url').toString('utf8')) as { scenario: MockScenario; email: string };
+    const { scenario, email } = JSON.parse(Buffer.from(code, 'base64url').toString('utf8')) as {
+      scenario: MockScenario;
+      email: string;
+    };
     const googleUserId = googleUserIdFor(email);
     ensureUser(googleUserId, scenario);
     save();
@@ -191,7 +230,10 @@ export const mockGbpProvider: GbpProvider = {
   },
 
   async refreshAccessToken() {
-    return { accessToken: `mock-access-${randomBytes(8).toString('hex')}`, expiresAt: new Date(Date.now() + 3_600_000) };
+    return {
+      accessToken: `mock-access-${randomBytes(8).toString('hex')}`,
+      expiresAt: new Date(Date.now() + 3_600_000),
+    };
   },
 
   async revoke() {},
@@ -203,14 +245,19 @@ export const mockGbpProvider: GbpProvider = {
     const result = page(names, PAGE_SIZE, pageToken);
     save();
     return {
-      accounts: result.items.map((name) => ({ name, accountName: store.accounts[name]?.accountName })),
+      accounts: result.items.map((name) => ({
+        name,
+        accountName: store.accounts[name]?.accountName,
+      })),
       nextPageToken: result.nextPageToken,
     };
   },
 
   async listLocations(ctx, accountName, pageToken) {
     assertReadable(ctx);
-    const entries = Object.entries(store.accounts[accountName]?.locations ?? {}).filter(([, location]) => !location.removed);
+    const entries = Object.entries(store.accounts[accountName]?.locations ?? {}).filter(
+      ([, location]) => !location.removed,
+    );
     const result = page(entries, PAGE_SIZE, pageToken);
     return {
       locations: result.items.map(([path, location]) => ({
@@ -267,7 +314,11 @@ export const mockGbp = {
   reset() {
     store = { users: {}, accounts: {} };
   },
-  simulateNewReview(accountName: string, locationName: string, overrides: Partial<SeedReview> = {}): StoredReview {
+  simulateNewReview(
+    accountName: string,
+    locationName: string,
+    overrides: Partial<SeedReview> = {},
+  ): StoredReview {
     const path = `${accountName}/${locationName}`;
     const location = store.accounts[accountName]?.locations[path];
     if (!location) throw new GoogleApiError('Location not found', 404);
@@ -279,7 +330,12 @@ export const mockGbp = {
   },
   failReads(email: string, status: number | null) {
     const userId = googleUserIdFor(email);
-    const user = store.users[userId] ?? { scenario: 'single', accounts: [], sharedAccounts: [], readError: null };
+    const user = store.users[userId] ?? {
+      scenario: 'single',
+      accounts: [],
+      sharedAccounts: [],
+      readError: null,
+    };
     store.users[userId] = { ...user, readError: status };
   },
   addLocation(email: string, title: string) {
@@ -287,16 +343,22 @@ export const mockGbp = {
     const accountName = user.accounts[0]!;
     const account = store.accounts[accountName]!;
     const id = `${googleUserIdFor(email)}-added-${Object.keys(account.locations).length + 1}`;
-    account.locations[`${accountName}/locations/${id}`] = { title, address: SAMPLE_BUSINESS.address, seedOffset: 2 };
+    account.locations[`${accountName}/locations/${id}`] = {
+      title,
+      address: SAMPLE_BUSINESS.address,
+      seedOffset: 2,
+    };
   },
   removeLocations(email: string) {
     for (const name of ensureUser(googleUserIdFor(email)).accounts) {
-      for (const location of Object.values(store.accounts[name]!.locations)) location.removed = true;
+      for (const location of Object.values(store.accounts[name]!.locations))
+        location.removed = true;
     }
   },
   restoreLocations(email: string) {
     for (const name of ensureUser(googleUserIdFor(email)).accounts) {
-      for (const location of Object.values(store.accounts[name]!.locations)) location.removed = false;
+      for (const location of Object.values(store.accounts[name]!.locations))
+        location.removed = false;
     }
   },
   shareLocation(fromEmail: string, toEmail: string) {

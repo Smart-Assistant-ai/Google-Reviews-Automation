@@ -51,7 +51,12 @@ const EXPECTED_PUBLIC = [
 
 async function invite(owner: TestUser, role: 'admin' | 'member') {
   const email = uniqueEmail(role);
-  await app.inject({ method: 'POST', url: `/api/v1/workspaces/${owner.workspaceId}/invitations`, headers: owner.headers, payload: { email, role } });
+  await app.inject({
+    method: 'POST',
+    url: `/api/v1/workspaces/${owner.workspaceId}/invitations`,
+    headers: owner.headers,
+    payload: { email, role },
+  });
   return signup(app, { email, inviteToken: tokenFromEmail(email, '/invite') });
 }
 

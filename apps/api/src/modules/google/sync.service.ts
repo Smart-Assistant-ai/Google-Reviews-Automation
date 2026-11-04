@@ -6,16 +6,25 @@ import { getContext, markNeedsReconnect } from './connection.service';
 // Older reviews go to the backlog and aren't drafted automatically.
 export const AUTO_DRAFT_WINDOW_DAYS = 30;
 
-const GOOGLE_STATE_TO_LOCAL = { PENDING: 'pending_google', APPROVED: 'live', REJECTED: 'rejected' } as const;
+const GOOGLE_STATE_TO_LOCAL = {
+  PENDING: 'pending_google',
+  APPROVED: 'live',
+  REJECTED: 'rejected',
+} as const;
 
-const reviewIdOf = (review: GbpReview) => review.reviewId ?? review.name.split('/reviews/')[1] ?? review.name;
+const reviewIdOf = (review: GbpReview) =>
+  review.reviewId ?? review.name.split('/reviews/')[1] ?? review.name;
 
 export const reviewResourceName = (
   location: { googleAccountName: string; googleLocationName: string },
   googleReviewId: string,
 ) => `${location.googleAccountName}/${location.googleLocationName}/reviews/${googleReviewId}`;
 
-async function applyGoogleReply(workspaceId: string, reviewId: string, reply: GbpReply): Promise<void> {
+async function applyGoogleReply(
+  workspaceId: string,
+  reviewId: string,
+  reply: GbpReply,
+): Promise<void> {
   const googleState = reply.replyState ?? 'APPROVED';
   const state = GOOGLE_STATE_TO_LOCAL[googleState] ?? 'live';
   const local = await prisma.reply.findUnique({ where: { reviewId } });
@@ -38,7 +47,11 @@ async function applyGoogleReply(workspaceId: string, reviewId: string, reply: Gb
   if (['pending_google', 'live', 'rejected'].includes(local.state)) {
     await prisma.reply.update({
       where: { id: local.id },
-      data: { state, googleReplyState: googleState, policyViolation: reply.policyViolation ?? null },
+      data: {
+        state,
+        googleReplyState: googleState,
+        policyViolation: reply.policyViolation ?? null,
+      },
     });
   }
 }
@@ -55,7 +68,9 @@ async function importReview(
 ): Promise<boolean> {
   const googleReviewId = reviewIdOf(review);
   const values = {
-    reviewerName: review.reviewer?.isAnonymous ? 'Anonymous' : (review.reviewer?.displayName ?? null),
+    reviewerName: review.reviewer?.isAnonymous
+      ? 'Anonymous'
+      : (review.reviewer?.displayName ?? null),
     reviewerPhotoUrl: review.reviewer?.profilePhotoUrl ?? null,
     starRating: STAR_TO_NUMBER[review.starRating] ?? 0,
     comment: review.comment ?? null,
@@ -72,14 +87,29 @@ async function importReview(
   });
   const row = existing
     ? await prisma.review.update({ where: { id: existing.id }, data: values })
-    : await prisma.review.create({ data: { ...values, workspaceId: location.workspaceId, locationId: location.id, googleReviewId } });
+    : await prisma.review.create({
+        data: {
+          ...values,
+          workspaceId: location.workspaceId,
+          locationId: location.id,
+          googleReviewId,
+        },
+      });
 
   if (review.reviewReply) {
     await applyGoogleReply(location.workspaceId, row.id, review.reviewReply);
   } else if (new Date(review.createTime).getTime() >= cutoff) {
     const hasReply = await prisma.reply.count({ where: { reviewId: row.id } });
     // The drafting row is the to-do item. The job runner picks it up, so a restart loses nothing.
-    if (!hasReply) await prisma.reply.create({ data: { workspaceId: location.workspaceId, reviewId: row.id, source: 'ai', state: 'drafting' } });
+    if (!hasReply)
+      await prisma.reply.create({
+        data: {
+          workspaceId: location.workspaceId,
+          reviewId: row.id,
+          source: 'ai',
+          state: 'drafting',
+        },
+      });
   }
   return !existing;
 }
@@ -89,7 +119,10 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
   const location = await prisma.location.findUnique({ where: { id: locationId } });
   if (!location || location.status !== 'active') return { fetched: 0, created: 0 };
 
-  await prisma.location.update({ where: { id: locationId }, data: { lastSyncAttemptAt: new Date() } });
+  await prisma.location.update({
+    where: { id: locationId },
+    data: { lastSyncAttemptAt: new Date() },
+  });
   let fetched = 0;
   let created = 0;
   try {
@@ -97,26 +130,43 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
     const cutoff = Date.now() - AUTO_DRAFT_WINDOW_DAYS * 86_400_000;
     let pageToken: string | undefined;
     do {
-      const page = await provider.listReviews(ctx, location.googleAccountName, location.googleLocationName, pageToken);
+      const page = await provider.listReviews(
+        ctx,
+        location.googleAccountName,
+        location.googleLocationName,
+        pageToken,
+      );
       for (const review of page.reviews ?? []) {
         fetched += 1;
         if (await importReview(location, review, cutoff)) created += 1;
       }
       pageToken = page.nextPageToken;
     } while (pageToken);
-    await prisma.location.update({ where: { id: locationId }, data: { lastSyncedAt: new Date(), lastSyncError: null } });
-    await prisma.googleConnection.updateMany({ where: { id: location.connectionId, apiError: { not: null } }, data: { apiError: null } });
+    await prisma.location.update({
+      where: { id: locationId },
+      data: { lastSyncedAt: new Date(), lastSyncError: null },
+    });
+    await prisma.googleConnection.updateMany({
+      where: { id: location.connectionId, apiError: { not: null } },
+      data: { apiError: null },
+    });
   } catch (err) {
     const status = (err as { statusCode?: number }).statusCode;
     const message = err instanceof Error ? err.message : 'Sync failed';
     if (status === 401) {
       await markNeedsReconnect(location.connectionId);
     } else if (status === 403 || status === 404) {
-      await prisma.location.update({ where: { id: locationId }, data: { status: 'access_lost', lastSyncError: message } });
+      await prisma.location.update({
+        where: { id: locationId },
+        data: { status: 'access_lost', lastSyncError: message },
+      });
     } else if (status === 429) {
       await prisma.googleConnection.update({
         where: { id: location.connectionId },
-        data: { apiError: 'Google has not approved API access for this project yet, so we cannot read reviews.' },
+        data: {
+          apiError:
+            'Google has not approved API access for this project yet, so we cannot read reviews.',
+        },
       });
     } else {
       await prisma.location.update({ where: { id: locationId }, data: { lastSyncError: message } });

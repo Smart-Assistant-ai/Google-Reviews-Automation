@@ -3,7 +3,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
 import { sentEmails } from '../../src/providers/email/mock';
-import { PASSWORD, bearer, refreshCookie, signup, testApp, tokenFromEmail, uniqueEmail } from '../helpers/app';
+import {
+  PASSWORD,
+  bearer,
+  refreshCookie,
+  signup,
+  testApp,
+  tokenFromEmail,
+  uniqueEmail,
+} from '../helpers/app';
 import { resetDb } from '../helpers/db';
 
 let app: FastifyInstance;
@@ -21,16 +29,34 @@ beforeEach(async () => {
 const post = (url: string, payload?: object, headers?: Record<string, string>) =>
   app.inject({ method: 'POST', url: `/api/v1/auth${url}`, payload, headers });
 const refreshWith = (token: string, headers: Record<string, string> = {}) =>
-  app.inject({ method: 'POST', url: '/api/v1/auth/refresh', cookies: { rp_refresh: token }, headers });
+  app.inject({
+    method: 'POST',
+    url: '/api/v1/auth/refresh',
+    cookies: { rp_refresh: token },
+    headers,
+  });
 const me = (token: string) => app.inject({ url: '/api/v1/auth/me', headers: bearer(token) });
 
 describe('signup', () => {
   it('creates the user, a workspace they own, and logs them in', async () => {
-    const res = await post('/signup', { email: 'Owner@Business.test', password: PASSWORD, name: 'Sam', businessName: 'Corner Shop' });
+    const res = await post('/signup', {
+      email: 'Owner@Business.test',
+      password: PASSWORD,
+      name: 'Sam',
+      businessName: 'Corner Shop',
+    });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.user).toMatchObject({ email: 'owner@business.test', name: 'Sam', emailVerified: false, hasPassword: true, hasGoogle: false });
-    expect(body.workspaces).toEqual([expect.objectContaining({ name: 'Corner Shop', role: 'owner' })]);
+    expect(body.user).toMatchObject({
+      email: 'owner@business.test',
+      name: 'Sam',
+      emailVerified: false,
+      hasPassword: true,
+      hasGoogle: false,
+    });
+    expect(body.workspaces).toEqual([
+      expect.objectContaining({ name: 'Corner Shop', role: 'owner' }),
+    ]);
     expect(body.accessToken).toBeTruthy();
   });
 
@@ -116,7 +142,8 @@ describe('login', () => {
 
   it('blocks an email after repeated failures, even with the right password', async () => {
     const user = await signup(app);
-    for (let i = 0; i < 10; i += 1) await post('/login', { email: user.email, password: 'wrong-password' });
+    for (let i = 0; i < 10; i += 1)
+      await post('/login', { email: user.email, password: 'wrong-password' });
     const res = await post('/login', { email: user.email, password: PASSWORD });
     expect(res.statusCode).toBe(429);
     expect(res.json().error.code).toBe('too_many_attempts');
@@ -131,7 +158,9 @@ describe('login', () => {
   it('records logins in the audit log without the password', async () => {
     const user = await signup(app);
     await post('/login', { email: user.email, password: PASSWORD });
-    const row = await prisma.auditLog.findFirstOrThrow({ where: { actorUserId: user.id, action: 'auth.login' } });
+    const row = await prisma.auditLog.findFirstOrThrow({
+      where: { actorUserId: user.id, action: 'auth.login' },
+    });
     expect(JSON.stringify(row)).not.toContain(PASSWORD);
   });
 });
@@ -160,7 +189,10 @@ describe('sessions', () => {
     const fresh = refreshCookie(rotated)!;
 
     const session = await prisma.session.findFirstOrThrow({ where: { userId: user.id } });
-    await prisma.session.update({ where: { id: session.id }, data: { rotatedAt: new Date(Date.now() - 60_000) } });
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { rotatedAt: new Date(Date.now() - 60_000) },
+    });
 
     expect((await refreshWith(user.refreshToken)).statusCode).toBe(401);
     expect((await refreshWith(fresh)).statusCode).toBe(401);
@@ -172,7 +204,9 @@ describe('sessions', () => {
     const session = await prisma.session.findFirstOrThrow({ where: { userId: user.id } });
     expect((await refreshWith(`${session.id}.made-up`)).statusCode).toBe(401);
     expect((await refreshWith('rubbish')).statusCode).toBe(401);
-    expect((await app.inject({ method: 'POST', url: '/api/v1/auth/refresh' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'POST', url: '/api/v1/auth/refresh' })).statusCode).toBe(
+      401,
+    );
   });
 
   it('refuses a refresh from another website', async () => {
@@ -183,7 +217,10 @@ describe('sessions', () => {
 
   it('refuses an expired session', async () => {
     const user = await signup(app);
-    await prisma.session.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    await prisma.session.updateMany({
+      where: { userId: user.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
     expect((await refreshWith(user.refreshToken)).statusCode).toBe(401);
     expect((await me(user.accessToken)).statusCode).toBe(401);
   });
@@ -191,7 +228,11 @@ describe('sessions', () => {
   it('logout ends the session straight away, even though the access token has not expired', async () => {
     const user = await signup(app);
     expect((await me(user.accessToken)).statusCode).toBe(200);
-    const res = await app.inject({ method: 'POST', url: '/api/v1/auth/logout', cookies: { rp_refresh: user.refreshToken } });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      cookies: { rp_refresh: user.refreshToken },
+    });
     expect(res.statusCode).toBe(200);
     expect((await me(user.accessToken)).statusCode).toBe(401);
     expect((await refreshWith(user.refreshToken)).statusCode).toBe(401);
@@ -231,7 +272,10 @@ describe('email verification', () => {
   it('refuses an expired link', async () => {
     const user = await signup(app);
     const token = tokenFromEmail(user.email, '/verify-email');
-    await prisma.oneTimeToken.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    await prisma.oneTimeToken.updateMany({
+      where: { userId: user.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
     expect((await post('/verify-email', { token })).statusCode).toBe(400);
   });
 
@@ -274,13 +318,17 @@ describe('forgot and reset password', () => {
     await post('/forgot-password', { email: user.email });
     const token = tokenFromEmail(user.email, '/reset-password');
     await post('/reset-password', { token, password: 'a-brand-new-password' });
-    expect((await post('/reset-password', { token, password: 'another-new-password' })).statusCode).toBe(400);
+    expect(
+      (await post('/reset-password', { token, password: 'another-new-password' })).statusCode,
+    ).toBe(400);
   });
 
   it('a verification link cannot be used to reset a password', async () => {
     const user = await signup(app);
     const token = tokenFromEmail(user.email, '/verify-email');
-    expect((await post('/reset-password', { token, password: 'a-brand-new-password' })).statusCode).toBe(400);
+    expect(
+      (await post('/reset-password', { token, password: 'a-brand-new-password' })).statusCode,
+    ).toBe(400);
   });
 });
 
@@ -288,9 +336,17 @@ describe('account', () => {
   it('changes the password when given the current one, and ends other devices only', async () => {
     const user = await signup(app);
     const other = await post('/login', { email: user.email, password: PASSWORD });
-    const wrong = await post('/change-password', { currentPassword: 'nope-nope-nope', newPassword: 'a-brand-new-password' }, user.headers);
+    const wrong = await post(
+      '/change-password',
+      { currentPassword: 'nope-nope-nope', newPassword: 'a-brand-new-password' },
+      user.headers,
+    );
     expect(wrong.statusCode).toBe(401);
-    const res = await post('/change-password', { currentPassword: PASSWORD, newPassword: 'a-brand-new-password' }, user.headers);
+    const res = await post(
+      '/change-password',
+      { currentPassword: PASSWORD, newPassword: 'a-brand-new-password' },
+      user.headers,
+    );
     expect(res.statusCode).toBe(200);
     expect((await me(user.accessToken)).statusCode).toBe(200);
     expect((await me(other.json().accessToken)).statusCode).toBe(401);
@@ -298,13 +354,23 @@ describe('account', () => {
 
   it('updates the name', async () => {
     const user = await signup(app);
-    const res = await app.inject({ method: 'PATCH', url: '/api/v1/auth/me', headers: user.headers, payload: { name: 'New Name' } });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      headers: user.headers,
+      payload: { name: 'New Name' },
+    });
     expect(res.json().user.name).toBe('New Name');
   });
 
   it('deletes an account: it cannot log in, and the email is free again', async () => {
     const user = await signup(app);
-    const res = await app.inject({ method: 'DELETE', url: '/api/v1/auth/me', headers: user.headers, payload: { password: PASSWORD } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/auth/me',
+      headers: user.headers,
+      payload: { password: PASSWORD },
+    });
     expect(res.statusCode).toBe(200);
     expect((await me(user.accessToken)).statusCode).toBe(401);
     expect((await post('/login', { email: user.email, password: PASSWORD })).statusCode).toBe(401);
@@ -313,7 +379,12 @@ describe('account', () => {
 
   it('needs the password to delete an account', async () => {
     const user = await signup(app);
-    const res = await app.inject({ method: 'DELETE', url: '/api/v1/auth/me', headers: user.headers, payload: { password: 'wrong-password' } });
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/auth/me',
+      headers: user.headers,
+      payload: { password: 'wrong-password' },
+    });
     expect(res.statusCode).toBe(401);
   });
 });
@@ -349,7 +420,10 @@ describe('Google sign-in', () => {
     expect(res.headers.location).toBe(`${env.APP_URL}/auth/callback`);
     expect(refreshCookie(res)).toBeTruthy();
 
-    const user = await prisma.user.findUniqueOrThrow({ where: { email }, include: { memberships: true, identities: true } });
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email },
+      include: { memberships: true, identities: true },
+    });
     expect(user.emailVerifiedAt).not.toBeNull();
     expect(user.memberships[0]?.role).toBe('owner');
     expect(user.identities[0]).toMatchObject({ provider: 'google', providerUserId: 'google-1' });
@@ -365,7 +439,9 @@ describe('Google sign-in', () => {
 
   it('refuses a callback without the matching browser cookie', async () => {
     const { state } = await start();
-    const res = await app.inject({ url: `/api/v1/auth/google/callback?code=${code({ sub: 'x', email: uniqueEmail() })}&state=${encodeURIComponent(state)}` });
+    const res = await app.inject({
+      url: `/api/v1/auth/google/callback?code=${code({ sub: 'x', email: uniqueEmail() })}&state=${encodeURIComponent(state)}`,
+    });
     expect(errorOf(res)).toBe('google_state');
     expect(await prisma.user.count()).toBe(0);
   });
@@ -435,7 +511,9 @@ describe('Google sign-in', () => {
     const headers = bearer(refreshed.json().accessToken);
     const change = await post('/change-password', { newPassword: 'a-brand-new-password' }, headers);
     expect(change.statusCode).toBe(200);
-    expect((await post('/login', { email, password: 'a-brand-new-password' })).statusCode).toBe(200);
+    expect((await post('/login', { email, password: 'a-brand-new-password' })).statusCode).toBe(
+      200,
+    );
   });
 });
 

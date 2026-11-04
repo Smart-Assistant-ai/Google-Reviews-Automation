@@ -15,7 +15,9 @@ export class CallWindow {
         this.calls.push(now);
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, this.windowMs - (now - this.calls[0]!) + 1));
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.windowMs - (now - this.calls[0]!) + 1),
+      );
     }
   }
 }

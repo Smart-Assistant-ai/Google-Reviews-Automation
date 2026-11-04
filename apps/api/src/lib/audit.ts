@@ -8,7 +8,10 @@ export function maskSecrets<T>(value: T): T {
   if (Array.isArray(value)) return value.map(maskSecrets) as T;
   if (value && typeof value === 'object' && !(value instanceof Date)) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, inner]) => [key, SECRET_KEY.test(key) ? '[redacted]' : maskSecrets(inner)]),
+      Object.entries(value).map(([key, inner]) => [
+        key,
+        SECRET_KEY.test(key) ? '[redacted]' : maskSecrets(inner),
+      ]),
     ) as T;
   }
   return value;
@@ -25,7 +28,10 @@ export interface AuditEntry {
   ip?: string | null;
 }
 
-export async function recordAudit(entry: AuditEntry, db: Prisma.TransactionClient = prisma): Promise<void> {
+export async function recordAudit(
+  entry: AuditEntry,
+  db: Prisma.TransactionClient = prisma,
+): Promise<void> {
   await db.auditLog.create({
     data: { ...entry, meta: maskSecrets(entry.meta ?? {}) as Prisma.InputJsonValue },
   });

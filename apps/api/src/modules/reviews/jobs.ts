@@ -25,7 +25,10 @@ export async function syncDueLocations(): Promise<void> {
     where: {
       status: 'active',
       connection: { status: 'healthy' },
-      OR: [{ lastSyncAttemptAt: null }, { lastSyncAttemptAt: { lte: new Date(Date.now() - SYNC_EVERY) } }],
+      OR: [
+        { lastSyncAttemptAt: null },
+        { lastSyncAttemptAt: { lte: new Date(Date.now() - SYNC_EVERY) } },
+      ],
     },
     orderBy: { lastSyncAttemptAt: { sort: 'asc', nulls: 'first' } },
     take: SYNC_BATCH,
@@ -54,7 +57,9 @@ export async function runDraftQueue(): Promise<void> {
             where: { id: reply.id },
             data: {
               draftAttempts: attempts,
-              ...(gaveUp ? { state: 'failed', error: `Could not write a draft: ${(err as Error).message}` } : {}),
+              ...(gaveUp
+                ? { state: 'failed', error: `Could not write a draft: ${(err as Error).message}` }
+                : {}),
             },
           });
         }
@@ -75,11 +80,15 @@ export async function checkPendingReplies(): Promise<void> {
   for (const reply of pending) {
     const { location } = reply.review;
     const fake = usesFakeData(location.connection);
-    const recentlyChecked = reply.lastCheckedAt && Date.now() - reply.lastCheckedAt.getTime() < LIVE_CHECK_EVERY;
+    const recentlyChecked =
+      reply.lastCheckedAt && Date.now() - reply.lastCheckedAt.getTime() < LIVE_CHECK_EVERY;
     if (!fake && recentlyChecked) continue;
     try {
       const { provider, ctx } = await getContext(location.connectionId);
-      const review = await provider.getReview(ctx, reviewResourceName(location, reply.review.googleReviewId));
+      const review = await provider.getReview(
+        ctx,
+        reviewResourceName(location, reply.review.googleReviewId),
+      );
       const google = review.reviewReply;
       if (!google || google.replyState === 'PENDING') {
         await prisma.reply.update({ where: { id: reply.id }, data: { lastCheckedAt: new Date() } });
@@ -95,7 +104,8 @@ export async function checkPendingReplies(): Promise<void> {
         },
       });
     } catch (err) {
-      if ((err as { statusCode?: number }).statusCode === 401) await markNeedsReconnect(location.connectionId);
+      if ((err as { statusCode?: number }).statusCode === 401)
+        await markNeedsReconnect(location.connectionId);
       await prisma.reply.update({ where: { id: reply.id }, data: { lastCheckedAt: new Date() } });
       console.warn('[moderation-check]', reply.id, (err as Error).message);
     }
@@ -111,7 +121,10 @@ export async function recoverStuckReplies(): Promise<void> {
 }
 
 export async function rescanConnections(): Promise<void> {
-  const connections = await prisma.googleConnection.findMany({ where: { status: 'healthy' }, select: { id: true } });
+  const connections = await prisma.googleConnection.findMany({
+    where: { status: 'healthy' },
+    select: { id: true },
+  });
   for (const connection of connections) {
     try {
       await scanConnection(connection.id);
@@ -121,7 +134,10 @@ export async function rescanConnections(): Promise<void> {
   }
 }
 
-async function emailAdmins(workspaceId: string, build: (to: string) => ReturnType<typeof renderEmail>): Promise<void> {
+async function emailAdmins(
+  workspaceId: string,
+  build: (to: string) => ReturnType<typeof renderEmail>,
+): Promise<void> {
   for (const to of await adminEmails(workspaceId)) await sendEmail(build(to));
 }
 
@@ -130,7 +146,9 @@ async function emailAdmins(workspaceId: string, build: (to: string) => ReturnTyp
 export async function notifyProblems(): Promise<void> {
   const settingsUrl = `${env.APP_URL}/settings`;
 
-  const dead = await prisma.googleConnection.findMany({ where: { status: 'needs_reconnect', reconnectNotifiedAt: null } });
+  const dead = await prisma.googleConnection.findMany({
+    where: { status: 'needs_reconnect', reconnectNotifiedAt: null },
+  });
   for (const connection of dead) {
     await emailAdmins(connection.workspaceId, (to) =>
       renderEmail({
@@ -141,10 +159,15 @@ export async function notifyProblems(): Promise<void> {
         actionUrl: settingsUrl,
       }),
     );
-    await prisma.googleConnection.update({ where: { id: connection.id }, data: { reconnectNotifiedAt: new Date() } });
+    await prisma.googleConnection.update({
+      where: { id: connection.id },
+      data: { reconnectNotifiedAt: new Date() },
+    });
   }
 
-  const lost = await prisma.location.findMany({ where: { status: 'access_lost', accessLostNotifiedAt: null } });
+  const lost = await prisma.location.findMany({
+    where: { status: 'access_lost', accessLostNotifiedAt: null },
+  });
   for (const location of lost) {
     await emailAdmins(location.workspaceId, (to) =>
       renderEmail({
@@ -155,7 +178,10 @@ export async function notifyProblems(): Promise<void> {
         actionUrl: settingsUrl,
       }),
     );
-    await prisma.location.update({ where: { id: location.id }, data: { accessLostNotifiedAt: new Date() } });
+    await prisma.location.update({
+      where: { id: location.id },
+      data: { accessLostNotifiedAt: new Date() },
+    });
   }
 }
 
@@ -164,7 +190,12 @@ export const reviewJobs: JobDefinition[] = [
   { name: 'draft-replies', everyMs: 5000, run: runDraftQueue },
   { name: 'check-moderation', everyMs: 5000, run: checkPendingReplies },
   { name: 'recover-stuck-replies', everyMs: MINUTE, run: recoverStuckReplies },
-  { name: 'rescan-connections', everyMs: 6 * 60 * MINUTE, leaseMs: 30 * MINUTE, run: rescanConnections },
+  {
+    name: 'rescan-connections',
+    everyMs: 6 * 60 * MINUTE,
+    leaseMs: 30 * MINUTE,
+    run: rescanConnections,
+  },
   { name: 'notify-problems', everyMs: 5 * MINUTE, run: notifyProblems },
   {
     name: 'purge-content',

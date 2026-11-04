@@ -1,6 +1,15 @@
 import { hasAtLeast, type Voice, type VoiceResponse } from '@replypilot/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Box, Button, CircularProgress, MenuItem, Snackbar, Stack, TextField } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  MenuItem,
+  Snackbar,
+  Stack,
+  TextField,
+} from '@mui/material';
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { useVoice, useWorkspaceId, wsPath } from '../../api/hooks';
@@ -46,7 +55,10 @@ export default function VoiceTab() {
   };
   const reset = async () => {
     try {
-      accept(await api.delete<VoiceResponse>(wsPath(workspaceId, `/voice/locations/${locationId}`)), 'Using the workspace voice');
+      accept(
+        await api.delete<VoiceResponse>(wsPath(workspaceId, `/voice/locations/${locationId}`)),
+        'Using the workspace voice',
+      );
     } catch (err) {
       setError((err as Error).message);
     }
@@ -55,26 +67,52 @@ export default function VoiceTab() {
   return (
     <Stack spacing={3}>
       <Alert severity="info" variant="outlined">
-        Drafts are written by {data.drafter === 'openai' ? 'AI' : 'the built-in offline drafter, because no AI key is set'}.
-        Changes apply to new drafts. Use “Rewrite” in the inbox to refresh existing ones.
+        Drafts are written by{' '}
+        {data.drafter === 'openai'
+          ? 'AI'
+          : 'the built-in offline drafter, because no AI key is set'}
+        . Changes apply to new drafts. Use “Rewrite” in the inbox to refresh existing ones.
       </Alert>
       {error && <Alert severity="error">{error}</Alert>}
       {locations.length > 0 && (
-        <TextField select label="Voice for" value={scope} onChange={(e) => setScope(e.target.value)} sx={{ maxWidth: 360 }}>
+        <TextField
+          select
+          label="Voice for"
+          value={scope}
+          onChange={(e) => setScope(e.target.value)}
+          sx={{ maxWidth: 360 }}
+        >
           {isAdmin && <MenuItem value="default">All locations (default)</MenuItem>}
-          {locations.map((l) => <MenuItem key={l.id} value={l.id}>{l.title}</MenuItem>)}
+          {locations.map((l) => (
+            <MenuItem key={l.id} value={l.id}>
+              {l.title}
+            </MenuItem>
+          ))}
         </TextField>
       )}
-      {locationId && !data.isOverride && <Alert severity="info" variant="outlined">This location uses the workspace voice. Saving gives it its own.</Alert>}
+      {locationId && !data.isOverride && (
+        <Alert severity="info" variant="outlined">
+          This location uses the workspace voice. Saving gives it its own.
+        </Alert>
+      )}
       <VoiceForm value={voice} onChange={setVoice} disabled={!canEdit} />
       {canEdit && (
         <Stack direction="row" spacing={1.5}>
-          <Button variant="contained" onClick={() => void save()}>Save voice</Button>
-          {locationId && data.isOverride && <Button onClick={() => void reset()}>Use the workspace voice</Button>}
+          <Button variant="contained" onClick={() => void save()}>
+            Save voice
+          </Button>
+          {locationId && data.isOverride && (
+            <Button onClick={() => void reset()}>Use the workspace voice</Button>
+          )}
         </Stack>
       )}
       <Box>
-        <Snackbar open={!!saved} autoHideDuration={2500} onClose={() => setSaved('')} message={saved} />
+        <Snackbar
+          open={!!saved}
+          autoHideDuration={2500}
+          onClose={() => setSaved('')}
+          message={saved}
+        />
       </Box>
     </Stack>
   );

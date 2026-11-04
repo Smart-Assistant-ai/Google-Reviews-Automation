@@ -16,7 +16,8 @@
     "db:deploy": "pnpm --filter @replypilot/api db:deploy",
     "db:generate": "pnpm --filter @replypilot/api db:generate",
     "seed": "pnpm --filter @replypilot/api seed",
-    "allow-signup": "pnpm --filter @replypilot/api allow-signup"
+    "allow-signup": "pnpm --filter @replypilot/api allow-signup",
+    "format:check": "prettier --check ."
   },
   "pnpm": {
     "onlyBuiltDependencies": [

@@ -1,5 +1,13 @@
 import type { InvitationPreview } from '@replypilot/shared';
-import { Alert, Button, Card, CardContent, CircularProgress, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -16,7 +24,10 @@ export default function AcceptInvite() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.get<InvitationPreview>('/invitations/preview', { token }).then(setPreview).catch((err: Error) => setError(err.message));
+    api
+      .get<InvitationPreview>('/invitations/preview', { token })
+      .then(setPreview)
+      .catch((err: Error) => setError(err.message));
   }, [token]);
 
   const accept = async () => {
@@ -39,25 +50,56 @@ export default function AcceptInvite() {
     <AuthLayout>
       <Card>
         <CardContent sx={{ p: { xs: 3, md: 5 } }}>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           {(loading || (!preview && !error)) && <CircularProgress />}
           {preview && !loading && (
             <Stack spacing={2} alignItems="flex-start">
               <Typography variant="h5">Join {preview.workspaceName}</Typography>
               <Typography color="text.secondary">
-                This invitation is for <strong>{preview.email}</strong>, as {preview.role === 'admin' ? 'an admin' : 'a team member'}.
+                This invitation is for <strong>{preview.email}</strong>, as{' '}
+                {preview.role === 'admin' ? 'an admin' : 'a team member'}.
               </Typography>
               {rightPerson ? (
-                <Button variant="contained" size="large" disabled={busy} onClick={() => void accept()}>Accept invitation</Button>
+                <Button
+                  variant="contained"
+                  size="large"
+                  disabled={busy}
+                  onClick={() => void accept()}
+                >
+                  Accept invitation
+                </Button>
               ) : session ? (
                 <>
-                  <Alert severity="warning" sx={{ alignSelf: 'stretch' }}>You&apos;re logged in as {session.user.email}. Log out to accept this invitation.</Alert>
-                  <Button variant="outlined" onClick={() => void logout()}>Log out</Button>
+                  <Alert severity="warning" sx={{ alignSelf: 'stretch' }}>
+                    You&apos;re logged in as {session.user.email}. Log out to accept this
+                    invitation.
+                  </Alert>
+                  <Button variant="outlined" onClick={() => void logout()}>
+                    Log out
+                  </Button>
                 </>
               ) : preview.accountExists ? (
-                <Button component={RouterLink} to={`/login${query}`} variant="contained" size="large">Log in to accept</Button>
+                <Button
+                  component={RouterLink}
+                  to={`/login${query}`}
+                  variant="contained"
+                  size="large"
+                >
+                  Log in to accept
+                </Button>
               ) : (
-                <Button component={RouterLink} to={`/signup${query}`} variant="contained" size="large">Create your account</Button>
+                <Button
+                  component={RouterLink}
+                  to={`/signup${query}`}
+                  variant="contained"
+                  size="large"
+                >
+                  Create your account
+                </Button>
               )}
             </Stack>
           )}

@@ -15,7 +15,10 @@ export interface SessionMeta {
 const expiry = () => new Date(Date.now() + SESSION_DAYS * 86_400_000);
 const invalid = () => new HttpError(401, 'Please log in again', 'unauthorized');
 
-export async function createSession(userId: string, meta: SessionMeta): Promise<{ session: Session; refreshToken: string }> {
+export async function createSession(
+  userId: string,
+  meta: SessionMeta,
+): Promise<{ session: Session; refreshToken: string }> {
   const secret = randomToken();
   const session = await prisma.session.create({
     data: {
@@ -42,7 +45,10 @@ export async function rotateSession(
 ): Promise<{ session: Session; refreshToken: string | null }> {
   const parts = parse(refreshToken);
   if (!parts) throw invalid();
-  const session = await prisma.session.findUnique({ where: { id: parts.sessionId }, include: { user: true } });
+  const session = await prisma.session.findUnique({
+    where: { id: parts.sessionId },
+    include: { user: true },
+  });
   if (!session || session.revokedAt || session.expiresAt <= new Date()) throw invalid();
   if (session.user.deletedAt || session.user.status !== 'active') throw invalid();
 
@@ -52,7 +58,12 @@ export async function rotateSession(
     const age = Date.now() - (session.rotatedAt?.getTime() ?? 0);
     if (age <= ROTATION_GRACE_MS) return { session, refreshToken: null };
     await prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
-    await recordAudit({ action: 'auth.refresh_reuse', actorUserId: session.userId, targetType: 'session', targetId: session.id });
+    await recordAudit({
+      action: 'auth.refresh_reuse',
+      actorUserId: session.userId,
+      targetType: 'session',
+      targetId: session.id,
+    });
     throw invalid();
   }
   if (!safeEqual(presented, session.refreshTokenHash)) throw invalid();
@@ -83,12 +94,17 @@ export async function revokeByToken(refreshToken: string | undefined): Promise<v
   const matches =
     safeEqual(hash, session.refreshTokenHash) ||
     (session.previousTokenHash !== null && safeEqual(hash, session.previousTokenHash));
-  if (matches) await prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
+  if (matches)
+    await prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
 }
 
 export async function revokeAllSessions(userId: string, exceptSessionId?: string): Promise<void> {
   await prisma.session.updateMany({
-    where: { userId, revokedAt: null, ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}) },
+    where: {
+      userId,
+      revokedAt: null,
+      ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}),
+    },
     data: { revokedAt: new Date() },
   });
 }

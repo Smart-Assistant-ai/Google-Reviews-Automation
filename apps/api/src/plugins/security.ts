@@ -28,7 +28,8 @@ export const securityPlugin = fp<SecurityOptions>(async (app: FastifyInstance, o
     await app.register(rateLimit, {
       max: options.rateLimit?.max ?? 300,
       timeWindow: '1 minute',
-      errorResponseBuilder: () => new HttpError(429, 'Too many requests. Please slow down and try again.', 'rate_limited'),
+      errorResponseBuilder: () =>
+        new HttpError(429, 'Too many requests. Please slow down and try again.', 'rate_limited'),
     });
   }
 });

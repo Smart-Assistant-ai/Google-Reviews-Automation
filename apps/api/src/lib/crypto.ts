@@ -1,4 +1,10 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 import { env } from '../config';
 
 const ALGORITHM = 'aes-256-gcm';
@@ -6,16 +12,22 @@ const VERSION = 'v1';
 const key = Buffer.from(env.ENCRYPTION_KEY, 'hex');
 
 // Authenticated encryption for values at rest, such as Google tokens. GCM also detects tampering.
-export function encrypt<T extends string | null | undefined>(value: T): T extends string ? string : null {
+export function encrypt<T extends string | null | undefined>(
+  value: T,
+): T extends string ? string : null {
   if (!value) return null as never;
   const iv = randomBytes(12);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   const body = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return [VERSION, iv.toString('hex'), tag.toString('hex'), body.toString('hex')].join(':') as never;
+  return [VERSION, iv.toString('hex'), tag.toString('hex'), body.toString('hex')].join(
+    ':',
+  ) as never;
 }
 
-export function decrypt<T extends string | null | undefined>(value: T): T extends string ? string : null {
+export function decrypt<T extends string | null | undefined>(
+  value: T,
+): T extends string ? string : null {
   if (!value) return null as never;
   const [version, iv, tag, body] = value.split(':');
   if (version !== VERSION || !iv || !tag || body === undefined) {
@@ -23,7 +35,9 @@ export function decrypt<T extends string | null | undefined>(value: T): T extend
   }
   const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(iv, 'hex'));
   decipher.setAuthTag(Buffer.from(tag, 'hex'));
-  return Buffer.concat([decipher.update(Buffer.from(body, 'hex')), decipher.final()]).toString('utf8') as never;
+  return Buffer.concat([decipher.update(Buffer.from(body, 'hex')), decipher.final()]).toString(
+    'utf8',
+  ) as never;
 }
 
 export const randomToken = () => randomBytes(32).toString('base64url');

@@ -13,7 +13,12 @@ describe('maskSecrets', () => {
     ).toEqual({
       email: 'a@b.com',
       password: '[redacted]',
-      nested: { refreshToken: '[redacted]', accessToken: '[redacted]', apiKey: '[redacted]', note: 'ok' },
+      nested: {
+        refreshToken: '[redacted]',
+        accessToken: '[redacted]',
+        apiKey: '[redacted]',
+        note: 'ok',
+      },
       list: [{ secret: '[redacted]', keep: 1 }],
     });
   });

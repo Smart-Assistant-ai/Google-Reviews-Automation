@@ -2,7 +2,11 @@ import type { Review as ReviewDto, ReviewList, ReviewStatus, ReviewTab } from '@
 import type { Prisma, Reply, Review } from '@prisma/client';
 import { notFound } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
-import { accessibleLocationIds, assertLocationAccess, type MemberContext } from '../workspaces/access';
+import {
+  accessibleLocationIds,
+  assertLocationAccess,
+  type MemberContext,
+} from '../workspaces/access';
 
 const BACKLOG_DAYS = 30;
 const backlogCutoff = () => new Date(Date.now() - BACKLOG_DAYS * 86_400_000);
@@ -84,9 +88,14 @@ export interface ListOptions {
 }
 
 // Filtering and counting happen in the database, so a business with thousands of reviews stays fast.
-export async function listReviews(member: MemberContext, options: ListOptions): Promise<ReviewList> {
+export async function listReviews(
+  member: MemberContext,
+  options: ListOptions,
+): Promise<ReviewList> {
   if (options.locationId) await assertLocationAccess(member, options.locationId);
-  const locationIds = options.locationId ? [options.locationId] : await accessibleLocationIds(member);
+  const locationIds = options.locationId
+    ? [options.locationId]
+    : await accessibleLocationIds(member);
 
   const base: Prisma.ReviewWhereInput = {
     workspaceId: member.workspaceId,
@@ -123,7 +132,13 @@ export async function listReviews(member: MemberContext, options: ListOptions): 
   ]);
 
   const counts = { todo, posted, backlog, all };
-  return { reviews: rows.map(reviewDto), counts, page: options.page, pageSize: options.pageSize, total: counts[options.tab] };
+  return {
+    reviews: rows.map(reviewDto),
+    counts,
+    page: options.page,
+    pageSize: options.pageSize,
+    total: counts[options.tab],
+  };
 }
 
 // Goes through the access rule, so another workspace or an out-of-scope location answers 404.

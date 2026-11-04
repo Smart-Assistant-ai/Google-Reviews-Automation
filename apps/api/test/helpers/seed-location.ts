@@ -7,7 +7,12 @@ export async function addLocation(workspaceId: string, title = 'Main Street') {
   counter += 1;
   const connection = await prisma.googleConnection.upsert({
     where: { workspaceId_googleUserId: { workspaceId, googleUserId: `seed-${workspaceId}` } },
-    create: { workspaceId, provider: 'mock', googleUserId: `seed-${workspaceId}`, googleEmail: 'seed@example.test' },
+    create: {
+      workspaceId,
+      provider: 'mock',
+      googleUserId: `seed-${workspaceId}`,
+      googleEmail: 'seed@example.test',
+    },
     update: {},
   });
   return prisma.location.create({

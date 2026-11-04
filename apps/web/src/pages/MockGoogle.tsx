@@ -1,5 +1,16 @@
 import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded';
-import { Alert, Box, Button, Card, CardContent, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Divider,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -28,34 +39,71 @@ export default function MockGoogle() {
 
   const base = signIn ? '/api/v1/auth/google/callback' : '/api/v1/google/callback';
   const go = (allow: boolean) => {
-    const code = signIn ? encode({ sub: `mock-${email}`, email, name: email.split('@')[0], emailVerified: true }) : encode({ scenario, email });
+    const code = signIn
+      ? encode({ sub: `mock-${email}`, email, name: email.split('@')[0], emailVerified: true })
+      : encode({ scenario, email });
     const query = allow ? `code=${code}` : 'error=access_denied';
     window.location.href = `${base}?${query}&state=${encodeURIComponent(state)}`;
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2, bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        p: 2,
+        bgcolor: 'background.default',
+      }}
+    >
       <Card sx={{ maxWidth: 460, width: '100%' }}>
         <CardContent sx={{ p: 4 }}>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
             <ScienceRoundedIcon color="warning" />
-            <Typography variant="overline" color="warning.main" sx={{ fontWeight: 700 }}>Test mode · simulated sign-in</Typography>
+            <Typography variant="overline" color="warning.main" sx={{ fontWeight: 700 }}>
+              Test mode · simulated sign-in
+            </Typography>
           </Stack>
-          <Typography variant="h5" sx={{ mb: 1 }}>{signIn ? 'Sign in to ReplyPilot' : 'ReplyPilot wants to manage your Business Profile'}</Typography>
-          <Typography color="text.secondary" variant="body2" sx={{ mb: 3 }}>In production this step is Google&apos;s own screen.</Typography>
+          <Typography variant="h5" sx={{ mb: 1 }}>
+            {signIn ? 'Sign in to ReplyPilot' : 'ReplyPilot wants to manage your Business Profile'}
+          </Typography>
+          <Typography color="text.secondary" variant="body2" sx={{ mb: 3 }}>
+            In production this step is Google&apos;s own screen.
+          </Typography>
           <Stack spacing={2} sx={{ mb: 3 }}>
-            <TextField label="Google account email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
+            <TextField
+              label="Google account email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              fullWidth
+            />
             {!signIn && (
-              <TextField select label="What this account manages" value={scenario} onChange={(e) => setScenario(e.target.value)} fullWidth>
-                {SCENARIOS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
+              <TextField
+                select
+                label="What this account manages"
+                value={scenario}
+                onChange={(e) => setScenario(e.target.value)}
+                fullWidth
+              >
+                {SCENARIOS.map((s) => (
+                  <MenuItem key={s.value} value={s.value}>
+                    {s.label}
+                  </MenuItem>
+                ))}
               </TextField>
             )}
           </Stack>
-          {!signIn && <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>Scope requested: <code>business.manage</code></Alert>}
+          {!signIn && (
+            <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
+              Scope requested: <code>business.manage</code>
+            </Alert>
+          )}
           <Divider sx={{ mb: 3 }} />
           <Stack direction="row" spacing={1.5} justifyContent="flex-end">
             <Button onClick={() => go(false)}>Cancel</Button>
-            <Button variant="contained" onClick={() => go(true)}>Allow</Button>
+            <Button variant="contained" onClick={() => go(true)}>
+              Allow
+            </Button>
           </Stack>
         </CardContent>
       </Card>

@@ -4,7 +4,12 @@ export const uuidSchema = z.string().uuid();
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-export const emailSchema = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email('Enter a valid email address')
+  .max(254);
 
 const encoder = new TextEncoder();
 

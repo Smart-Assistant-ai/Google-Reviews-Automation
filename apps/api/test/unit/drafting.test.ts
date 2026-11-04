@@ -4,7 +4,13 @@ import { analyze, detectLanguage } from '../../src/modules/reviews/analysis';
 import { draftFromTemplate } from '../../src/modules/reviews/template-drafter';
 import { SEED_REVIEWS, SIMULATED_POOL } from '../../src/providers/gbp/fixtures';
 
-const voice = (overrides: object = {}) => ({ tone: 'warm' as const, languageMode: 'match' as const, signOff: null, ownerName: null, ...overrides });
+const voice = (overrides: object = {}) => ({
+  tone: 'warm' as const,
+  languageMode: 'match' as const,
+  signOff: null,
+  ownerName: null,
+  ...overrides,
+});
 
 describe('language detection', () => {
   it('detects Spanish and English', () => {
@@ -26,7 +32,9 @@ describe('language detection', () => {
   it('classifies every sample review correctly', () => {
     const spanish = /[áéíóúñ¡¿]|\b(Excelente|Nos|Estaba|Tuvimos)\b/;
     for (const review of [...SEED_REVIEWS, ...SIMULATED_POOL].filter((r) => r.text)) {
-      expect(detectLanguage(review.text!), review.text).toBe(spanish.test(review.text!) ? 'es' : 'en');
+      expect(detectLanguage(review.text!), review.text).toBe(
+        spanish.test(review.text!) ? 'es' : 'en',
+      );
     }
   });
 });
@@ -49,8 +57,18 @@ describe('offline drafts', () => {
   it('avoid repeating recent openers and add the sign-off', () => {
     const review = { reviewerName: 'David Kim', starRating: 5, comment: 'Lovely team' };
     const analysis = analyze(review);
-    const first = draftFromTemplate({ review, analysis, voice: voice({ signOff: '– The Team' }), recentReplies: [] });
-    const second = draftFromTemplate({ review, analysis, voice: voice({ signOff: '– The Team' }), recentReplies: [first] });
+    const first = draftFromTemplate({
+      review,
+      analysis,
+      voice: voice({ signOff: '– The Team' }),
+      recentReplies: [],
+    });
+    const second = draftFromTemplate({
+      review,
+      analysis,
+      voice: voice({ signOff: '– The Team' }),
+      recentReplies: [first],
+    });
     expect(first).toContain('David');
     expect(first.endsWith('– The Team')).toBe(true);
     expect(first.slice(0, 25)).not.toBe(second.slice(0, 25));
@@ -58,27 +76,51 @@ describe('offline drafts', () => {
 
   it('never offer incentives', () => {
     const review = { reviewerName: 'Jason', starRating: 1, comment: 'Dirty and slow' };
-    expect(draftFromTemplate({ review, analysis: analyze(review), voice: voice() })).not.toMatch(/discount|coupon|free/i);
+    expect(draftFromTemplate({ review, analysis: analyze(review), voice: voice() })).not.toMatch(
+      /discount|coupon|free/i,
+    );
   });
 
   it('only praise topics that deserve it', () => {
-    const review = { reviewerName: 'Ashley', starRating: 4, comment: 'Great, slightly pricey but worth it' };
-    const draft = draftFromTemplate({ review, analysis: { language: 'en', sentiment: 'positive', topics: ['price & billing'] }, voice: voice() });
+    const review = {
+      reviewerName: 'Ashley',
+      starRating: 4,
+      comment: 'Great, slightly pricey but worth it',
+    };
+    const draft = draftFromTemplate({
+      review,
+      analysis: { language: 'en', sentiment: 'positive', topics: ['price & billing'] },
+      voice: voice(),
+    });
     expect(draft).not.toMatch(/price|billing/);
   });
 
   it('answer Spanish reviews in Spanish, in the right mood', () => {
-    const review = { reviewerName: 'Miguel Herrera', starRating: 2, comment: 'Estaba sucio y nadie nos respondió.' };
+    const review = {
+      reviewerName: 'Miguel Herrera',
+      starRating: 2,
+      comment: 'Estaba sucio y nadie nos respondió.',
+    };
     const analysis = analyze(review);
     expect(analysis.language).toBe('es');
-    expect(draftFromTemplate({ review, analysis, voice: voice() })).toMatch(/^Lo sentimos mucho, Miguel/);
+    expect(draftFromTemplate({ review, analysis, voice: voice() })).toMatch(
+      /^Lo sentimos mucho, Miguel/,
+    );
   });
 
   it('stay under the size target for every sample, in every tone', () => {
     for (const seed of SEED_REVIEWS) {
-      const review = { reviewerName: seed.name, starRating: seed.stars, comment: seed.text ?? null };
+      const review = {
+        reviewerName: seed.name,
+        starRating: seed.stars,
+        comment: seed.text ?? null,
+      };
       for (const tone of ['warm', 'professional', 'playful'] as const) {
-        const draft = draftFromTemplate({ review, analysis: analyze(review), voice: voice({ tone }) });
+        const draft = draftFromTemplate({
+          review,
+          analysis: analyze(review),
+          voice: voice({ tone }),
+        });
         expect(Buffer.byteLength(draft)).toBeLessThan(DRAFT_TARGET_BYTES);
       }
     }

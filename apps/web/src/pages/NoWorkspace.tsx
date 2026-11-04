@@ -29,10 +29,24 @@ export default function NoWorkspace() {
         <CardContent sx={{ p: { xs: 3, md: 5 } }}>
           <Stack spacing={2}>
             <Typography variant="h5">You&apos;re not in a workspace</Typography>
-            <Typography color="text.secondary">Create one for your business, or ask a teammate to invite you.</Typography>
+            <Typography color="text.secondary">
+              Create one for your business, or ask a teammate to invite you.
+            </Typography>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField label="Business name" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-            <Button variant="contained" size="large" disabled={!name.trim()} onClick={() => void create()}>Create workspace</Button>
+            <TextField
+              label="Business name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              fullWidth
+            />
+            <Button
+              variant="contained"
+              size="large"
+              disabled={!name.trim()}
+              onClick={() => void create()}
+            >
+              Create workspace
+            </Button>
             <Button onClick={() => void logout()}>Log out</Button>
           </Stack>
         </CardContent>

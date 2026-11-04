@@ -30,14 +30,25 @@ export const liveGoogleIdentity: GoogleIdentityProvider = {
         grant_type: 'authorization_code',
       }),
     });
-    if (!tokenRes.ok) throw new Error(`Google token exchange failed with status ${tokenRes.status}`);
+    if (!tokenRes.ok)
+      throw new Error(`Google token exchange failed with status ${tokenRes.status}`);
     const tokens = (await tokenRes.json()) as { access_token: string };
 
     const infoRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     if (!infoRes.ok) throw new Error(`Google user info failed with status ${infoRes.status}`);
-    const info = (await infoRes.json()) as { sub: string; email: string; email_verified?: boolean; name?: string };
-    return { sub: info.sub, email: info.email, emailVerified: info.email_verified === true, name: info.name ?? null };
+    const info = (await infoRes.json()) as {
+      sub: string;
+      email: string;
+      email_verified?: boolean;
+      name?: string;
+    };
+    return {
+      sub: info.sub,
+      email: info.email,
+      emailVerified: info.email_verified === true,
+      name: info.name ?? null,
+    };
   },
 };

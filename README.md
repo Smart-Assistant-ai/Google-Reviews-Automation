@@ -43,14 +43,14 @@ If ports 4000 or 5173 are taken, set `PORT` and `APP_URL` in `apps/api/.env`, th
 
 ## Modes
 
-| Setting | Values | Effect |
-|---|---|---|
-| `GBP_PROVIDER` | `mock` / `live` | `mock` is a fake Google Business Profile, shaped like the real API, so everything works before Google approves access. Its sign-in screen lets you choose what the account manages. |
-| `GOOGLE_SIGNIN_PROVIDER` | `off` / `mock` / `live` | Whether "Continue with Google" is offered, and with which Google. |
-| `GOOGLE_POSTING_ENABLED` | `true` / `false` | Only production posts real replies by default. Also works as an emergency stop. |
-| `SIGNUP_MODE` | `allowlist` / `open` | `allowlist` only lets in emails added with `pnpm allow-signup`. |
-| `EMAIL_PROVIDER` | `mock` / `resend` | `mock` prints emails to the logs. |
-| `OPENAI_API_KEY` | key or empty | Empty uses the built-in offline drafter. |
+| Setting                  | Values                  | Effect                                                                                                                                                                              |
+| ------------------------ | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GBP_PROVIDER`           | `mock` / `live`         | `mock` is a fake Google Business Profile, shaped like the real API, so everything works before Google approves access. Its sign-in screen lets you choose what the account manages. |
+| `GOOGLE_SIGNIN_PROVIDER` | `off` / `mock` / `live` | Whether "Continue with Google" is offered, and with which Google.                                                                                                                   |
+| `GOOGLE_POSTING_ENABLED` | `true` / `false`        | Only production posts real replies by default. Also works as an emergency stop.                                                                                                     |
+| `SIGNUP_MODE`            | `allowlist` / `open`    | `allowlist` only lets in emails added with `pnpm allow-signup`.                                                                                                                     |
+| `EMAIL_PROVIDER`         | `mock` / `resend`       | `mock` prints emails to the logs.                                                                                                                                                   |
+| `OPENAI_API_KEY`         | key or empty            | Empty uses the built-in offline drafter.                                                                                                                                            |
 
 ## Checks
 

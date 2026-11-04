@@ -9,7 +9,14 @@ import { mockGbp } from '../../src/providers/gbp/mock';
 import { signState } from '../../src/lib/signed-state';
 import { signup, testApp, tokenFromEmail, uniqueEmail, type TestUser } from '../helpers/app';
 import { resetDb } from '../helpers/db';
-import { connectGoogle, googleStatus, mockCode, reviewCount, selectLocations, verifyEmail } from '../helpers/google';
+import {
+  connectGoogle,
+  googleStatus,
+  mockCode,
+  reviewCount,
+  selectLocations,
+  verifyEmail,
+} from '../helpers/google';
 
 let app: FastifyInstance;
 
@@ -30,8 +37,18 @@ async function verifiedOwner(): Promise<TestUser> {
   return user;
 }
 
-const api = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', user: TestUser, path: string, payload?: object) =>
-  app.inject({ method, url: `/api/v1/workspaces/${user.workspaceId}/google${path}`, headers: user.headers, payload });
+const api = (
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  user: TestUser,
+  path: string,
+  payload?: object,
+) =>
+  app.inject({
+    method,
+    url: `/api/v1/workspaces/${user.workspaceId}/google${path}`,
+    headers: user.headers,
+    payload,
+  });
 
 async function inviteMember(owner: TestUser, options: object = {}) {
   const email = uniqueEmail('member');
@@ -86,7 +103,9 @@ describe('connecting Google', () => {
     const after = await googleStatus(app, user);
     expect(after.locations.filter((l) => l.status === 'active')).toHaveLength(2);
     expect(await prisma.review.count({ where: { locationId: locations[2]!.id } })).toBe(0);
-    expect(await prisma.review.count({ where: { locationId: locations[0]!.id } })).toBeGreaterThan(0);
+    expect(await prisma.review.count({ where: { locationId: locations[0]!.id } })).toBeGreaterThan(
+      0,
+    );
   });
 
   it('reads every account group on the Google account', async () => {
@@ -142,7 +161,9 @@ describe('Google callback safety', () => {
   it('refuses a link opened in a different browser, so a victim cannot be tricked into connecting to an attacker', async () => {
     const attacker = await verifiedOwner();
     const { state } = await startFor(attacker);
-    const res = await app.inject({ url: `/api/v1/google/callback?code=${code}&state=${encodeURIComponent(state)}` });
+    const res = await app.inject({
+      url: `/api/v1/google/callback?code=${code}&state=${encodeURIComponent(state)}`,
+    });
     expect(errorIn(res)).toBe('google_state');
     expect(await prisma.googleConnection.count()).toBe(0);
   });
@@ -161,7 +182,10 @@ describe('Google callback safety', () => {
     const owner = await verifiedOwner();
     const admin = await inviteMember(owner, { role: 'admin' });
     const { state, nonce } = await startFor(admin);
-    await prisma.workspaceMember.updateMany({ where: { userId: admin.id }, data: { role: 'member' } });
+    await prisma.workspaceMember.updateMany({
+      where: { userId: admin.id },
+      data: { role: 'member' },
+    });
     const res = await app.inject({
       url: `/api/v1/google/callback?code=${code}&state=${encodeURIComponent(state)}`,
       cookies: { rp_google_connect: nonce },
@@ -173,7 +197,11 @@ describe('Google callback safety', () => {
   it('a state can only be used for connecting, not for another flow', async () => {
     const user = await verifiedOwner();
     const nonce = 'abc';
-    const state = signState('google-signin', { nonce, workspaceId: user.workspaceId, userId: user.id }, 600);
+    const state = signState(
+      'google-signin',
+      { nonce, workspaceId: user.workspaceId, userId: user.id },
+      600,
+    );
     const res = await app.inject({
       url: `/api/v1/google/callback?code=${code}&state=${encodeURIComponent(state)}`,
       cookies: { rp_google_connect: nonce },
@@ -215,7 +243,9 @@ describe('several Google accounts in one workspace', () => {
     const before = await googleStatus(app, user);
     const location = before.locations[0]!;
     await connectGoogle(app, user, { scenario: 'single', email: 'two@sample.test' });
-    const second = (await googleStatus(app, user)).connections.find((c) => c.email === 'two@sample.test')!;
+    const second = (await googleStatus(app, user)).connections.find(
+      (c) => c.email === 'two@sample.test',
+    )!;
     mockGbp.shareLocation('one@sample.test', 'two@sample.test');
     await api('POST', user, `/connections/${second.id}/rescan`);
 
@@ -224,7 +254,9 @@ describe('several Google accounts in one workspace', () => {
     expect(row.connectionId).toBe(location.connectionId);
     expect(row.alternativeConnections.map((c) => c.id)).toContain(second.id);
 
-    const res = await api('PATCH', user, `/locations/${location.id}/connection`, { connectionId: second.id });
+    const res = await api('PATCH', user, `/locations/${location.id}/connection`, {
+      connectionId: second.id,
+    });
     expect(res.statusCode).toBe(200);
     const switched = (await googleStatus(app, user)).locations.find((l) => l.id === location.id)!;
     expect(switched.connectionId).toBe(second.id);
@@ -237,7 +269,9 @@ describe('several Google accounts in one workspace', () => {
     const status = await googleStatus(app, user);
     const location = status.locations.find((l) => l.connectionId === status.connections[0]!.id)!;
     const other = status.connections[1]!;
-    const res = await api('PATCH', user, `/locations/${location.id}/connection`, { connectionId: other.id });
+    const res = await api('PATCH', user, `/locations/${location.id}/connection`, {
+      connectionId: other.id,
+    });
     expect(res.statusCode).toBe(400);
   });
 });
@@ -260,9 +294,20 @@ describe('the same business in two workspaces', () => {
 
     const review = await prisma.review.findFirstOrThrow({ where: { workspaceId: a.workspaceId } });
     await prisma.reply.deleteMany({ where: { reviewId: review.id } });
-    await prisma.reply.create({ data: { workspaceId: a.workspaceId, reviewId: review.id, text: 'private draft of A', source: 'human', state: 'draft' } });
+    await prisma.reply.create({
+      data: {
+        workspaceId: a.workspaceId,
+        reviewId: review.id,
+        text: 'private draft of A',
+        source: 'human',
+        state: 'draft',
+      },
+    });
     await syncLocation((await googleStatus(app, b)).locations[0]!.id);
-    const stillA = await prisma.review.findUniqueOrThrow({ where: { id: review.id }, include: { reply: true } });
+    const stillA = await prisma.review.findUniqueOrThrow({
+      where: { id: review.id },
+      include: { reply: true },
+    });
     expect(stillA.workspaceId).toBe(a.workspaceId);
     expect(stillA.reply?.text).toBe('private draft of A');
   });
@@ -294,7 +339,9 @@ describe('changes on Google', () => {
 
     mockGbp.restoreLocations('one@sample.test');
     await api('POST', user, `/connections/${connections[0]!.id}/rescan`);
-    expect((await googleStatus(app, user)).locations.find((l) => l.id === location.id)?.status).toBe('active');
+    expect(
+      (await googleStatus(app, user)).locations.find((l) => l.id === location.id)?.status,
+    ).toBe('active');
   });
 
   it('a location Google refuses to read during sync is marked access_lost, and sync stops', async () => {
@@ -391,8 +438,14 @@ describe('disconnecting', () => {
   it('deleting a workspace disconnects its Google accounts', async () => {
     const user = await verifiedOwner();
     await connectGoogle(app, user);
-    await app.inject({ method: 'DELETE', url: `/api/v1/workspaces/${user.workspaceId}`, headers: user.headers });
-    expect(await prisma.googleConnection.count({ where: { workspaceId: user.workspaceId } })).toBe(0);
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/workspaces/${user.workspaceId}`,
+      headers: user.headers,
+    });
+    expect(await prisma.googleConnection.count({ where: { workspaceId: user.workspaceId } })).toBe(
+      0,
+    );
     expect(await reviewCount(user.workspaceId)).toBe(0);
   });
 
@@ -402,7 +455,9 @@ describe('disconnecting', () => {
     await connectGoogle(app, a);
     const connection = (await googleStatus(app, a)).connections[0]!;
     expect((await api('DELETE', b, `/connections/${connection.id}`)).statusCode).toBe(404);
-    expect((await api('GET', b, `/connections/${connection.id}/disconnect-preview`)).statusCode).toBe(404);
+    expect(
+      (await api('GET', b, `/connections/${connection.id}/disconnect-preview`)).statusCode,
+    ).toBe(404);
   });
 });
 
@@ -413,13 +468,17 @@ describe('sample data', () => {
     await connectGoogle(app, user, { email: 'blocked@sample.test' });
     const connection = (await googleStatus(app, user)).connections[0]!;
 
-    expect((await api('POST', user, `/connections/${connection.id}/sample-data`)).statusCode).toBe(200);
+    expect((await api('POST', user, `/connections/${connection.id}/sample-data`)).statusCode).toBe(
+      200,
+    );
     const on = await googleStatus(app, user);
     expect(on.connections[0]?.sample).toBe(true);
     expect(on.connections[0]?.apiError).toBeNull();
     expect(await reviewCount(user.workspaceId)).toBeGreaterThan(0);
 
-    expect((await api('DELETE', user, `/connections/${connection.id}/sample-data`)).statusCode).toBe(200);
+    expect(
+      (await api('DELETE', user, `/connections/${connection.id}/sample-data`)).statusCode,
+    ).toBe(200);
     expect((await googleStatus(app, user)).connections[0]?.sample).toBe(false);
     expect(await reviewCount(user.workspaceId)).toBe(0);
   });
@@ -430,7 +489,9 @@ describe('sample data', () => {
     await connectGoogle(app, user, { email: 'blocked@sample.test' });
     const connection = (await googleStatus(app, user)).connections[0]!;
     await api('POST', user, `/connections/${connection.id}/sample-data`);
-    const review = await prisma.review.findFirstOrThrow({ where: { workspaceId: user.workspaceId } });
+    const review = await prisma.review.findFirstOrThrow({
+      where: { workspaceId: user.workspaceId },
+    });
     await api('POST', user, `/connections/${connection.id}/sample-data`);
     expect(await prisma.review.count({ where: { id: review.id } })).toBe(1);
   });
@@ -439,7 +500,10 @@ describe('sample data', () => {
     const user = await verifiedOwner();
     await connectGoogle(app, user);
     const connection = (await googleStatus(app, user)).connections[0]!;
-    await prisma.googleConnection.update({ where: { id: connection.id }, data: { provider: 'live' } });
+    await prisma.googleConnection.update({
+      where: { id: connection.id },
+      data: { provider: 'live' },
+    });
     const res = await api('POST', user, `/connections/${connection.id}/sample-data`);
     expect(res.statusCode).toBe(409);
   });
@@ -450,8 +514,15 @@ describe('what team members see', () => {
     const owner = await verifiedOwner();
     await connectGoogle(app, owner, { scenario: 'multi' });
     const { locations } = await googleStatus(app, owner);
-    await selectLocations(app, owner, locations.map((l) => l.id));
-    const member = await inviteMember(owner, { scopeAllLocations: false, locationIds: [locations[0]!.id] });
+    await selectLocations(
+      app,
+      owner,
+      locations.map((l) => l.id),
+    );
+    const member = await inviteMember(owner, {
+      scopeAllLocations: false,
+      locationIds: [locations[0]!.id],
+    });
     const status = await googleStatus(app, member);
     expect(status.connections).toEqual([]);
     expect(status.locations.map((l) => l.id)).toEqual([locations[0]!.id]);
@@ -463,17 +534,30 @@ describe('what team members see', () => {
     const { locations, connections } = await googleStatus(app, owner);
     const member = await inviteMember(owner);
     expect((await selectLocations(app, member, [locations[0]!.id])).statusCode).toBe(403);
-    expect((await api('DELETE', member, `/connections/${connections[0]!.id}`)).statusCode).toBe(403);
-    expect((await api('POST', member, `/locations/${locations[0]!.id}/deactivate`)).statusCode).toBe(403);
+    expect((await api('DELETE', member, `/connections/${connections[0]!.id}`)).statusCode).toBe(
+      403,
+    );
+    expect(
+      (await api('POST', member, `/locations/${locations[0]!.id}/deactivate`)).statusCode,
+    ).toBe(403);
   });
 
   it('a limited member can only sync their own locations', async () => {
     const owner = await verifiedOwner();
     await connectGoogle(app, owner, { scenario: 'multi' });
     const { locations } = await googleStatus(app, owner);
-    await selectLocations(app, owner, locations.map((l) => l.id));
-    const member = await inviteMember(owner, { scopeAllLocations: false, locationIds: [locations[0]!.id] });
-    expect((await api('POST', member, '/sync', { locationId: locations[1]!.id })).statusCode).toBe(404);
+    await selectLocations(
+      app,
+      owner,
+      locations.map((l) => l.id),
+    );
+    const member = await inviteMember(owner, {
+      scopeAllLocations: false,
+      locationIds: [locations[0]!.id],
+    });
+    expect((await api('POST', member, '/sync', { locationId: locations[1]!.id })).statusCode).toBe(
+      404,
+    );
     const res = await api('POST', member, '/sync', { locationId: locations[0]!.id });
     expect(res.statusCode).toBe(200);
     expect(res.json().synced).toBe(1);

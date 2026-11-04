@@ -60,7 +60,10 @@ async function authenticate(request: FastifyRequest): Promise<void> {
 }
 
 // Read fresh on every request, so removing someone or changing their role applies immediately.
-async function loadMember(request: FastifyRequest, minimum: 'member' | 'admin' | 'owner'): Promise<void> {
+async function loadMember(
+  request: FastifyRequest,
+  minimum: 'member' | 'admin' | 'owner',
+): Promise<void> {
   const { workspaceId } = request.params as { workspaceId?: string };
   if (!uuidSchema.safeParse(workspaceId).success || !workspaceId) throw notFound();
 
@@ -68,7 +71,12 @@ async function loadMember(request: FastifyRequest, minimum: 'member' | 'admin' |
     where: { workspaceId_userId: { workspaceId, userId: request.auth!.userId } },
     include: { workspace: true, locations: { select: { locationId: true } } },
   });
-  if (!member || member.removedAt || member.workspace.deletedAt || member.workspace.status !== 'active') {
+  if (
+    !member ||
+    member.removedAt ||
+    member.workspace.deletedAt ||
+    member.workspace.status !== 'active'
+  ) {
     throw notFound();
   }
   if (!hasAtLeast(member.role, minimum)) {

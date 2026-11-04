@@ -12,7 +12,9 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const next = invite ? `/invite?token=${encodeURIComponent(invite)}` : '/';
-    void restore().then((me) => navigate(me ? next : '/login?error=google_failed', { replace: true }));
+    void restore().then((me) =>
+      navigate(me ? next : '/login?error=google_failed', { replace: true }),
+    );
   }, [restore, navigate, invite]);
 
   return (

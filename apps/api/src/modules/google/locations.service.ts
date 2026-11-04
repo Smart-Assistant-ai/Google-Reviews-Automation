@@ -11,7 +11,8 @@ import { syncLocation } from './sync.service';
 // zero until it approves us. Those leave the account connected, with the reason shown.
 export function readBlockedMessage(err: unknown): string | null {
   const { statusCode, message } = err as { statusCode?: number; message?: string };
-  if (statusCode === 429) return 'Google has not approved API access for this project yet, so we cannot read reviews.';
+  if (statusCode === 429)
+    return 'Google has not approved API access for this project yet, so we cannot read reviews.';
   if (statusCode === 403) return `Google blocked reading this profile: ${message}`;
   if (statusCode === 401) return 'Google needs you to sign in again.';
   return null;
@@ -28,7 +29,8 @@ async function readAllLocations(provider: GbpProvider, ctx: GbpContext) {
       let locationToken: string | undefined;
       do {
         const page = await provider.listLocations(ctx, account.name, locationToken);
-        for (const location of page.locations ?? []) found.push({ accountName: account.name, location });
+        for (const location of page.locations ?? [])
+          found.push({ accountName: account.name, location });
         locationToken = page.nextPageToken;
       } while (locationToken);
     }
@@ -49,7 +51,10 @@ export async function scanConnection(connectionId: string): Promise<{ activated:
     const blocked = readBlockedMessage(err);
     if (!blocked) throw err;
     if ((err as { statusCode?: number }).statusCode === 401) await markNeedsReconnect(connectionId);
-    await prisma.googleConnection.update({ where: { id: connectionId }, data: { apiError: blocked } });
+    await prisma.googleConnection.update({
+      where: { id: connectionId },
+      data: { apiError: blocked },
+    });
     return { activated: [] };
   }
   await prisma.googleConnection.update({
@@ -59,14 +64,24 @@ export async function scanConnection(connectionId: string): Promise<{ activated:
 
   const seenIds: string[] = [];
   for (const { accountName, location } of found) {
-    const details = { title: location.title, address: location.storefrontAddress?.addressLines?.join(', ') ?? null };
+    const details = {
+      title: location.title,
+      address: location.storefrontAddress?.addressLines?.join(', ') ?? null,
+    };
     const existing = await prisma.location.findUnique({
       where: { workspaceId_googleLocationName: { workspaceId, googleLocationName: location.name } },
     });
     let row = existing;
     if (!row) {
       row = await prisma.location.create({
-        data: { workspaceId, connectionId, googleAccountName: accountName, googleLocationName: location.name, status: 'available', ...details },
+        data: {
+          workspaceId,
+          connectionId,
+          googleAccountName: accountName,
+          googleLocationName: location.name,
+          status: 'available',
+          ...details,
+        },
       });
     } else if (row.connectionId === connectionId || row.status === 'access_lost') {
       // Its own connection, or one that can take over a location that lost access. Either way it's back.
@@ -76,7 +91,9 @@ export async function scanConnection(connectionId: string): Promise<{ activated:
           ...details,
           connectionId,
           googleAccountName: accountName,
-          ...(row.status === 'access_lost' ? { status: 'active', accessLostNotifiedAt: null, lastSyncError: null } : {}),
+          ...(row.status === 'access_lost'
+            ? { status: 'active', accessLostNotifiedAt: null, lastSyncError: null }
+            : {}),
         },
       });
     }
@@ -88,11 +105,17 @@ export async function scanConnection(connectionId: string): Promise<{ activated:
     });
   }
 
-  await prisma.connectionLocation.deleteMany({ where: { connectionId, locationId: { notIn: seenIds } } });
+  await prisma.connectionLocation.deleteMany({
+    where: { connectionId, locationId: { notIn: seenIds } },
+  });
 
-  const missing = await prisma.location.findMany({ where: { connectionId, id: { notIn: seenIds } } });
+  const missing = await prisma.location.findMany({
+    where: { connectionId, id: { notIn: seenIds } },
+  });
   for (const location of missing) {
-    const other = await prisma.connectionLocation.findFirst({ where: { locationId: location.id, connectionId: { not: connectionId } } });
+    const other = await prisma.connectionLocation.findFirst({
+      where: { locationId: location.id, connectionId: { not: connectionId } },
+    });
     if (other) {
       await prisma.location.update({
         where: { id: location.id },
@@ -106,8 +129,13 @@ export async function scanConnection(connectionId: string): Promise<{ activated:
   }
 
   // Only one location and nothing managed yet: there's no choice to make, so attach it.
-  const managed = await prisma.location.count({ where: { workspaceId, status: { in: ['active', 'access_lost'] } } });
-  const available = await prisma.location.findMany({ where: { workspaceId, status: 'available' }, select: { id: true } });
+  const managed = await prisma.location.count({
+    where: { workspaceId, status: { in: ['active', 'access_lost'] } },
+  });
+  const available = await prisma.location.findMany({
+    where: { workspaceId, status: 'available' },
+    select: { id: true },
+  });
   if (managed === 0 && available.length === 1) {
     await prisma.location.update({ where: { id: available[0]!.id }, data: { status: 'active' } });
     return { activated: [available[0]!.id] };
@@ -169,16 +197,27 @@ export async function syncFirst(locationIds: string[]): Promise<void> {
   for (const id of locationIds.slice(0, SYNC_NOW_LIMIT)) await syncLocation(id);
 }
 
-export async function selectLocations(member: MemberContext, locationIds: string[], ip?: string): Promise<void> {
+export async function selectLocations(
+  member: MemberContext,
+  locationIds: string[],
+  ip?: string,
+): Promise<void> {
   const rows = await prisma.location.findMany({
     where: { id: { in: locationIds }, workspaceId: member.workspaceId },
     select: { id: true, status: true, title: true },
   });
   if (rows.length !== new Set(locationIds).size) {
-    throw new HttpError(400, 'One of those locations is not in this workspace', 'invalid_locations');
+    throw new HttpError(
+      400,
+      'One of those locations is not in this workspace',
+      'invalid_locations',
+    );
   }
   const newlyActive = rows.filter((row) => row.status === 'available');
-  await prisma.location.updateMany({ where: { id: { in: newlyActive.map((row) => row.id) } }, data: { status: 'active' } });
+  await prisma.location.updateMany({
+    where: { id: { in: newlyActive.map((row) => row.id) } },
+    data: { status: 'active' },
+  });
   await recordAudit({
     action: 'location.activated',
     workspaceId: member.workspaceId,
@@ -195,7 +234,11 @@ async function findLocation(workspaceId: string, locationId: string) {
   return location;
 }
 
-export async function deactivateLocation(member: MemberContext, locationId: string, ip?: string): Promise<void> {
+export async function deactivateLocation(
+  member: MemberContext,
+  locationId: string,
+  ip?: string,
+): Promise<void> {
   const location = await findLocation(member.workspaceId, locationId);
   await prisma.location.update({ where: { id: location.id }, data: { status: 'available' } });
   await recordAudit({
@@ -208,16 +251,30 @@ export async function deactivateLocation(member: MemberContext, locationId: stri
   });
 }
 
-export async function switchConnection(member: MemberContext, locationId: string, connectionId: string, ip?: string): Promise<void> {
+export async function switchConnection(
+  member: MemberContext,
+  locationId: string,
+  connectionId: string,
+  ip?: string,
+): Promise<void> {
   const location = await findLocation(member.workspaceId, locationId);
-  const reach = await prisma.connectionLocation.findUnique({ where: { connectionId_locationId: { connectionId, locationId } } });
-  if (!reach) throw new HttpError(400, 'That Google account cannot reach this location', 'connection_cannot_reach');
+  const reach = await prisma.connectionLocation.findUnique({
+    where: { connectionId_locationId: { connectionId, locationId } },
+  });
+  if (!reach)
+    throw new HttpError(
+      400,
+      'That Google account cannot reach this location',
+      'connection_cannot_reach',
+    );
   await prisma.location.update({
     where: { id: location.id },
     data: {
       connectionId,
       googleAccountName: reach.googleAccountName,
-      ...(location.status === 'access_lost' ? { status: 'active', accessLostNotifiedAt: null, lastSyncError: null } : {}),
+      ...(location.status === 'access_lost'
+        ? { status: 'active', accessLostNotifiedAt: null, lastSyncError: null }
+        : {}),
     },
   });
   await recordAudit({
@@ -235,15 +292,25 @@ export async function disconnectPreview(member: MemberContext, connectionId: str
   const served = await prisma.location.findMany({
     where: { connectionId },
     include: {
-      reachableBy: { where: { connectionId: { not: connectionId } }, include: { connection: true }, take: 1 },
+      reachableBy: {
+        where: { connectionId: { not: connectionId } },
+        include: { connection: true },
+        take: 1,
+      },
     },
     orderBy: { title: 'asc' },
   });
   const managed = served.filter((location) => location.status !== 'available');
   return {
-    removes: managed.filter((l) => l.reachableBy.length === 0).map((l) => ({ id: l.id, title: l.title })),
+    removes: managed
+      .filter((l) => l.reachableBy.length === 0)
+      .map((l) => ({ id: l.id, title: l.title })),
     moves: managed
       .filter((l) => l.reachableBy.length > 0)
-      .map((l) => ({ id: l.id, title: l.title, toEmail: l.reachableBy[0]!.connection.googleEmail })),
+      .map((l) => ({
+        id: l.id,
+        title: l.title,
+        toEmail: l.reachableBy[0]!.connection.googleEmail,
+      })),
   };
 }

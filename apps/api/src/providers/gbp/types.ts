@@ -45,11 +45,25 @@ export interface GbpProvider {
   kind: 'mock' | 'live';
   getAuthUrl(state: string): string;
   exchangeCode(code: string): Promise<GoogleTokens>;
-  refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresAt: Date }>;
+  refreshAccessToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken?: string; expiresAt: Date }>;
   revoke(token: string): Promise<void>;
-  listAccounts(ctx: GbpContext, pageToken?: string): Promise<{ accounts?: GbpAccount[]; nextPageToken?: string }>;
-  listLocations(ctx: GbpContext, accountName: string, pageToken?: string): Promise<{ locations?: GbpLocation[]; nextPageToken?: string }>;
-  listReviews(ctx: GbpContext, accountName: string, locationName: string, pageToken?: string): Promise<{ reviews?: GbpReview[]; nextPageToken?: string }>;
+  listAccounts(
+    ctx: GbpContext,
+    pageToken?: string,
+  ): Promise<{ accounts?: GbpAccount[]; nextPageToken?: string }>;
+  listLocations(
+    ctx: GbpContext,
+    accountName: string,
+    pageToken?: string,
+  ): Promise<{ locations?: GbpLocation[]; nextPageToken?: string }>;
+  listReviews(
+    ctx: GbpContext,
+    accountName: string,
+    locationName: string,
+    pageToken?: string,
+  ): Promise<{ reviews?: GbpReview[]; nextPageToken?: string }>;
   getReview(ctx: GbpContext, reviewName: string): Promise<GbpReview>;
   updateReply(ctx: GbpContext, reviewName: string, comment: string): Promise<GbpReply>;
   deleteReply(ctx: GbpContext, reviewName: string): Promise<void>;

@@ -42,7 +42,9 @@ export default function ActivityTab() {
               primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
               secondary={row.actorName}
             />
-            <Typography variant="caption" color="text.secondary">{timeAgo(row.createdAt)}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {timeAgo(row.createdAt)}
+            </Typography>
           </ListItem>
         ))}
       </List>

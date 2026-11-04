@@ -19,6 +19,8 @@ export function verifyState(purpose: string, state: string | undefined): Payload
   if (!state) return null;
   const [body, signature] = state.split('.');
   if (!body || !signature || !safeEqual(signature, sign(purpose, body))) return null;
-  const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as Payload & { exp: number };
+  const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as Payload & {
+    exp: number;
+  };
   return payload.exp > Date.now() / 1000 ? payload : null;
 }

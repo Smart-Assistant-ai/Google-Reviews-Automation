@@ -25,7 +25,10 @@ const schema = z
     JWT_SECRET: secret('JWT_SECRET', 32),
     ENCRYPTION_KEY: z
       .string({ required_error: 'ENCRYPTION_KEY is required' })
-      .regex(/^[0-9a-fA-F]{64}$/, 'ENCRYPTION_KEY must be 64 hex characters (openssl rand -hex 32)'),
+      .regex(
+        /^[0-9a-fA-F]{64}$/,
+        'ENCRYPTION_KEY must be 64 hex characters (openssl rand -hex 32)',
+      ),
 
     SIGNUP_MODE: z.enum(['allowlist', 'open']).optional(),
 
@@ -88,6 +91,8 @@ export type Env = z.output<typeof schema>;
 export function parseEnv(source: Record<string, string | undefined>): Env {
   const parsed = schema.safeParse(source);
   if (parsed.success) return parsed.data;
-  const problems = parsed.error.issues.map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`);
+  const problems = parsed.error.issues.map(
+    (issue) => `  - ${issue.path.join('.')}: ${issue.message}`,
+  );
   throw new Error(`Invalid configuration, refusing to start:\n${problems.join('\n')}`);
 }

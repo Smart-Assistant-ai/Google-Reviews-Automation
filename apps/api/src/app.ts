@@ -1,5 +1,9 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fastify-type-provider-zod';
+import {
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod';
 import { env } from './config';
 import { accessPlugin } from './plugins/access';
 import { registerErrorHandling } from './plugins/errors';

@@ -23,7 +23,11 @@ export function useWorkspaceId(): string {
 export const wsPath = (workspaceId: string, path: string) => `/workspaces/${workspaceId}${path}`;
 
 export function useAuthConfig() {
-  return useQuery({ queryKey: ['auth-config'], queryFn: () => api.get<AuthConfig>('/auth/config'), staleTime: 60_000 });
+  return useQuery({
+    queryKey: ['auth-config'],
+    queryFn: () => api.get<AuthConfig>('/auth/config'),
+    staleTime: 60_000,
+  });
 }
 
 export function useGoogleStatus() {
@@ -87,7 +91,8 @@ export function useMembers() {
   const id = useWorkspaceId();
   return useQuery({
     queryKey: ['members', id],
-    queryFn: () => api.get<{ members: Member[] }>(wsPath(id, '/members')).then((res) => res.members),
+    queryFn: () =>
+      api.get<{ members: Member[] }>(wsPath(id, '/members')).then((res) => res.members),
     enabled: !!id,
   });
 }
@@ -96,7 +101,10 @@ export function useInvitations(enabled: boolean) {
   const id = useWorkspaceId();
   return useQuery({
     queryKey: ['invitations', id],
-    queryFn: () => api.get<{ invitations: Invitation[] }>(wsPath(id, '/invitations')).then((res) => res.invitations),
+    queryFn: () =>
+      api
+        .get<{ invitations: Invitation[] }>(wsPath(id, '/invitations'))
+        .then((res) => res.invitations),
     enabled: !!id && enabled,
   });
 }
@@ -105,7 +113,8 @@ export function useActivity() {
   const id = useWorkspaceId();
   return useQuery({
     queryKey: ['activity', id],
-    queryFn: () => api.get<{ items: ActivityItem[] }>(wsPath(id, '/activity')).then((res) => res.items),
+    queryFn: () =>
+      api.get<{ items: ActivityItem[] }>(wsPath(id, '/activity')).then((res) => res.items),
     enabled: !!id,
   });
 }

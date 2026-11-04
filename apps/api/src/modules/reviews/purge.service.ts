@@ -20,7 +20,10 @@ export async function purgeExpiredContent(now = new Date()): Promise<number> {
       where: { id: { in: ids } },
       data: { comment: null, reviewerName: null, reviewerPhotoUrl: null, media: [], purgedAt: now },
     }),
-    prisma.reply.updateMany({ where: { reviewId: { in: ids }, source: 'google' }, data: { text: '' } }),
+    prisma.reply.updateMany({
+      where: { reviewId: { in: ids }, source: 'google' },
+      data: { text: '' },
+    }),
   ]);
   return ids.length;
 }

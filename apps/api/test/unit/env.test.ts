@@ -72,7 +72,9 @@ describe('parseEnv', () => {
   });
 
   it('can switch off real Google posting in production', () => {
-    expect(parseEnv({ ...valid, GOOGLE_POSTING_ENABLED: 'false' }).GOOGLE_POSTING_ENABLED).toBe(false);
+    expect(parseEnv({ ...valid, GOOGLE_POSTING_ENABLED: 'false' }).GOOGLE_POSTING_ENABLED).toBe(
+      false,
+    );
   });
 
   it('marks cookies Secure when the app runs on https', () => {

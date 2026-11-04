@@ -11,8 +11,12 @@ export function buildTheme(mode: PaletteMode) {
       mode,
       primary: { main: dark ? brand.light : brand.main, contrastText: '#fff' },
       secondary: { main: brand.star },
-      background: dark ? { default: '#0E1014', paper: '#161920' } : { default: '#F6F6F3', paper: '#FFFFFF' },
-      text: dark ? { primary: '#ECEDEF', secondary: '#9BA1AC' } : { primary: '#16181D', secondary: '#5F6573' },
+      background: dark
+        ? { default: '#0E1014', paper: '#161920' }
+        : { default: '#F6F6F3', paper: '#FFFFFF' },
+      text: dark
+        ? { primary: '#ECEDEF', secondary: '#9BA1AC' }
+        : { primary: '#16181D', secondary: '#5F6573' },
       divider: dark ? 'rgba(255,255,255,0.08)' : 'rgba(22,24,29,0.08)',
       success: { main: '#1E9E5A' },
       warning: { main: '#D98A00' },
@@ -28,7 +32,10 @@ export function buildTheme(mode: PaletteMode) {
       button: { textTransform: 'none', fontWeight: 600 },
     },
     components: {
-      MuiPaper: { defaultProps: { elevation: 0 }, styleOverrides: { root: { backgroundImage: 'none' } } },
+      MuiPaper: {
+        defaultProps: { elevation: 0 },
+        styleOverrides: { root: { backgroundImage: 'none' } },
+      },
       MuiCard: {
         defaultProps: { variant: 'outlined' },
         styleOverrides: { root: ({ theme }) => ({ borderColor: theme.palette.divider }) },

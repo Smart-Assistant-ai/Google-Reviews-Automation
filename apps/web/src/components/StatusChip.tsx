@@ -13,7 +13,20 @@ const MAP: Record<ReviewStatus, { label: string; color: ChipProps['color'] }> = 
   failed: { label: 'Failed to post', color: 'error' },
 };
 
-export default function StatusChip({ status, size = 'small' }: { status: ReviewStatus; size?: ChipProps['size'] }) {
+export default function StatusChip({
+  status,
+  size = 'small',
+}: {
+  status: ReviewStatus;
+  size?: ChipProps['size'];
+}) {
   const s = MAP[status];
-  return <Chip size={size} label={s.label} color={s.color} variant={s.color === 'default' ? 'outlined' : 'filled'} />;
+  return (
+    <Chip
+      size={size}
+      label={s.label}
+      color={s.color}
+      variant={s.color === 'default' ? 'outlined' : 'filled'}
+    />
+  );
 }

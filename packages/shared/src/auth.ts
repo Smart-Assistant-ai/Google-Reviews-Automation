@@ -45,7 +45,10 @@ export const workspaceSummarySchema = z.object({
 });
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
 
-export const meResponse = z.object({ user: userSchema, workspaces: z.array(workspaceSummarySchema) });
+export const meResponse = z.object({
+  user: userSchema,
+  workspaces: z.array(workspaceSummarySchema),
+});
 export type Me = z.infer<typeof meResponse>;
 
 export const sessionResponse = meResponse.extend({ accessToken: z.string() });

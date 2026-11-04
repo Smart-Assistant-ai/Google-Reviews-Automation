@@ -10,7 +10,9 @@ describe('CallWindow', () => {
     await gate.acquire();
     await gate.acquire();
     let third = false;
-    const pending = gate.acquire().then(() => { third = true; });
+    const pending = gate.acquire().then(() => {
+      third = true;
+    });
     await vi.advanceTimersByTimeAsync(30_000);
     expect(third).toBe(false);
     await vi.advanceTimersByTimeAsync(31_000);
@@ -20,7 +22,7 @@ describe('CallWindow', () => {
 });
 
 describe('editLimiter', () => {
-  it('allows 10 reply edits a minute per location, because that is Google\'s limit', () => {
+  it("allows 10 reply edits a minute per location, because that is Google's limit", () => {
     vi.useFakeTimers();
     const limit = editLimiter();
     for (let i = 0; i < 10; i += 1) expect(limit.tryTake('a')).toBe(true);

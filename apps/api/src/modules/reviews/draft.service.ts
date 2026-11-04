@@ -20,7 +20,9 @@ function systemPrompt(voice: Voice): string {
   return [
     `You write public replies to Google reviews on behalf of ${voice.businessName || 'a small business'}.`,
     `Tone: ${TONES[voice.tone] ?? TONES.warm}.`,
-    voice.languageMode === 'english' ? 'Always reply in English.' : 'Reply in the same language the reviewer used.',
+    voice.languageMode === 'english'
+      ? 'Always reply in English.'
+      : 'Reply in the same language the reviewer used.',
     voice.signOff ? `End with this sign-off on its own line: "${voice.signOff}"` : '',
     voice.alwaysSay ? `Where natural, include: ${voice.alwaysSay}` : '',
     voice.neverSay ? `Never mention: ${voice.neverSay}` : '',
@@ -48,12 +50,19 @@ interface ReviewForDraft {
   comment: string | null;
 }
 
-async function aiDraft(review: ReviewForDraft, voice: Voice, recentReplies: string[], instructions?: string): Promise<AiDraft> {
+async function aiDraft(
+  review: ReviewForDraft,
+  voice: Voice,
+  recentReplies: string[],
+  instructions?: string,
+): Promise<AiDraft> {
   const user = [
     `Rating: ${review.starRating}/5`,
     `Reviewer: ${review.reviewerName ?? 'Anonymous'}`,
     `Review: ${review.comment ?? '(no text, rating only)'}`,
-    recentReplies.length ? `Recent replies (vary from these):\n- ${recentReplies.join('\n- ')}` : '',
+    recentReplies.length
+      ? `Recent replies (vary from these):\n- ${recentReplies.join('\n- ')}`
+      : '',
     instructions ? `Extra instruction from the owner: ${instructions}` : '',
   ]
     .filter(Boolean)
@@ -74,14 +83,21 @@ async function aiDraft(review: ReviewForDraft, voice: Voice, recentReplies: stri
 
 // Writes or rewrites the draft for a review. Never touches a reply that has been posted.
 export async function draftForReview(reviewId: string, options: { instructions?: string } = {}) {
-  const review = await prisma.review.findUnique({ where: { id: reviewId }, include: { reply: true } });
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    include: { reply: true },
+  });
   if (!review) return null;
   const reply = review.reply;
   if (reply && !['drafting', 'draft', 'rejected', 'failed'].includes(reply.state)) return reply;
 
   const { voice } = await effectiveVoice(review.workspaceId, review.locationId);
   const recent = await prisma.reply.findMany({
-    where: { review: { locationId: review.locationId }, state: { in: ['live', 'pending_google', 'draft'] }, reviewId: { not: review.id } },
+    where: {
+      review: { locationId: review.locationId },
+      state: { in: ['live', 'pending_google', 'draft'] },
+      reviewId: { not: review.id },
+    },
     orderBy: { updatedAt: 'desc' },
     take: 5,
     select: { text: true },
@@ -109,8 +125,17 @@ export async function draftForReview(reviewId: string, options: { instructions?:
   text ??= draftFromTemplate({ review, analysis, voice, recentReplies });
 
   await prisma.review.update({ where: { id: review.id }, data: analysis });
-  const values = { text, source: 'ai' as const, state: 'draft' as const, error: null, policyViolation: null, googleReplyState: null };
+  const values = {
+    text,
+    source: 'ai' as const,
+    state: 'draft' as const,
+    error: null,
+    policyViolation: null,
+    googleReplyState: null,
+  };
   return reply
     ? prisma.reply.update({ where: { id: reply.id }, data: values })
-    : prisma.reply.create({ data: { workspaceId: review.workspaceId, reviewId: review.id, ...values } });
+    : prisma.reply.create({
+        data: { workspaceId: review.workspaceId, reviewId: review.id, ...values },
+      });
 }

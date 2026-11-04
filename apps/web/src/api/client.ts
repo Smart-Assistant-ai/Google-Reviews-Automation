@@ -16,7 +16,11 @@ export class ApiError extends Error {
 function toApiError(error: AxiosError<ApiErrorBody>): ApiError {
   const body = error.response?.data?.error;
   if (body) return new ApiError(body.message, error.response!.status, body.code, body.fields);
-  return new ApiError('Could not reach the server. Please try again.', error.response?.status ?? 0, 'network_error');
+  return new ApiError(
+    'Could not reach the server. Please try again.',
+    error.response?.status ?? 0,
+    'network_error',
+  );
 }
 
 export const http = axios.create({ baseURL: '/api/v1', withCredentials: true });
@@ -55,13 +59,19 @@ export function refreshSession(): Promise<SessionResponse> {
 }
 
 // A 401 from these means something else, such as a wrong password, so refreshing wouldn't help.
-const NEVER_REFRESH = /\/auth\/(refresh|login|signup|logout|forgot-password|reset-password|verify-email)$/;
+const NEVER_REFRESH =
+  /\/auth\/(refresh|login|signup|logout|forgot-password|reset-password|verify-email)$/;
 
 type RetriableConfig = InternalAxiosRequestConfig & { retried?: boolean };
 
 http.interceptors.response.use(undefined, async (error: AxiosError<ApiErrorBody>) => {
   const config = error.config as RetriableConfig | undefined;
-  if (error.response?.status === 401 && config && !config.retried && !NEVER_REFRESH.test(config.url ?? '')) {
+  if (
+    error.response?.status === 401 &&
+    config &&
+    !config.retried &&
+    !NEVER_REFRESH.test(config.url ?? '')
+  ) {
     config.retried = true;
     try {
       await refreshSession();
@@ -81,6 +91,8 @@ export const api = {
   get: <T>(path: string, params?: object) => http.get<T>(path, { params }).then((res) => res.data),
   post: <T>(path: string, body?: object) => http.post<T>(path, body ?? {}).then((res) => res.data),
   put: <T>(path: string, body?: object) => http.put<T>(path, body ?? {}).then((res) => res.data),
-  patch: <T>(path: string, body?: object) => http.patch<T>(path, body ?? {}).then((res) => res.data),
-  delete: <T>(path: string, body?: object) => http.delete<T>(path, { data: body ?? {} }).then((res) => res.data),
+  patch: <T>(path: string, body?: object) =>
+    http.patch<T>(path, body ?? {}).then((res) => res.data),
+  delete: <T>(path: string, body?: object) =>
+    http.delete<T>(path, { data: body ?? {} }).then((res) => res.data),
 };

@@ -41,13 +41,13 @@ security headers > CORS > access rule > rate limit > input validation > handler 
 
 Each of these lives in one place, so it can't drift between features:
 
-| Rule | Where |
-|---|---|
-| Which locations a person can reach | `accessibleLocationIds` in `modules/workspaces/access.ts` |
-| Role order | `hasAtLeast` in `packages/shared/src/permissions.ts` |
-| Whether a connection uses fake data | `usesFakeData` in `modules/google/connection.service.ts` |
-| Writing audit rows and masking secrets | `lib/audit.ts` |
-| Every Google call and token refresh | `getContext` in `modules/google/connection.service.ts` |
+| Rule                                   | Where                                                     |
+| -------------------------------------- | --------------------------------------------------------- |
+| Which locations a person can reach     | `accessibleLocationIds` in `modules/workspaces/access.ts` |
+| Role order                             | `hasAtLeast` in `packages/shared/src/permissions.ts`      |
+| Whether a connection uses fake data    | `usesFakeData` in `modules/google/connection.service.ts`  |
+| Writing audit rows and masking secrets | `lib/audit.ts`                                            |
+| Every Google call and token refresh    | `getContext` in `modules/google/connection.service.ts`    |
 
 ## Sessions
 

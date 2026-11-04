@@ -21,7 +21,9 @@ beforeAll(async () => {
         { config: { access: 'public' }, schema: { body: z.object({ email: z.string().email() }) } },
         async () => ({ ok: true }),
       );
-      instance.get('/test/private', { config: { access: 'authenticated' } }, async () => ({ ok: true }));
+      instance.get('/test/private', { config: { access: 'authenticated' } }, async () => ({
+        ok: true,
+      }));
     },
   });
 });
@@ -66,7 +68,11 @@ describe('request pipeline', () => {
   });
 
   it('explains which field failed validation', async () => {
-    const res = await app.inject({ method: 'POST', url: '/test/validate', payload: { email: 'nope' } });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/test/validate',
+      payload: { email: 'nope' },
+    });
     expect(res.statusCode).toBe(400);
     const { error } = res.json();
     expect(error.code).toBe('validation_error');
@@ -97,7 +103,10 @@ describe('request pipeline', () => {
   });
 
   it('refuses a forged token', async () => {
-    const res = await app.inject({ url: '/test/private', headers: { authorization: 'Bearer abc.def.ghi' } });
+    const res = await app.inject({
+      url: '/test/private',
+      headers: { authorization: 'Bearer abc.def.ghi' },
+    });
     expect(res.statusCode).toBe(401);
   });
 
@@ -114,7 +123,8 @@ describe('request pipeline', () => {
   });
 
   it('lists every route with its access rule', () => {
-    const routes = (app as FastifyInstance & { routeAccess: { url: string; access: string }[] }).routeAccess;
+    const routes = (app as FastifyInstance & { routeAccess: { url: string; access: string }[] })
+      .routeAccess;
     expect(routes.find((r) => r.url === '/api/v1/health')?.access).toBe('public');
   });
 });
@@ -125,7 +135,9 @@ describe('behind the proxy', () => {
     env.TRUST_PROXY = true;
     const proxied = await buildApp({
       extraRoutes: (instance) => {
-        instance.get('/test/ip', { config: { access: 'public' } }, async (request) => ({ ip: request.ip }));
+        instance.get('/test/ip', { config: { access: 'public' } }, async (request) => ({
+          ip: request.ip,
+        }));
       },
     });
     env.TRUST_PROXY = before;

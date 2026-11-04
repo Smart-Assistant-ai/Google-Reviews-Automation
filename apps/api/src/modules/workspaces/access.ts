@@ -11,7 +11,8 @@ export interface MemberContext {
 }
 
 // Owners and admins always reach every location, whatever is stored for them.
-const reachesEveryLocation = (member: MemberContext) => member.role !== 'member' || member.scopeAllLocations;
+const reachesEveryLocation = (member: MemberContext) =>
+  member.role !== 'member' || member.scopeAllLocations;
 
 // THE rule for which locations a person can reach. Reviews, replies, stats and voice all go
 // through here, so it can't drift between features. `available` locations hold no data yet.
@@ -28,7 +29,10 @@ export async function accessibleLocationIds(member: MemberContext): Promise<stri
 }
 
 // Answers 404 rather than 403, so a person can't learn that a location exists.
-export async function assertLocationAccess(member: MemberContext, locationId: string): Promise<void> {
+export async function assertLocationAccess(
+  member: MemberContext,
+  locationId: string,
+): Promise<void> {
   const allowed = await accessibleLocationIds(member);
   if (!allowed.includes(locationId)) throw notFound('Location not found');
 }

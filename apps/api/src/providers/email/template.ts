@@ -13,7 +13,14 @@ const escapeHtml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // One plain layout for every email, always with a text version.
-export function renderEmail({ to, subject, intro, actionLabel, actionUrl, outro }: TemplateInput): EmailMessage {
+export function renderEmail({
+  to,
+  subject,
+  intro,
+  actionLabel,
+  actionUrl,
+  outro,
+}: TemplateInput): EmailMessage {
   const text = [intro, actionUrl && actionLabel ? `${actionLabel}: ${actionUrl}` : '', outro ?? '']
     .filter(Boolean)
     .join('\n\n');

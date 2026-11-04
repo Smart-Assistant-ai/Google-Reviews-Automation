@@ -12,7 +12,9 @@ describe('signed state', () => {
   it('refuses a changed payload', () => {
     const state = signState('google-connect', { workspaceId: 'w1' }, 600);
     const [, signature] = state.split('.');
-    const forged = Buffer.from(JSON.stringify({ workspaceId: 'attacker', exp: 9999999999 })).toString('base64url');
+    const forged = Buffer.from(
+      JSON.stringify({ workspaceId: 'attacker', exp: 9999999999 }),
+    ).toString('base64url');
     expect(verifyState('google-connect', `${forged}.${signature}`)).toBeNull();
   });
 

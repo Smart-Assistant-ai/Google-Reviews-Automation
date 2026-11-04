@@ -34,7 +34,9 @@ describe('api client', () => {
   it('refreshes once on a 401 and retries with the new token', async () => {
     const calls = useServer((config) => {
       if (config.url === '/auth/refresh') return { status: 200, data: session('new') };
-      return config.headers.Authorization === 'Bearer new' ? { status: 200, data: { value: 1 } } : { status: 401, data: {} };
+      return config.headers.Authorization === 'Bearer new'
+        ? { status: 200, data: { value: 1 } }
+        : { status: 401, data: {} };
     });
     await expect(api.get('/thing')).resolves.toEqual({ value: 1 });
     expect(calls.map((c) => c.url)).toEqual(['/thing', '/auth/refresh', '/thing']);
@@ -43,7 +45,9 @@ describe('api client', () => {
   it('shares one refresh between requests that fail together', async () => {
     const calls = useServer((config) => {
       if (config.url === '/auth/refresh') return { status: 200, data: session('new') };
-      return config.headers.Authorization === 'Bearer new' ? { status: 200, data: { url: config.url } } : { status: 401, data: {} };
+      return config.headers.Authorization === 'Bearer new'
+        ? { status: 200, data: { url: config.url } }
+        : { status: 401, data: {} };
     });
     await Promise.all([api.get('/a'), api.get('/b'), api.get('/c')]);
     expect(calls.filter((c) => c.url === '/auth/refresh')).toHaveLength(1);
@@ -52,7 +56,10 @@ describe('api client', () => {
   it('ends the session when the refresh fails, instead of looping', async () => {
     const lost = vi.fn();
     setSessionLostHandler(lost);
-    const calls = useServer(() => ({ status: 401, data: { error: { code: 'unauthorized', message: 'Please log in', requestId: 'r' } } }));
+    const calls = useServer(() => ({
+      status: 401,
+      data: { error: { code: 'unauthorized', message: 'Please log in', requestId: 'r' } },
+    }));
     await expect(api.get('/thing')).rejects.toBeInstanceOf(ApiError);
     expect(lost).toHaveBeenCalledOnce();
     expect(calls.map((c) => c.url)).toEqual(['/thing', '/auth/refresh']);
@@ -61,8 +68,20 @@ describe('api client', () => {
   it('does not try to refresh after a wrong password', async () => {
     const lost = vi.fn();
     setSessionLostHandler(lost);
-    const calls = useServer(() => ({ status: 401, data: { error: { code: 'invalid_credentials', message: 'Invalid email or password', requestId: 'r' } } }));
-    await expect(api.post('/auth/login', {})).rejects.toMatchObject({ message: 'Invalid email or password', code: 'invalid_credentials' });
+    const calls = useServer(() => ({
+      status: 401,
+      data: {
+        error: {
+          code: 'invalid_credentials',
+          message: 'Invalid email or password',
+          requestId: 'r',
+        },
+      },
+    }));
+    await expect(api.post('/auth/login', {})).rejects.toMatchObject({
+      message: 'Invalid email or password',
+      code: 'invalid_credentials',
+    });
     expect(calls).toHaveLength(1);
     expect(lost).not.toHaveBeenCalled();
   });
@@ -70,8 +89,19 @@ describe('api client', () => {
   it('gives friendly errors with the code and the failed fields', async () => {
     useServer(() => ({
       status: 400,
-      data: { error: { code: 'validation_error', message: 'Enter a valid email', requestId: 'r', fields: [{ path: 'email', message: 'Enter a valid email' }] } },
+      data: {
+        error: {
+          code: 'validation_error',
+          message: 'Enter a valid email',
+          requestId: 'r',
+          fields: [{ path: 'email', message: 'Enter a valid email' }],
+        },
+      },
     }));
-    await expect(api.post('/x', {})).rejects.toMatchObject({ status: 400, code: 'validation_error', fields: [{ path: 'email', message: 'Enter a valid email' }] });
+    await expect(api.post('/x', {})).rejects.toMatchObject({
+      status: 400,
+      code: 'validation_error',
+      fields: [{ path: 'email', message: 'Enter a valid email' }],
+    });
   });
 });

@@ -5,7 +5,8 @@ import { sentEmails } from '../../src/providers/email/mock';
 export const PASSWORD = 'correct-horse-battery';
 
 let counter = 0;
-export const uniqueEmail = (prefix = 'user') => `${prefix}-${Date.now()}-${(counter += 1)}@business.test`;
+export const uniqueEmail = (prefix = 'user') =>
+  `${prefix}-${Date.now()}-${(counter += 1)}@business.test`;
 
 export const testApp = () => buildApp();
 
@@ -26,7 +27,13 @@ export interface TestUser {
 
 export async function signup(
   app: FastifyInstance,
-  overrides: { email?: string; password?: string; name?: string; businessName?: string; inviteToken?: string } = {},
+  overrides: {
+    email?: string;
+    password?: string;
+    name?: string;
+    businessName?: string;
+    inviteToken?: string;
+  } = {},
 ): Promise<TestUser> {
   const email = overrides.email ?? uniqueEmail();
   const res = await app.inject({
@@ -48,7 +55,9 @@ export async function signup(
 
 // The token in the most recent email to this person, read the same way a person would: from the link.
 export function tokenFromEmail(to: string, path: string): string {
-  const email = [...sentEmails].reverse().find((message) => message.to === to && message.text.includes(path));
+  const email = [...sentEmails]
+    .reverse()
+    .find((message) => message.to === to && message.text.includes(path));
   if (!email) throw new Error(`no email to ${to} with a link to ${path}`);
   const match = email.text.match(new RegExp(`${path}\\?token=([A-Za-z0-9_-]+)`));
   if (!match?.[1]) throw new Error('no token in the email');

@@ -33,18 +33,29 @@ const dto = (row: WorkspaceInvitation) => ({
 
 export async function listInvitations(member: MemberContext) {
   const rows = await prisma.workspaceInvitation.findMany({
-    where: { workspaceId: member.workspaceId, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+    where: {
+      workspaceId: member.workspaceId,
+      acceptedAt: null,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    },
     orderBy: { createdAt: 'desc' },
   });
   return rows.map(dto);
 }
 
-export async function createInvitation(member: MemberContext, input: InvitationInput, log: Logger, ip?: string) {
+export async function createInvitation(
+  member: MemberContext,
+  input: InvitationInput,
+  log: Logger,
+  ip?: string,
+) {
   const { workspaceId } = member;
   const alreadyIn = await prisma.workspaceMember.findFirst({
     where: { workspaceId, removedAt: null, user: { email: input.email } },
   });
-  if (alreadyIn) throw new HttpError(409, 'That person is already in this workspace', 'already_member');
+  if (alreadyIn)
+    throw new HttpError(409, 'That person is already in this workspace', 'already_member');
 
   // Admins reach every location, so scoping only applies to members.
   const scopeAllLocations = input.role === 'admin' ? true : input.scopeAllLocations;
@@ -95,7 +106,11 @@ export async function createInvitation(member: MemberContext, input: InvitationI
   return { ...dto(invitation), emailSent };
 }
 
-export async function revokeInvitation(member: MemberContext, invitationId: string, ip?: string): Promise<void> {
+export async function revokeInvitation(
+  member: MemberContext,
+  invitationId: string,
+  ip?: string,
+): Promise<void> {
   const revoked = await prisma.workspaceInvitation.updateMany({
     where: { id: invitationId, workspaceId: member.workspaceId, acceptedAt: null, revokedAt: null },
     data: { revokedAt: new Date() },
@@ -123,16 +138,33 @@ export async function previewInvitation(token: string) {
   };
 }
 
-export async function acceptInvitation(userId: string, userEmail: string, token: string, ip?: string): Promise<void> {
+export async function acceptInvitation(
+  userId: string,
+  userEmail: string,
+  token: string,
+  ip?: string,
+): Promise<void> {
   const invitation = await findUsableInvitation(token);
   if (!invitation) throw notFound('This invitation has expired or was already used');
   if (invitation.email !== userEmail) {
-    throw new HttpError(403, `This invitation was sent to ${invitation.email}. Log in with that email to accept it.`, 'invitation_email_mismatch');
+    throw new HttpError(
+      403,
+      `This invitation was sent to ${invitation.email}. Log in with that email to accept it.`,
+      'invitation_email_mismatch',
+    );
   }
   await prisma.$transaction(async (tx) => {
     await joinFromInvitation(tx, invitation, userId);
     // The link reached this inbox, which proves the address is theirs.
-    await tx.user.updateMany({ where: { id: userId, emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } });
+    await tx.user.updateMany({
+      where: { id: userId, emailVerifiedAt: null },
+      data: { emailVerifiedAt: new Date() },
+    });
   });
-  await recordAudit({ action: 'invitation.accepted', workspaceId: invitation.workspaceId, actorUserId: userId, ip });
+  await recordAudit({
+    action: 'invitation.accepted',
+    workspaceId: invitation.workspaceId,
+    actorUserId: userId,
+    ip,
+  });
 }

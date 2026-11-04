@@ -1,11 +1,21 @@
 import * as Sentry from '@sentry/node';
 import type { ApiErrorBody } from '@replypilot/shared';
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } from 'fastify-type-provider-zod';
+import {
+  hasZodFastifySchemaValidationErrors,
+  isResponseSerializationError,
+} from 'fastify-type-provider-zod';
 import { HttpError } from '../lib/errors';
 
-function send(reply: FastifyReply, request: FastifyRequest, status: number, body: Omit<ApiErrorBody['error'], 'requestId'>) {
-  return reply.code(status).send({ error: { ...body, requestId: request.id } } satisfies ApiErrorBody);
+function send(
+  reply: FastifyReply,
+  request: FastifyRequest,
+  status: number,
+  body: Omit<ApiErrorBody['error'], 'requestId'>,
+) {
+  return reply
+    .code(status)
+    .send({ error: { ...body, requestId: request.id } } satisfies ApiErrorBody);
 }
 
 export function registerErrorHandling(app: FastifyInstance): void {
@@ -31,7 +41,10 @@ export function registerErrorHandling(app: FastifyInstance): void {
     }
 
     if (err.statusCode === 429) {
-      return send(reply, request, 429, { code: 'rate_limited', message: 'Too many requests. Please slow down and try again.' });
+      return send(reply, request, 429, {
+        code: 'rate_limited',
+        message: 'Too many requests. Please slow down and try again.',
+      });
     }
 
     // A response that doesn't match its schema is our bug, so it must not leak or pass as a 4xx.
@@ -39,10 +52,16 @@ export function registerErrorHandling(app: FastifyInstance): void {
     if (status >= 500) {
       request.log.error({ err }, 'request failed');
       Sentry.captureException(err);
-      return send(reply, request, 500, { code: 'internal_error', message: 'Something went wrong. Please try again.' });
+      return send(reply, request, 500, {
+        code: 'internal_error',
+        message: 'Something went wrong. Please try again.',
+      });
     }
 
-    return send(reply, request, status, { code: 'bad_request', message: 'That request could not be understood.' });
+    return send(reply, request, status, {
+      code: 'bad_request',
+      message: 'That request could not be understood.',
+    });
   });
 
   app.setNotFoundHandler((request, reply) =>

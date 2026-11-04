@@ -15,7 +15,11 @@ export function startUrl(state: string): { url: string; provider: 'mock' | 'live
 }
 
 // The same Google account reconnecting updates its row. A different one becomes a new connection.
-async function saveConnection(workspaceId: string, userId: string, tokens: GoogleTokens): Promise<string> {
+async function saveConnection(
+  workspaceId: string,
+  userId: string,
+  tokens: GoogleTokens,
+): Promise<string> {
   const values = {
     googleEmail: tokens.email,
     accessToken: encrypt(tokens.accessToken),
@@ -34,10 +38,19 @@ async function saveConnection(workspaceId: string, userId: string, tokens: Googl
   return connection.id;
 }
 
-export async function completeConnect(workspaceId: string, userId: string, code: string, ip?: string): Promise<string> {
+export async function completeConnect(
+  workspaceId: string,
+  userId: string,
+  code: string,
+  ip?: string,
+): Promise<string> {
   const tokens = await getProvider().exchangeCode(code);
   if (!tokens.email || !tokens.googleUserId) {
-    throw new HttpError(400, 'Could not confirm which Google account you signed in with', 'google_identity_missing');
+    throw new HttpError(
+      400,
+      'Could not confirm which Google account you signed in with',
+      'google_identity_missing',
+    );
   }
   const connectionId = await saveConnection(workspaceId, userId, tokens);
   await recordAudit({
@@ -57,7 +70,9 @@ export async function completeConnect(workspaceId: string, userId: string, code:
 // Revokes at Google first, then moves any location another connection can reach,
 // so only what truly depends on this account gets deleted.
 async function removeConnection(connectionId: string): Promise<void> {
-  const connection = await prisma.googleConnection.findUniqueOrThrow({ where: { id: connectionId } });
+  const connection = await prisma.googleConnection.findUniqueOrThrow({
+    where: { id: connectionId },
+  });
   if (!usesFakeData(connection)) {
     const token = decrypt(connection.refreshToken) ?? decrypt(connection.accessToken);
     if (token) await getProvider(connection.provider).revoke(token);
@@ -81,7 +96,11 @@ async function removeConnection(connectionId: string): Promise<void> {
   });
 }
 
-export async function disconnect(member: MemberContext, connectionId: string, ip?: string): Promise<void> {
+export async function disconnect(
+  member: MemberContext,
+  connectionId: string,
+  ip?: string,
+): Promise<void> {
   const connection = await findConnection(member.workspaceId, connectionId);
   await removeConnection(connectionId);
   await recordAudit({
@@ -94,7 +113,10 @@ export async function disconnect(member: MemberContext, connectionId: string, ip
 }
 
 onWorkspaceDeleted(async (workspaceId) => {
-  const connections = await prisma.googleConnection.findMany({ where: { workspaceId }, select: { id: true } });
+  const connections = await prisma.googleConnection.findMany({
+    where: { workspaceId },
+    select: { id: true },
+  });
   for (const connection of connections) await removeConnection(connection.id);
 });
 
@@ -104,28 +126,57 @@ export async function rescan(member: MemberContext, connectionId: string): Promi
   await syncFirst(activated);
 }
 
-export async function useSampleData(member: MemberContext, connectionId: string, ip?: string): Promise<void> {
+export async function useSampleData(
+  member: MemberContext,
+  connectionId: string,
+  ip?: string,
+): Promise<void> {
   const connection = await findConnection(member.workspaceId, connectionId);
   const locations = await prisma.location.count({ where: { connectionId } });
   // Already on sample data: keep its replies. No location means an earlier setup failed, so run it again.
   if (connection.dataSource === 'sample' && locations > 0) return;
   const realReviews = await prisma.review.count({ where: { location: { connectionId } } });
   if (connection.dataSource !== 'sample' && realReviews > 0) {
-    throw new HttpError(409, 'This account already has real reviews, so sample data is not available', 'has_real_reviews');
+    throw new HttpError(
+      409,
+      'This account already has real reviews, so sample data is not available',
+      'has_real_reviews',
+    );
   }
   await prisma.location.deleteMany({ where: { connectionId } });
-  await prisma.googleConnection.update({ where: { id: connectionId }, data: { dataSource: 'sample', apiError: null } });
+  await prisma.googleConnection.update({
+    where: { id: connectionId },
+    data: { dataSource: 'sample', apiError: null },
+  });
   const { activated } = await scanConnection(connectionId);
   await syncFirst(activated);
-  await recordAudit({ action: 'google.sample_enabled', workspaceId: member.workspaceId, actorUserId: member.userId, ip });
+  await recordAudit({
+    action: 'google.sample_enabled',
+    workspaceId: member.workspaceId,
+    actorUserId: member.userId,
+    ip,
+  });
 }
 
-export async function stopSampleData(member: MemberContext, connectionId: string, ip?: string): Promise<void> {
+export async function stopSampleData(
+  member: MemberContext,
+  connectionId: string,
+  ip?: string,
+): Promise<void> {
   const connection = await findConnection(member.workspaceId, connectionId);
-  if (connection.dataSource !== 'sample') throw new HttpError(409, 'This account is not using sample data', 'not_sample');
+  if (connection.dataSource !== 'sample')
+    throw new HttpError(409, 'This account is not using sample data', 'not_sample');
   await prisma.location.deleteMany({ where: { connectionId } });
-  await prisma.googleConnection.update({ where: { id: connectionId }, data: { dataSource: 'google' } });
-  await recordAudit({ action: 'google.sample_disabled', workspaceId: member.workspaceId, actorUserId: member.userId, ip });
+  await prisma.googleConnection.update({
+    where: { id: connectionId },
+    data: { dataSource: 'google' },
+  });
+  await recordAudit({
+    action: 'google.sample_disabled',
+    workspaceId: member.workspaceId,
+    actorUserId: member.userId,
+    ip,
+  });
   const { activated } = await scanConnection(connectionId);
   await syncFirst(activated);
 }

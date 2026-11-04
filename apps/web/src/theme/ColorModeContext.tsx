@@ -4,7 +4,10 @@ import { buildTheme } from './index';
 
 type Mode = 'light' | 'dark';
 
-const ColorModeContext = createContext<{ mode: Mode; toggle: () => void }>({ mode: 'light', toggle: () => {} });
+const ColorModeContext = createContext<{ mode: Mode; toggle: () => void }>({
+  mode: 'light',
+  toggle: () => {},
+});
 
 function readStored(): Mode | null {
   try {

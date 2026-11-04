@@ -6,7 +6,10 @@ export default function Stars({ value, size = 18 }: { value: number; size?: numb
   return (
     <Box sx={{ display: 'inline-flex' }} aria-label={`${value} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <StarRoundedIcon key={i} sx={{ fontSize: size, color: i <= value ? brand.star : 'action.disabled' }} />
+        <StarRoundedIcon
+          key={i}
+          sx={{ fontSize: size, color: i <= value ? brand.star : 'action.disabled' }}
+        />
       ))}
     </Box>
   );

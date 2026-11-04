@@ -1,8 +1,22 @@
 import { GOOGLE_REPLY_MAX_BYTES as MAX_BYTES, byteLength, type Review } from '@replypilot/shared';
 import { useEffect, useState } from 'react';
 import {
-  Alert, Avatar, Box, Button, Chip, Divider, IconButton, Link, Menu, MenuItem, Skeleton, Stack, TextField, Tooltip,
-  Typography, type ChipProps,
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  Divider,
+  IconButton,
+  Link,
+  Menu,
+  MenuItem,
+  Skeleton,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+  type ChipProps,
 } from '@mui/material';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
@@ -28,7 +42,11 @@ const VIOLATIONS: Record<string, string> = {
   PROMOTIONAL_CONTENT: 'Replies cannot offer discounts, coupons or free items.',
   CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
 };
-const SENTIMENT_COLOR: Record<string, ChipProps['color']> = { positive: 'success', neutral: 'default', negative: 'error' };
+const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
+  positive: 'success',
+  neutral: 'default',
+  negative: 'error',
+};
 
 interface Props {
   review: Review;
@@ -66,31 +84,42 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
     }
   };
 
-  const regenerate = (instructions?: string) => run('regen', () => api.post<Review>(`${path}/regenerate`, { instructions }));
+  const regenerate = (instructions?: string) =>
+    run('regen', () => api.post<Review>(`${path}/regenerate`, { instructions }));
   const post = () => run('post', () => api.post<Review>(`${path}/post`, { text }));
   const saveDraft = () => run('save', () => api.put<Review>(path, { text }));
   const remove = () => run('delete', () => api.delete<Review>(path));
 
   const bytes = byteLength(text);
   const posted = ['pending', 'live', 'posting'].includes(status);
-  const editable = ['draft', 'rejected', 'failed', 'needs_reply', 'backlog'].includes(status) || editingPosted;
+  const editable =
+    ['draft', 'rejected', 'failed', 'needs_reply', 'backlog'].includes(status) || editingPosted;
   const dirty = text !== (reply?.text || '');
 
   return (
     <Stack sx={{ height: '100%', overflowY: 'auto' }}>
       <Box sx={{ p: { xs: 2, md: 4 } }}>
         {onBack && (
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={onBack} sx={{ mb: 2, ml: -1 }}>All reviews</Button>
+          <Button startIcon={<ArrowBackRoundedIcon />} onClick={onBack} sx={{ mb: 2, ml: -1 }}>
+            All reviews
+          </Button>
         )}
         <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar src={review.reviewerPhotoUrl || undefined} sx={{ bgcolor: 'primary.main', width: 44, height: 44 }}>
+          <Avatar
+            src={review.reviewerPhotoUrl || undefined}
+            sx={{ bgcolor: 'primary.main', width: 44, height: 44 }}
+          >
             {(review.reviewerName ?? '?')[0]}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h6" noWrap>{review.reviewerName ?? 'Reviewer'}</Typography>
+            <Typography variant="h6" noWrap>
+              {review.reviewerName ?? 'Reviewer'}
+            </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               <Stars value={review.starRating} />
-              <Typography variant="body2" color="text.secondary">{timeAgo(review.createTime)} · {review.location.title}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {timeAgo(review.createTime)} · {review.location.title}
+              </Typography>
             </Stack>
           </Box>
           <StatusChip status={status} size="medium" />
@@ -99,30 +128,60 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
         <Typography sx={{ mt: 3, fontSize: 17, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
           {review.comment ?? (
             <Box component="span" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-              {review.purged ? 'Removed after 30 days, as Google requires. It comes back if Google still lists this review.' : 'Rating only, no written review.'}
+              {review.purged
+                ? 'Removed after 30 days, as Google requires. It comes back if Google still lists this review.'
+                : 'Rating only, no written review.'}
             </Box>
           )}
         </Typography>
 
         <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: 'wrap', gap: 1 }}>
-          {review.sentiment && <Chip size="small" label={review.sentiment} color={SENTIMENT_COLOR[review.sentiment] ?? 'default'} variant="outlined" />}
-          {review.language && review.language !== 'en' && <Chip size="small" label={LANGUAGE_NAMES[review.language] ?? review.language} variant="outlined" />}
-          {review.topics.map((t) => <Chip key={t} size="small" label={t} />)}
+          {review.sentiment && (
+            <Chip
+              size="small"
+              label={review.sentiment}
+              color={SENTIMENT_COLOR[review.sentiment] ?? 'default'}
+              variant="outlined"
+            />
+          )}
+          {review.language && review.language !== 'en' && (
+            <Chip
+              size="small"
+              label={LANGUAGE_NAMES[review.language] ?? review.language}
+              variant="outlined"
+            />
+          )}
+          {review.topics.map((t) => (
+            <Chip key={t} size="small" label={t} />
+          ))}
         </Stack>
       </Box>
 
       <Divider />
 
       <Box sx={{ p: { xs: 2, md: 4 }, flex: 1 }}>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         {status === 'rejected' && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            Google rejected this reply{reply?.policyViolation ? ` (${reply.policyViolation.replace(/_/g, ' ').toLowerCase()})` : ''}.
-            {' '}{(reply?.policyViolation && VIOLATIONS[reply.policyViolation]) || 'Edit it and post again.'}
+            Google rejected this reply
+            {reply?.policyViolation
+              ? ` (${reply.policyViolation.replace(/_/g, ' ').toLowerCase()})`
+              : ''}
+            .{' '}
+            {(reply?.policyViolation && VIOLATIONS[reply.policyViolation]) ||
+              'Edit it and post again.'}
           </Alert>
         )}
-        {status === 'failed' && <Alert severity="error" sx={{ mb: 2 }}>Couldn&apos;t post: {reply?.error}</Alert>}
+        {status === 'failed' && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            Couldn&apos;t post: {reply?.error}
+          </Alert>
+        )}
 
         {status === 'pending' && (
           <Alert severity="warning" variant="outlined" sx={{ mb: 2 }}>
@@ -138,38 +197,72 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
           <AutoAwesomeRoundedIcon fontSize="small" color="primary" />
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            {posted && !editingPosted ? 'Your reply' : reply?.source === 'human' ? 'Your draft' : 'AI draft'}
+            {posted && !editingPosted
+              ? 'Your reply'
+              : reply?.source === 'human'
+                ? 'Your draft'
+                : 'AI draft'}
           </Typography>
           {editable && (
             <>
-              <Button size="small" startIcon={<RefreshRoundedIcon />} onClick={(e) => setMenu(e.currentTarget)} disabled={!!busy}>
+              <Button
+                size="small"
+                startIcon={<RefreshRoundedIcon />}
+                onClick={(e) => setMenu(e.currentTarget)}
+                disabled={!!busy}
+              >
                 Rewrite
               </Button>
               <Menu anchorEl={menu} open={!!menu} onClose={() => setMenu(null)}>
                 {REWRITES.map((r) => (
-                  <MenuItem key={r.label} onClick={() => { setMenu(null); void regenerate(r.instructions); }}>{r.label}</MenuItem>
+                  <MenuItem
+                    key={r.label}
+                    onClick={() => {
+                      setMenu(null);
+                      void regenerate(r.instructions);
+                    }}
+                  >
+                    {r.label}
+                  </MenuItem>
                 ))}
               </Menu>
             </>
           )}
           {posted && !editingPosted && (
             <>
-              <Tooltip title="Edit reply"><IconButton size="small" onClick={() => setEditingPosted(true)}><EditRoundedIcon fontSize="small" /></IconButton></Tooltip>
-              <Tooltip title="Delete reply from Google"><IconButton size="small" onClick={() => void remove()} disabled={!!busy}><DeleteOutlineRoundedIcon fontSize="small" /></IconButton></Tooltip>
+              <Tooltip title="Edit reply">
+                <IconButton size="small" onClick={() => setEditingPosted(true)}>
+                  <EditRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete reply from Google">
+                <IconButton size="small" onClick={() => void remove()} disabled={!!busy}>
+                  <DeleteOutlineRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </>
           )}
         </Stack>
 
         {status === 'drafting' || busy === 'regen' ? (
           <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
-            <Skeleton width="90%" /><Skeleton width="95%" /><Skeleton width="60%" />
-            <Typography variant="caption" color="text.secondary">Writing a reply in your voice…</Typography>
+            <Skeleton width="90%" />
+            <Skeleton width="95%" />
+            <Skeleton width="60%" />
+            <Typography variant="caption" color="text.secondary">
+              Writing a reply in your voice…
+            </Typography>
           </Box>
         ) : !reply && !text && !editable ? null : (
           <>
             {!reply && (status === 'needs_reply' || status === 'backlog') && !text ? (
               <Stack direction="row" spacing={1.5}>
-                <Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={() => void regenerate()} disabled={!!busy}>
+                <Button
+                  variant="contained"
+                  startIcon={<AutoAwesomeRoundedIcon />}
+                  onClick={() => void regenerate()}
+                  disabled={!!busy}
+                >
                   Draft reply with AI
                 </Button>
                 <Button onClick={() => setText(' ')}>Write my own</Button>
@@ -179,20 +272,46 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
                 <TextField
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  multiline minRows={5} fullWidth
+                  multiline
+                  minRows={5}
+                  fullWidth
                   disabled={!editable}
                   placeholder="Write a reply…"
                 />
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                  <Typography variant="caption" color={bytes > MAX_BYTES ? 'error' : 'text.secondary'} sx={{ flex: 1 }}>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  spacing={1}
+                  sx={{ mt: 1.5, flexWrap: 'wrap', gap: 1 }}
+                >
+                  <Typography
+                    variant="caption"
+                    color={bytes > MAX_BYTES ? 'error' : 'text.secondary'}
+                    sx={{ flex: 1 }}
+                  >
                     {bytes} / {MAX_BYTES} bytes
                   </Typography>
                   {editable && (
                     <>
-                      {dirty && <Button onClick={() => void saveDraft()} disabled={!!busy}>Save draft</Button>}
-                      {editingPosted && <Button onClick={() => { setEditingPosted(false); setText(reply?.text || ''); }}>Cancel</Button>}
+                      {dirty && (
+                        <Button onClick={() => void saveDraft()} disabled={!!busy}>
+                          Save draft
+                        </Button>
+                      )}
+                      {editingPosted && (
+                        <Button
+                          onClick={() => {
+                            setEditingPosted(false);
+                            setText(reply?.text || '');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      )}
                       <Button
-                        variant="contained" endIcon={<SendRoundedIcon />} onClick={() => void post()}
+                        variant="contained"
+                        endIcon={<SendRoundedIcon />}
+                        onClick={() => void post()}
                         disabled={!!busy || !text.trim() || bytes > MAX_BYTES}
                       >
                         {editingPosted ? 'Update reply' : 'Post reply'}
@@ -206,8 +325,12 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
         )}
 
         <Link
-          href="https://support.google.com/business/answer/4596773" target="_blank" rel="noopener"
-          variant="body2" color="text.secondary" underline="hover"
+          href="https://support.google.com/business/answer/4596773"
+          target="_blank"
+          rel="noopener"
+          variant="body2"
+          color="text.secondary"
+          underline="hover"
           sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 4 }}
         >
           <OutlinedFlagRoundedIcon fontSize="inherit" /> Report this review to Google

@@ -49,7 +49,10 @@ function assertSameOrigin(request: FastifyRequest): void {
   if (origin && origin !== env.APP_URL) throw new HttpError(403, 'Request refused', 'bad_origin');
 }
 
-const sessionMeta = (request: FastifyRequest) => ({ ip: request.ip, userAgent: request.headers['user-agent'] });
+const sessionMeta = (request: FastifyRequest) => ({
+  ip: request.ip,
+  userAgent: request.headers['user-agent'],
+});
 
 const strict = (max: number) => ({ max, timeWindow: '1 minute' });
 
@@ -59,7 +62,10 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
   async function startSession(request: FastifyRequest, reply: FastifyReply, userId: string) {
     const { session, refreshToken } = await createSession(userId, sessionMeta(request));
     setRefreshCookie(reply, refreshToken);
-    return { accessToken: app.jwt.sign({ sub: userId, sid: session.id }), ...(await auth.me(userId)) };
+    return {
+      accessToken: app.jwt.sign({ sub: userId, sid: session.id }),
+      ...(await auth.me(userId)),
+    };
   }
 
   app.get(
@@ -70,20 +76,34 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.post(
     '/signup',
-    { config: { access: 'public', rateLimit: strict(20) }, schema: { body: signupBody, response: { 200: sessionResponse } } },
-    async (request, reply) => startSession(request, reply, await auth.signup(request.body, request.log, request.ip)),
+    {
+      config: { access: 'public', rateLimit: strict(20) },
+      schema: { body: signupBody, response: { 200: sessionResponse } },
+    },
+    async (request, reply) =>
+      startSession(request, reply, await auth.signup(request.body, request.log, request.ip)),
   );
 
   app.post(
     '/login',
-    { config: { access: 'public', rateLimit: strict(30) }, schema: { body: loginBody, response: { 200: sessionResponse } } },
+    {
+      config: { access: 'public', rateLimit: strict(30) },
+      schema: { body: loginBody, response: { 200: sessionResponse } },
+    },
     async (request, reply) =>
-      startSession(request, reply, await auth.login(request.body.email, request.body.password, request.ip)),
+      startSession(
+        request,
+        reply,
+        await auth.login(request.body.email, request.body.password, request.ip),
+      ),
   );
 
   app.post(
     '/refresh',
-    { config: { access: 'public', rateLimit: strict(120) }, schema: { response: { 200: sessionResponse } } },
+    {
+      config: { access: 'public', rateLimit: strict(120) },
+      schema: { response: { 200: sessionResponse } },
+    },
     async (request, reply) => {
       assertSameOrigin(request);
       const token = request.cookies[REFRESH_COOKIE];
@@ -97,12 +117,16 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post('/logout', { config: { access: 'public' }, schema: { response: { 200: okResponse } } }, async (request, reply) => {
-    assertSameOrigin(request);
-    await revokeByToken(request.cookies[REFRESH_COOKIE]);
-    reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
-    return { ok: true as const };
-  });
+  app.post(
+    '/logout',
+    { config: { access: 'public' }, schema: { response: { 200: okResponse } } },
+    async (request, reply) => {
+      assertSameOrigin(request);
+      await revokeByToken(request.cookies[REFRESH_COOKIE]);
+      reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
+      return { ok: true as const };
+    },
+  );
 
   app.post(
     '/logout-all',
@@ -114,13 +138,18 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
     },
   );
 
-  app.get('/me', { config: { access: 'authenticated' }, schema: { response: { 200: meResponse } } }, async (request) =>
-    auth.me(currentAuth(request).userId),
+  app.get(
+    '/me',
+    { config: { access: 'authenticated' }, schema: { response: { 200: meResponse } } },
+    async (request) => auth.me(currentAuth(request).userId),
   );
 
   app.patch(
     '/me',
-    { config: { access: 'authenticated' }, schema: { body: updateProfileBody, response: { 200: meResponse } } },
+    {
+      config: { access: 'authenticated' },
+      schema: { body: updateProfileBody, response: { 200: meResponse } },
+    },
     async (request) => {
       const { userId } = currentAuth(request);
       await auth.updateProfile(userId, request.body.name);
@@ -130,7 +159,10 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.delete(
     '/me',
-    { config: { access: 'authenticated' }, schema: { body: deleteAccountBody, response: { 200: okResponse } } },
+    {
+      config: { access: 'authenticated' },
+      schema: { body: deleteAccountBody, response: { 200: okResponse } },
+    },
     async (request, reply) => {
       await auth.deleteAccount(currentAuth(request).userId, request.body.password, request.ip);
       reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
@@ -140,17 +172,29 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.post(
     '/change-password',
-    { config: { access: 'authenticated', rateLimit: strict(10) }, schema: { body: changePasswordBody, response: { 200: okResponse } } },
+    {
+      config: { access: 'authenticated', rateLimit: strict(10) },
+      schema: { body: changePasswordBody, response: { 200: okResponse } },
+    },
     async (request) => {
       const { userId, sessionId } = currentAuth(request);
-      await auth.changePassword(userId, sessionId, request.body.currentPassword, request.body.newPassword, request.ip);
+      await auth.changePassword(
+        userId,
+        sessionId,
+        request.body.currentPassword,
+        request.body.newPassword,
+        request.ip,
+      );
       return { ok: true as const };
     },
   );
 
   app.post(
     '/verify-email',
-    { config: { access: 'public', rateLimit: strict(20) }, schema: { body: verifyEmailBody, response: { 200: okResponse } } },
+    {
+      config: { access: 'public', rateLimit: strict(20) },
+      schema: { body: verifyEmailBody, response: { 200: okResponse } },
+    },
     async (request) => {
       await auth.verifyEmail(request.body.token);
       return { ok: true as const };
@@ -159,7 +203,10 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.post(
     '/resend-verification',
-    { config: { access: 'authenticated', rateLimit: strict(5) }, schema: { response: { 200: okResponse } } },
+    {
+      config: { access: 'authenticated', rateLimit: strict(5) },
+      schema: { response: { 200: okResponse } },
+    },
     async (request) => {
       await auth.resendVerification(currentAuth(request).userId, request.log);
       return { ok: true as const };
@@ -168,7 +215,10 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.post(
     '/forgot-password',
-    { config: { access: 'public', rateLimit: strict(5) }, schema: { body: forgotPasswordBody, response: { 200: okResponse } } },
+    {
+      config: { access: 'public', rateLimit: strict(5) },
+      schema: { body: forgotPasswordBody, response: { 200: okResponse } },
+    },
     async (request) => {
       await auth.forgotPassword(request.body.email, request.log);
       return { ok: true as const };
@@ -177,7 +227,10 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.post(
     '/reset-password',
-    { config: { access: 'public', rateLimit: strict(10) }, schema: { body: resetPasswordBody, response: { 200: okResponse } } },
+    {
+      config: { access: 'public', rateLimit: strict(10) },
+      schema: { body: resetPasswordBody, response: { 200: okResponse } },
+    },
     async (request) => {
       await auth.resetPassword(request.body.token, request.body.password, request.ip);
       return { ok: true as const };
@@ -186,7 +239,10 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
 
   app.get(
     '/google/start',
-    { config: { access: 'public', rateLimit: strict(30) }, schema: { querystring: z.object({ invite: z.string().optional() }) } },
+    {
+      config: { access: 'public', rateLimit: strict(30) },
+      schema: { querystring: z.object({ invite: z.string().optional() }) },
+    },
     async (request, reply) => {
       if (!googleSignInEnabled()) throw new HttpError(404, 'Not found', 'not_found');
       const nonce = randomToken();
@@ -207,7 +263,13 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
     '/google/callback',
     {
       config: { access: 'public', rateLimit: strict(30) },
-      schema: { querystring: z.object({ code: z.string().optional(), state: z.string().optional(), error: z.string().optional() }) },
+      schema: {
+        querystring: z.object({
+          code: z.string().optional(),
+          state: z.string().optional(),
+          error: z.string().optional(),
+        }),
+      },
     },
     async (request, reply) => {
       const fail = (error: string) => reply.redirect(`${env.APP_URL}/login?error=${error}`);
@@ -216,7 +278,8 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
       const payload = verifyState('google-signin', state);
       const cookie = request.cookies[GOOGLE_COOKIE];
       reply.clearCookie(GOOGLE_COOKIE, { path: GOOGLE_COOKIE_PATH });
-      if (!payload || !cookie || !safeEqual(cookie, String(payload.nonce))) return fail('google_state');
+      if (!payload || !cookie || !safeEqual(cookie, String(payload.nonce)))
+        return fail('google_state');
       if (error || !code) return fail('google_failed');
 
       try {
@@ -227,7 +290,8 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
         const { refreshToken } = await createSession(result.userId, sessionMeta(request));
         setRefreshCookie(reply, refreshToken);
         // Someone who already had an account still has to accept, on the page that checks it's for them.
-        const pending = invite && !result.joinedInvitation ? `?invite=${encodeURIComponent(invite)}` : '';
+        const pending =
+          invite && !result.joinedInvitation ? `?invite=${encodeURIComponent(invite)}` : '';
         return reply.redirect(`${env.APP_URL}/auth/callback${pending}`);
       } catch (err) {
         request.log.warn({ err }, 'google sign-in failed');

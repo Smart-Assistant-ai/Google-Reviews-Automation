@@ -9,9 +9,12 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2).filter((arg) => arg !== '--');
   const [first, second] = args;
   if (first === '--list') {
-    for (const row of await listAllowedSignups()) console.log(`${row.email}${row.note ? `  (${row.note})` : ''}`);
+    for (const row of await listAllowedSignups())
+      console.log(`${row.email}${row.note ? `  (${row.note})` : ''}`);
   } else if (first === '--remove' && second) {
-    console.log((await disallowSignup(second)) ? `Removed ${second}` : `${second} was not on the list`);
+    console.log(
+      (await disallowSignup(second)) ? `Removed ${second}` : `${second} was not on the list`,
+    );
   } else if (first && !first.startsWith('--')) {
     const row = await allowSignup(first, second);
     console.log(`${row.email} can now sign up.`);

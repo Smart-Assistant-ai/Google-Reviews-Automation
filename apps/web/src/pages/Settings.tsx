@@ -32,8 +32,15 @@ export default function Settings() {
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 960, mx: 'auto' }}>
       <Typography variant="h5">Settings</Typography>
-      <Tabs value={tab.key} onChange={(_, v: string) => setSelected(v)} variant="scrollable" sx={{ my: 3, borderBottom: 1, borderColor: 'divider' }}>
-        {tabs.map((t) => <Tab key={t.key} value={t.key} label={t.label} />)}
+      <Tabs
+        value={tab.key}
+        onChange={(_, v: string) => setSelected(v)}
+        variant="scrollable"
+        sx={{ my: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        {tabs.map((t) => (
+          <Tab key={t.key} value={t.key} label={t.label} />
+        ))}
       </Tabs>
       {tab.el}
     </Box>
