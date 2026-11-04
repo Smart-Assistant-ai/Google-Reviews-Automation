@@ -1,0 +1,110 @@
+// One file describes the whole database, so models and migrations can't drift apart.
+// Conventions: UUID keys, timestamps with time zone, real foreign keys, snake_case in Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum AuthProvider {
+  password
+  google
+}
+
+enum OneTimeTokenPurpose {
+  verify_email
+  reset_password
+}
+
+model User {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String     @unique
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  name            String?
+  status          UserStatus @default(active)
+  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  identities         AuthIdentity[]
+  sessions           Session[]
+  oneTimeTokens      OneTimeToken[]
+  memberships        WorkspaceMember[]
+  invitationsSent    WorkspaceInvitation[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+// A user can log in more than one way. Google is matched on its stable user id, never on email.
+model AuthIdentity {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  provider       AuthProvider
+  providerUserId String       @map("provider_user_id")
+  passwordHash   String?      @map("password_hash")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider])
+  @@map("auth_identities")
+}
+
+// One row per logged-in device. Deleting or revoking it ends that login immediately.
+model Session {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  refreshTokenHash  String    @map("refresh_token_hash")
+  previousTokenHash String?   @map("previous_token_hash")
+  rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(6)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(6)
+  ip                String?
+  userAgent         String?   @map("user_agent")
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Email verification and password reset links. Only a hash is stored, so a database leak can't be replayed.
+model OneTimeToken {
+  id        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  purpose   OneTimeTokenPurpose
+  tokenHash String              @unique @map("token_hash")
+  expiresAt DateTime            @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime?           @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("one_time_tokens")
+}
+
+model SignupAllowlist {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String   @unique
+  note      String?
+  addedBy   String?  @map("added_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("signup_allowlist")
+}
