@@ -196,3 +196,99 @@ model WorkspaceInvitation {
   @@index([email])
   @@map("workspace_invitations")
 }
+
+enum ConnectionProvider {
+  mock
+  live
+}
+
+enum ConnectionStatus {
+  healthy
+  needs_reconnect
+}
+
+enum DataSource {
+  google
+  sample
+}
+
+enum LocationStatus {
+  available
+  active
+  access_lost
+}
+
+// A workspace can connect several Google accounts. Tokens are encrypted before they get here.
+model GoogleConnection {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId         String             @map("workspace_id") @db.Uuid
+  provider            ConnectionProvider
+  googleUserId        String             @map("google_user_id")
+  googleEmail         String?            @map("google_email")
+  accessToken         String?            @map("access_token")
+  refreshToken        String?            @map("refresh_token")
+  expiresAt           DateTime?          @map("expires_at") @db.Timestamptz(6)
+  status              ConnectionStatus   @default(healthy)
+  dataSource          DataSource         @default(google) @map("data_source")
+  apiError            String?            @map("api_error")
+  reconnectNotifiedAt DateTime?          @map("reconnect_notified_at") @db.Timestamptz(6)
+  createdById         String?            @map("created_by") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  servedLocations Location[]
+  reachableLocations ConnectionLocation[]
+
+  @@unique([workspaceId, googleUserId])
+  @@index([status])
+  @@map("google_connections")
+}
+
+// A business location. `available` means seen on Google but not chosen, so it is never synced.
+// connection_id is the one connection that serves it.
+model Location {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId          String         @map("workspace_id") @db.Uuid
+  connectionId         String         @map("connection_id") @db.Uuid
+  googleAccountName    String         @map("google_account_name")
+  googleLocationName   String         @map("google_location_name")
+  title                String
+  address              String?
+  status               LocationStatus @default(available)
+  lastSyncedAt         DateTime?      @map("last_synced_at") @db.Timestamptz(6)
+  lastSyncAttemptAt    DateTime?      @map("last_sync_attempt_at") @db.Timestamptz(6)
+  lastSyncError        String?        @map("last_sync_error")
+  accessLostNotifiedAt DateTime?      @map("access_lost_notified_at") @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connection  GoogleConnection          @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  reachableBy ConnectionLocation[]
+  members     WorkspaceMemberLocation[]
+  reviews     Review[]
+  voice       VoiceProfile[]
+  auditLogs   AuditLog[]
+
+  @@unique([workspaceId, googleLocationName])
+  @@index([status, lastSyncAttemptAt])
+  @@index([connectionId])
+  @@map("locations")
+}
+
+// Every connection that can reach a location, so the user can choose and a location can
+// move to another connection when one is disconnected.
+model ConnectionLocation {
+  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connectionId      String @map("connection_id") @db.Uuid
+  locationId        String @map("location_id") @db.Uuid
+  googleAccountName String @map("google_account_name")
+
+  connection GoogleConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  location   Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, locationId])
+  @@index([locationId])
+  @@map("connection_locations")
+}
