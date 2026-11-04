@@ -226,7 +226,9 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
         if (!result.ok) return fail(result.error);
         const { refreshToken } = await createSession(result.userId, sessionMeta(request));
         setRefreshCookie(reply, refreshToken);
-        return reply.redirect(`${env.APP_URL}/auth/callback`);
+        // Someone who already had an account still has to accept, on the page that checks it's for them.
+        const pending = invite && !result.joinedInvitation ? `?invite=${encodeURIComponent(invite)}` : '';
+        return reply.redirect(`${env.APP_URL}/auth/callback${pending}`);
       } catch (err) {
         request.log.warn({ err }, 'google sign-in failed');
         await recordAudit({ action: 'auth.google_failed', ip: request.ip });

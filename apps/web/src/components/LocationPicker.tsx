@@ -38,7 +38,7 @@ export default function LocationPicker({ locations, submitLabel, busy, error, on
               <ListItemIcon sx={{ minWidth: 36 }}>
                 <Checkbox edge="start" checked={chosen.has(location.id)} tabIndex={-1} disableRipple inputProps={{ 'aria-label': location.title }} />
               </ListItemIcon>
-              <ListItemText primary={location.title} secondary={location.address} />
+              <ListItemText primary={location.title} secondary={[location.address, location.connectionEmail].filter(Boolean).join(' · ')} />
             </ListItemButton>
           </ListItem>
         ))}

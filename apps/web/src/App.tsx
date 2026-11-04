@@ -1,6 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import AppShell from './layout/AppShell';
 import AcceptInvite from './pages/AcceptInvite';
@@ -34,8 +34,12 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function PublicOnly({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
+  const [params] = useSearchParams();
   if (loading) return <FullPageLoader />;
-  return session ? <Navigate to="/" replace /> : children;
+  if (!session) return children;
+  // Logging in from an invitation link goes back to that invitation.
+  const invite = params.get('invite');
+  return <Navigate to={invite ? `/invite?token=${encodeURIComponent(invite)}` : '/'} replace />;
 }
 
 export default function App() {

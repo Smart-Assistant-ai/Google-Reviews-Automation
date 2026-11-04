@@ -38,7 +38,11 @@ export default function Onboarding() {
   const verified = session?.user.emailVerified;
   const managed = status?.locations.filter((l) => l.status !== 'available') ?? [];
   const available = status?.locations.filter((l) => l.status === 'available') ?? [];
-  if (managed.length > 0) return <Navigate to="/inbox" replace />;
+  // Someone who already manages locations only stays here to see a failed connect, or to pick
+  // from a Google account they just added.
+  const justConnected = params.get('google_connected') === 'true';
+  const hasFailure = params.get('google_connected') === 'false';
+  if (managed.length > 0 && !hasFailure && !(justConnected && available.length > 0)) return <Navigate to="/inbox" replace />;
 
   const connect = async () => {
     setBusy(true);
@@ -78,11 +82,18 @@ export default function Onboarding() {
           <CardContent sx={{ p: { xs: 3, md: 5 } }}>
             {isLoading ? (
               <CircularProgress />
+            ) : hasFailure && managed.length > 0 ? (
+              <Stack spacing={3} alignItems="flex-start">
+                <Typography variant="h5">That account wasn&apos;t connected</Typography>
+                <Alert severity="error" sx={{ alignSelf: 'stretch' }}>{error}</Alert>
+                <Button variant="contained" onClick={() => navigate('/settings')}>Back to Settings</Button>
+              </Stack>
             ) : available.length > 0 ? (
               <Stack spacing={3} alignItems="flex-start">
                 <Typography variant="h5">Choose your locations</Typography>
                 <Typography color="text.secondary">We&apos;ll load reviews only for the locations you pick. You can change this later in Settings.</Typography>
                 <LocationPicker locations={available} submitLabel="Manage these locations" busy={busy} error={error} onSubmit={(ids) => void choose(ids)} />
+                {managed.length > 0 && <Button onClick={() => navigate('/inbox')}>Skip for now</Button>}
               </Stack>
             ) : blocked ? (
               <GoogleEmptyState connection={blocked} />

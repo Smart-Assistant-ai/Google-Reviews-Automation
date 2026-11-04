@@ -7,7 +7,8 @@ import { findUsableInvitation, joinFromInvitation } from '../workspaces/invitati
 import { isSignupAllowed } from './service';
 
 export type GoogleSignInResult =
-  | { ok: true; userId: string }
+  // joinedInvitation is false when someone with an account arrived with an invitation still to accept.
+  | { ok: true; userId: string; joinedInvitation: boolean }
   | { ok: false; error: 'google_unverified' | 'verify_first' | 'signup_not_allowed' | 'account_unavailable' };
 
 // Google is matched on its stable id, never on email. Linking by email only happens once both
@@ -26,7 +27,7 @@ export async function signInWithGoogle(
     if (known.user.deletedAt || known.user.status !== 'active') return { ok: false, error: 'account_unavailable' };
     await prisma.user.update({ where: { id: known.userId }, data: { lastLoginAt: new Date() } });
     await recordAudit({ action: 'auth.login', actorUserId: known.userId, meta: { method: 'google' }, ip });
-    return { ok: true, userId: known.userId };
+    return { ok: true, userId: known.userId, joinedInvitation: false };
   }
 
   if (!identity.emailVerified) return { ok: false, error: 'google_unverified' };
@@ -41,7 +42,7 @@ export async function signInWithGoogle(
     });
     await prisma.user.update({ where: { id: existing.id }, data: { lastLoginAt: new Date() } });
     await recordAudit({ action: 'auth.google_linked', actorUserId: existing.id, ip });
-    return { ok: true, userId: existing.id };
+    return { ok: true, userId: existing.id, joinedInvitation: false };
   }
 
   const found = inviteToken ? await findUsableInvitation(inviteToken) : null;
@@ -58,5 +59,5 @@ export async function signInWithGoogle(
     return created;
   });
   await recordAudit({ action: 'auth.signup', actorUserId: user.id, meta: { method: 'google' }, ip });
-  return { ok: true, userId: user.id };
+  return { ok: true, userId: user.id, joinedInvitation: invitation !== null };
 }

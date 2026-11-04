@@ -180,6 +180,40 @@ describe('invitations', () => {
   });
 });
 
+describe('invitations through Google sign-in', () => {
+  const code = (sub: string, email: string) => Buffer.from(JSON.stringify({ sub, email, emailVerified: true })).toString('base64url');
+
+  async function viaGoogle(sub: string, email: string, invite: string) {
+    const start = await app.inject({ url: `/api/v1/auth/google/start?invite=${encodeURIComponent(invite)}` });
+    const state = new URL(start.headers.location as string).searchParams.get('state')!;
+    const nonce = start.cookies.find((c) => c.name === 'rp_google_signin')!.value;
+    return app.inject({
+      url: `/api/v1/auth/google/callback?code=${code(sub, email)}&state=${encodeURIComponent(state)}`,
+      cookies: { rp_google_signin: nonce },
+    });
+  }
+
+  it('a new person joins straight away, with no workspace of their own', async () => {
+    const owner = await signup(app);
+    const email = uniqueEmail();
+    await api('POST', `/workspaces/${owner.workspaceId}/invitations`, owner, { email });
+    const res = await viaGoogle('new-person', email, tokenFromEmail(email, '/invite'));
+    expect(res.headers.location).toBe(`${env.APP_URL}/auth/callback`);
+    const user = await prisma.user.findUniqueOrThrow({ where: { email }, include: { memberships: true } });
+    expect(user.memberships.map((m) => m.workspaceId)).toEqual([owner.workspaceId]);
+  });
+
+  it('someone who already has an account is sent back to accept the invitation', async () => {
+    const owner = await signup(app);
+    const existing = await signup(app);
+    await app.inject({ method: 'POST', url: '/api/v1/auth/verify-email', payload: { token: tokenFromEmail(existing.email, '/verify-email') } });
+    await api('POST', `/workspaces/${owner.workspaceId}/invitations`, owner, { email: existing.email });
+    const token = tokenFromEmail(existing.email, '/invite');
+    const res = await viaGoogle('existing-person', existing.email, token);
+    expect(res.headers.location).toBe(`${env.APP_URL}/auth/callback?invite=${encodeURIComponent(token)}`);
+  });
+});
+
 describe('members', () => {
   it('lists the team', async () => {
     const owner = await signup(app, { name: 'Olive' });

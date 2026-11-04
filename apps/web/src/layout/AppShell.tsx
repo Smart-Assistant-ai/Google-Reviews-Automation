@@ -51,7 +51,7 @@ function WorkspaceSwitcher() {
 
   return (
     <>
-      <ListItemButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ px: 1 }} aria-label="Switch workspace">
+      <ListItemButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ px: 1, flexGrow: 0 }} aria-label="Switch workspace">
         <ListItemText
           primary={workspace?.name}
           primaryTypographyProps={{ fontWeight: 600, fontSize: 14, noWrap: true }}
