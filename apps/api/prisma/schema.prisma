@@ -292,3 +292,144 @@ model ConnectionLocation {
   @@index([locationId])
   @@map("connection_locations")
 }
+
+enum ReplySource {
+  ai
+  human
+  google
+}
+
+enum ReplyState {
+  drafting
+  draft
+  posting
+  pending_google
+  live
+  rejected
+  failed
+}
+
+enum VoiceTone {
+  warm
+  professional
+  playful
+}
+
+enum LanguageMode {
+  match
+  english
+}
+
+// Unique per location, not globally. A global unique let one workspace's sync take over
+// another workspace's reviews when both connected the same business.
+model Review {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String    @map("workspace_id") @db.Uuid
+  locationId       String    @map("location_id") @db.Uuid
+  googleReviewId   String    @map("google_review_id")
+  reviewerName     String?   @map("reviewer_name")
+  reviewerPhotoUrl String?   @map("reviewer_photo_url")
+  starRating       Int       @map("star_rating")
+  comment          String?
+  media            Json      @default("[]")
+  createTime       DateTime  @map("create_time") @db.Timestamptz(6)
+  updateTime       DateTime? @map("update_time") @db.Timestamptz(6)
+  language         String?
+  sentiment        String?
+  topics           Json      @default("[]")
+  lastFetchedAt    DateTime  @default(now()) @map("last_fetched_at") @db.Timestamptz(6)
+  purgedAt         DateTime? @map("purged_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  reply     Reply?
+
+  @@unique([locationId, googleReviewId])
+  @@index([locationId, createTime(sort: Desc)])
+  @@index([workspaceId, createTime(sort: Desc)])
+  @@index([lastFetchedAt])
+  @@map("reviews")
+}
+
+model Reply {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String      @map("workspace_id") @db.Uuid
+  reviewId         String      @unique @map("review_id") @db.Uuid
+  text             String      @default("")
+  source           ReplySource
+  state            ReplyState
+  googleReplyState String?     @map("google_reply_state")
+  policyViolation  String?     @map("policy_violation")
+  error            String?
+  draftAttempts    Int         @default(0) @map("draft_attempts")
+  postedAt         DateTime?   @map("posted_at") @db.Timestamptz(6)
+  postedById       String?     @map("posted_by") @db.Uuid
+  lastCheckedAt    DateTime?   @map("last_checked_at") @db.Timestamptz(6)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([state, lastCheckedAt])
+  @@map("replies")
+}
+
+// location_id null is the workspace default; a row with a location overrides it for that location.
+// Partial unique indexes in the migration enforce one of each, because a plain unique allows
+// any number of rows with a NULL location.
+model VoiceProfile {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String       @map("workspace_id") @db.Uuid
+  locationId   String?      @map("location_id") @db.Uuid
+  businessName String?      @map("business_name")
+  tone         VoiceTone    @default(warm)
+  signOff      String?      @map("sign_off")
+  ownerName    String?      @map("owner_name")
+  alwaysSay    String?      @map("always_say")
+  neverSay     String?      @map("never_say")
+  languageMode LanguageMode @default(match) @map("language_mode")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  location  Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("voice_profiles")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String?  @map("workspace_id") @db.Uuid
+  locationId  String?  @map("location_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id")
+  meta        Json     @default("{}")
+  ip          String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  location  Location?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  actor     User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+  @@map("audit_logs")
+}
+
+// One row per background job. A job claims its row before running, so two processes can't run it
+// together, and last_error makes a stopped job visible.
+model JobRun {
+  name           String    @id
+  lastStartedAt  DateTime? @map("last_started_at") @db.Timestamptz(6)
+  lastFinishedAt DateTime? @map("last_finished_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  lockedUntil    DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  @@map("job_runs")
+}
