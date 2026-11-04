@@ -19,7 +19,9 @@ export interface BuildOptions extends SecurityOptions {
 export async function buildApp(options: BuildOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({
     logger: env.LOG_LEVEL === 'silent' ? false : { level: env.LOG_LEVEL },
-    trustProxy: env.TRUST_PROXY,
+    // Only Nginx on this machine is trusted. Trusting every proxy would let a client forge its
+    // address with its own X-Forwarded-For header and slip past rate limits.
+    trustProxy: env.TRUST_PROXY ? '127.0.0.1,::1' : false,
     bodyLimit: 1024 * 1024,
   }).withTypeProvider<ZodTypeProvider>();
 

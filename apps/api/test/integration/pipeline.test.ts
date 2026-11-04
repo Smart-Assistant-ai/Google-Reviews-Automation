@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { buildApp } from '../../src/app';
+import { env } from '../../src/config';
 import { HttpError } from '../../src/lib/errors';
 
 let app: FastifyInstance;
@@ -115,6 +116,27 @@ describe('request pipeline', () => {
   it('lists every route with its access rule', () => {
     const routes = (app as FastifyInstance & { routeAccess: { url: string; access: string }[] }).routeAccess;
     expect(routes.find((r) => r.url === '/api/v1/health')?.access).toBe('public');
+  });
+});
+
+describe('behind the proxy', () => {
+  it('uses the address Nginx saw, so a client cannot fake its way around rate limits', async () => {
+    const before = env.TRUST_PROXY;
+    env.TRUST_PROXY = true;
+    const proxied = await buildApp({
+      extraRoutes: (instance) => {
+        instance.get('/test/ip', { config: { access: 'public' } }, async (request) => ({ ip: request.ip }));
+      },
+    });
+    env.TRUST_PROXY = before;
+    // What Nginx forwards when a client sends its own forged header: the fake first, the real last.
+    const res = await proxied.inject({
+      url: '/test/ip',
+      remoteAddress: '127.0.0.1',
+      headers: { 'x-forwarded-for': '6.6.6.6, 203.0.113.9' },
+    });
+    expect(res.json().ip).toBe('203.0.113.9');
+    await proxied.close();
   });
 });
 

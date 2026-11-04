@@ -17,10 +17,11 @@ git pull --ff-only origin "$BRANCH"
 echo "==> Installing dependencies"
 pnpm install --frozen-lockfile
 
-echo "==> Checking the migration against the database"
+echo "==> Applying database migrations"
 pnpm db:generate
 # Take a database snapshot first (see docs/deploy.md). Migrations only move forward.
-(cd apps/api && set -a && . ./.env && set +a && pnpm exec prisma migrate deploy)
+# Prisma reads apps/api/.env itself. Sourcing it in the shell would break on the & in the database URL.
+pnpm db:deploy
 
 echo "==> Building"
 pnpm build
