@@ -19,6 +19,7 @@ import { useAuth } from '../auth/AuthContext';
 import GoogleEmptyState from '../components/GoogleEmptyState';
 import LocationPicker from '../components/LocationPicker';
 import Logo from '../components/Logo';
+import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 
 const CONNECT_ERRORS: Record<string, string> = {
   google_state:
@@ -92,6 +93,12 @@ export default function Onboarding() {
           <Box sx={{ flex: 1 }}>
             <Logo />
           </Box>
+          {/* Someone who just made a new workspace can still get back to their others from here. */}
+          {session && session.workspaces.length > 1 && (
+            <Box sx={{ minWidth: 180, mr: 1 }}>
+              <WorkspaceSwitcher />
+            </Box>
+          )}
           <Button size="small" onClick={() => void logout()}>
             Log out
           </Button>
