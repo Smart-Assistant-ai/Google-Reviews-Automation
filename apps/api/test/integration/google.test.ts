@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../../src/config';
-import { decrypt } from '../../src/lib/crypto';
+import { decrypt, encrypt } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { syncLocation } from '../../src/modules/google/sync.service';
 import { notifyProblems } from '../../src/modules/reviews/jobs';
 import { sentEmails } from '../../src/providers/email/mock';
+import { liveGbpProvider } from '../../src/providers/gbp/live';
 import { mockGbp } from '../../src/providers/gbp/mock';
 import { signState } from '../../src/lib/signed-state';
 import { signup, testApp, tokenFromEmail, uniqueEmail, type TestUser } from '../helpers/app';
@@ -448,6 +449,37 @@ describe('disconnecting', () => {
       0,
     );
     expect(await reviewCount(user.workspaceId)).toBe(0);
+  });
+
+  it('keeps the Google grant while another workspace still uses the same Google account', async () => {
+    const revoke = vi.spyOn(liveGbpProvider, 'revoke').mockResolvedValue();
+    try {
+      const a = await verifiedOwner();
+      const b = await verifiedOwner();
+      await connectGoogle(app, a, { email: 'shared@sample.test' });
+      await connectGoogle(app, b, { email: 'shared@sample.test' });
+      const connectionA = (await googleStatus(app, a)).connections[0]!;
+      const connectionB = (await googleStatus(app, b)).connections[0]!;
+      // Both are real Google connections. B shows sample data but still holds real tokens.
+      await prisma.googleConnection.updateMany({
+        where: { id: { in: [connectionA.id, connectionB.id] } },
+        data: { provider: 'live', refreshToken: encrypt('shared-refresh-token') },
+      });
+      await prisma.googleConnection.update({
+        where: { id: connectionB.id },
+        data: { dataSource: 'sample' },
+      });
+
+      expect((await api('DELETE', a, `/connections/${connectionA.id}`)).statusCode).toBe(200);
+      expect(revoke).not.toHaveBeenCalled();
+      expect(await prisma.googleConnection.count({ where: { id: connectionB.id } })).toBe(1);
+
+      expect((await api('DELETE', b, `/connections/${connectionB.id}`)).statusCode).toBe(200);
+      expect(revoke).toHaveBeenCalledOnce();
+      expect(revoke).toHaveBeenCalledWith('shared-refresh-token');
+    } finally {
+      revoke.mockRestore();
+    }
   });
 
   it('another workspace cannot touch this connection', async () => {

@@ -355,6 +355,11 @@ export const mockGbp = {
   clearReply(reviewName: string) {
     delete findReview(reviewName).reviewReply;
   },
+  // Like the owner editing their reply directly on Google.
+  editReplyOnGoogle(reviewName: string, comment: string) {
+    const reply = findReview(reviewName).reviewReply;
+    if (reply) reply.comment = comment;
+  },
   failReviews(email: string, failure: MockFailure | null) {
     const userId = googleUserIdFor(email);
     const user = store.users[userId] ?? {

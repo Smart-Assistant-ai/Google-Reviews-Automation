@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { env } from '../../config';
 import { prisma } from '../../lib/prisma';
 import type { JobDefinition } from '../../jobs/runner';
@@ -134,15 +135,34 @@ export async function rescanConnections(): Promise<void> {
   }
 }
 
+// Reported, because a broken email setup would otherwise hide every warning quietly.
+function reportNotifyFailure(what: string, err: unknown): void {
+  console.warn('[notify]', what, (err as Error).message);
+  Sentry.captureException(err);
+}
+
+// Each admin is tried on their own, so one bad address doesn't stop the rest. Returns whether the
+// workspace was told: someone got the email, or there was nobody to tell.
 async function emailAdmins(
   workspaceId: string,
   build: (to: string) => ReturnType<typeof renderEmail>,
-): Promise<void> {
-  for (const to of await adminEmails(workspaceId)) await sendEmail(build(to));
+): Promise<boolean> {
+  const recipients = await adminEmails(workspaceId);
+  let reached = 0;
+  for (const to of recipients) {
+    try {
+      await sendEmail(build(to));
+      reached += 1;
+    } catch (err) {
+      reportNotifyFailure(`email for workspace ${workspaceId}`, err);
+    }
+  }
+  return reached > 0 || recipients.length === 0;
 }
 
-// A dead connection must never go unnoticed. Each is emailed once, and only marked after the
-// email went out, so a failed send is tried again.
+// A dead connection must never go unnoticed. Each problem is marked once someone in the workspace
+// was told. If nobody could be reached it stays unmarked, so the next run tries again. One problem
+// failing never holds up the others.
 export async function notifyProblems(): Promise<void> {
   const settingsUrl = `${env.APP_URL}/settings`;
 
@@ -150,38 +170,50 @@ export async function notifyProblems(): Promise<void> {
     where: { status: 'needs_reconnect', reconnectNotifiedAt: null },
   });
   for (const connection of dead) {
-    await emailAdmins(connection.workspaceId, (to) =>
-      renderEmail({
-        to,
-        subject: 'Please reconnect your Google account',
-        intro: `We can no longer reach Google with ${connection.googleEmail ?? 'one of your connected accounts'}, so its reviews have stopped updating and replies can't be posted.`,
-        actionLabel: 'Reconnect',
-        actionUrl: settingsUrl,
-      }),
-    );
-    await prisma.googleConnection.update({
-      where: { id: connection.id },
-      data: { reconnectNotifiedAt: new Date() },
-    });
+    try {
+      const told = await emailAdmins(connection.workspaceId, (to) =>
+        renderEmail({
+          to,
+          subject: 'Please reconnect your Google account',
+          intro: `We can no longer reach Google with ${connection.googleEmail ?? 'one of your connected accounts'}, so its reviews have stopped updating and replies can't be posted.`,
+          actionLabel: 'Reconnect',
+          actionUrl: settingsUrl,
+        }),
+      );
+      if (told) {
+        await prisma.googleConnection.update({
+          where: { id: connection.id },
+          data: { reconnectNotifiedAt: new Date() },
+        });
+      }
+    } catch (err) {
+      reportNotifyFailure(`connection ${connection.id}`, err);
+    }
   }
 
   const lost = await prisma.location.findMany({
     where: { status: 'access_lost', accessLostNotifiedAt: null },
   });
   for (const location of lost) {
-    await emailAdmins(location.workspaceId, (to) =>
-      renderEmail({
-        to,
-        subject: `We lost access to ${location.title}`,
-        intro: `Google no longer lets the connected account manage ${location.title}, so its reviews have stopped updating. Existing reviews are still here.`,
-        actionLabel: 'Check your locations',
-        actionUrl: settingsUrl,
-      }),
-    );
-    await prisma.location.update({
-      where: { id: location.id },
-      data: { accessLostNotifiedAt: new Date() },
-    });
+    try {
+      const told = await emailAdmins(location.workspaceId, (to) =>
+        renderEmail({
+          to,
+          subject: `We lost access to ${location.title}`,
+          intro: `Google no longer lets the connected account manage ${location.title}, so its reviews have stopped updating. Existing reviews are still here.`,
+          actionLabel: 'Check your locations',
+          actionUrl: settingsUrl,
+        }),
+      );
+      if (told) {
+        await prisma.location.update({
+          where: { id: location.id },
+          data: { accessLostNotifiedAt: new Date() },
+        });
+      }
+    } catch (err) {
+      reportNotifyFailure(`location ${location.id}`, err);
+    }
   }
 }
 

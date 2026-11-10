@@ -207,6 +207,30 @@ describe('a reply removed directly on Google', () => {
       'pending_google',
     );
   });
+
+  it('sync shows a posted reply that was edited directly on Google', async () => {
+    const { review, name, location } = await postedReply();
+    mockGbp.editReplyOnGoogle(name, 'Edited on Google');
+    await syncLocation(location.id);
+    expect(await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'Edited on Google',
+      state: 'live',
+    });
+  });
+
+  it('sync never replaces a new draft with the text on Google', async () => {
+    const { review, name, location } = await postedReply();
+    await prisma.reply.update({
+      where: { reviewId: review.id },
+      data: { text: 'A better reply I am still writing', state: 'draft' },
+    });
+    mockGbp.editReplyOnGoogle(name, 'Edited on Google');
+    await syncLocation(location.id);
+    expect(await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'A better reply I am still writing',
+      state: 'draft',
+    });
+  });
 });
 
 describe('a location someone stopped managing', () => {

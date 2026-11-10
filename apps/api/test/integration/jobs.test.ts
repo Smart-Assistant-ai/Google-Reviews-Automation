@@ -9,7 +9,7 @@ import {
   runDraftQueue,
   syncDueLocations,
 } from '../../src/modules/reviews/jobs';
-import { sentEmails } from '../../src/providers/email/mock';
+import { mockEmailProvider, sentEmails } from '../../src/providers/email/mock';
 import { mockGbp } from '../../src/providers/gbp/mock';
 import { signup, testApp } from '../helpers/app';
 import { resetDb } from '../helpers/db';
@@ -290,5 +290,34 @@ describe('telling people about problems', () => {
     await notifyProblems();
     expect(sentEmails.map((m) => m.to)).toContain(user.email);
     expect(sentEmails[0]?.text).toContain(location!.title);
+  });
+
+  it('one failed email does not stop the others, and a problem nobody heard about is tried again', async () => {
+    const first = await connected();
+    const second = await connected();
+    for (const { user } of [first, second]) {
+      const connection = (await googleStatus(app, user)).connections[0]!;
+      await prisma.googleConnection.update({
+        where: { id: connection.id },
+        data: { status: 'needs_reconnect' },
+      });
+    }
+    sentEmails.length = 0;
+    const send = vi
+      .spyOn(mockEmailProvider, 'send')
+      .mockRejectedValueOnce(new Error('mail server down'));
+    try {
+      await notifyProblems();
+      expect(sentEmails).toHaveLength(1);
+      expect(await prisma.googleConnection.count({ where: { reconnectNotifiedAt: null } })).toBe(1);
+
+      await notifyProblems();
+      expect(sentEmails.map((m) => m.to).sort()).toEqual(
+        [first.user.email, second.user.email].sort(),
+      );
+      expect(await prisma.googleConnection.count({ where: { reconnectNotifiedAt: null } })).toBe(0);
+    } finally {
+      send.mockRestore();
+    }
   });
 });

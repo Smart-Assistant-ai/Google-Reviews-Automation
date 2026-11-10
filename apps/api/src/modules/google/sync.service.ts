@@ -44,11 +44,13 @@ async function applyGoogleReply(
     });
     return;
   }
+  // A posted reply follows Google, so an edit made directly on Google shows here too.
   // A draft in progress is the owner's work, so sync never overwrites it.
   if (['pending_google', 'live', 'rejected'].includes(local.state)) {
     await prisma.reply.update({
       where: { id: local.id },
       data: {
+        text: reply.comment,
         state,
         googleReplyState: googleState,
         policyViolation: reply.policyViolation ?? null,

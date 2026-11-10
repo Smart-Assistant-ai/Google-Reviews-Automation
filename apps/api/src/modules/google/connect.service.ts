@@ -1,3 +1,4 @@
+import type { GoogleConnection } from '@prisma/client';
 import { recordAudit } from '../../lib/audit';
 import { decrypt, encrypt } from '../../lib/crypto';
 import { HttpError } from '../../lib/errors';
@@ -6,7 +7,7 @@ import { env } from '../../config';
 import { getProvider, type GoogleTokens } from '../../providers/gbp';
 import type { MemberContext } from '../workspaces/access';
 import { onWorkspaceDeleted } from '../workspaces/lifecycle';
-import { findConnection, usesFakeData } from './connection.service';
+import { findConnection } from './connection.service';
 import { scanConnection, syncFirst } from './locations.service';
 
 export function startUrl(state: string): { url: string; provider: 'mock' | 'live' } {
@@ -67,16 +68,26 @@ export async function completeConnect(
   return connectionId;
 }
 
+// Google keeps one grant per Google account for this app, so revoking it also cuts off that
+// account in every other workspace. Only revoke once nothing else uses it, counting connections
+// showing sample data too, because they still hold real tokens for when sample data is turned off.
+async function revokeIfUnused(connection: GoogleConnection): Promise<void> {
+  if (connection.provider !== 'live') return;
+  const stillUsed = await prisma.googleConnection.count({
+    where: { googleUserId: connection.googleUserId, provider: 'live', id: { not: connection.id } },
+  });
+  if (stillUsed > 0) return;
+  const token = decrypt(connection.refreshToken) ?? decrypt(connection.accessToken);
+  if (token) await getProvider('live').revoke(token);
+}
+
 // Revokes at Google first, then moves any location another connection can reach,
 // so only what truly depends on this account gets deleted.
 async function removeConnection(connectionId: string): Promise<void> {
   const connection = await prisma.googleConnection.findUniqueOrThrow({
     where: { id: connectionId },
   });
-  if (!usesFakeData(connection)) {
-    const token = decrypt(connection.refreshToken) ?? decrypt(connection.accessToken);
-    if (token) await getProvider(connection.provider).revoke(token);
-  }
+  await revokeIfUnused(connection);
   const served = await prisma.location.findMany({
     where: { connectionId },
     include: { reachableBy: { where: { connectionId: { not: connectionId } }, take: 1 } },
