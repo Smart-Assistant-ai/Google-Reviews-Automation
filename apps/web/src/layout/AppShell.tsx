@@ -27,7 +27,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useGoogleStatus } from '../api/hooks';
@@ -119,7 +119,12 @@ export default function AppShell() {
   const [locationId, setLocationId] = useState<string | undefined>();
   const managed = useMemo(() => managedLocations(status), [status]);
 
-  useEffect(() => setOpen(false), [location.pathname]);
+  // Pages scroll inside the content area, so the sidebar and the inbox panes stay put.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setOpen(false);
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
   // A location from the workspace we just left must not stay selected.
   useEffect(() => setLocationId(undefined), [workspace?.id]);
   useEffect(() => {
@@ -204,7 +209,14 @@ export default function AppShell() {
 
   return (
     <ShellContext.Provider value={shell}>
-      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          height: '100dvh',
+          overflow: 'hidden',
+          bgcolor: 'background.default',
+        }}
+      >
         {desktop ? (
           <Box
             component="nav"
@@ -214,9 +226,8 @@ export default function AppShell() {
               borderRight: 1,
               borderColor: 'divider',
               bgcolor: 'background.paper',
-              position: 'sticky',
-              top: 0,
-              height: '100vh',
+              height: '100%',
+              overflowY: 'auto',
             }}
           >
             {nav}
@@ -250,9 +261,15 @@ export default function AppShell() {
             </Drawer>
           </>
         )}
-        <Box component="main" sx={{ flex: 1, minWidth: 0, pt: desktop ? 0 : 7 }}>
+        <Box
+          component="main"
+          sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%' }}
+        >
+          {!desktop && <Toolbar />}
           <EmailBanner />
-          <Outlet />
+          <Box ref={scrollRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            <Outlet />
+          </Box>
         </Box>
       </Box>
     </ShellContext.Provider>

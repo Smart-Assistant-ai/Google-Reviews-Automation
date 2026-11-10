@@ -33,13 +33,20 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return children;
 }
 
-function PublicOnly({ children }: { children: ReactNode }) {
+function PublicOnly({
+  children,
+  backToInvite = false,
+}: {
+  children: ReactNode;
+  backToInvite?: boolean;
+}) {
   const { session, loading } = useAuth();
   const [params] = useSearchParams();
   if (loading) return <FullPageLoader />;
   if (!session) return children;
-  // Logging in from an invitation link goes back to that invitation.
-  const invite = params.get('invite');
+  // Logging in from an invitation link goes back to that invitation to accept it. Signing up
+  // from one has already joined, so going back would only show the used invitation as an error.
+  const invite = backToInvite ? params.get('invite') : null;
   return <Navigate to={invite ? `/invite?token=${encodeURIComponent(invite)}` : '/'} replace />;
 }
 
@@ -49,7 +56,7 @@ export default function App() {
       <Route
         path="/login"
         element={
-          <PublicOnly>
+          <PublicOnly backToInvite>
             <AuthPage mode="login" />
           </PublicOnly>
         }

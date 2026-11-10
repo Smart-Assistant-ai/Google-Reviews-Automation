@@ -191,7 +191,7 @@ export default function TeamTab() {
     }
   };
 
-  const describeAccess = (member: Member) => {
+  const describeAccess = (member: Pick<Member, 'role' | 'scopeAllLocations' | 'locationIds'>) => {
     if (member.role !== 'member' || member.scopeAllLocations) return 'All locations';
     if (member.locationIds.length === 0) return 'No locations yet';
     return member.locationIds.map((id) => titles.get(id) ?? 'Unknown location').join(', ');
@@ -279,12 +279,9 @@ export default function TeamTab() {
                       <Typography variant="subtitle2" noWrap>
                         {invitation.email}
                       </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ textTransform: 'capitalize' }}
-                      >
-                        {invitation.role}
+                      <Typography variant="caption" color="text.secondary" component="div">
+                        {invitation.role === 'admin' ? 'Admin' : 'Member'} ·{' '}
+                        {describeAccess(invitation)}
                       </Typography>
                     </Box>
                     <Button
@@ -344,7 +341,13 @@ export default function TeamTab() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setInviting(false)}>Cancel</Button>
-          <Button variant="contained" disabled={!email.trim()} onClick={() => void invite()}>
+          <Button
+            variant="contained"
+            disabled={
+              !email.trim() || (inviteRole === 'member' && !inviteAll && !inviteLocations.length)
+            }
+            onClick={() => void invite()}
+          >
             Send invitation
           </Button>
         </DialogActions>
@@ -368,7 +371,16 @@ export default function TeamTab() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditing(null)}>Cancel</Button>
-          <Button variant="contained" onClick={() => void saveEdit()}>
+          <Button
+            variant="contained"
+            disabled={
+              !!editing &&
+              editing.role === 'member' &&
+              !editing.scopeAllLocations &&
+              !editing.locationIds.length
+            }
+            onClick={() => void saveEdit()}
+          >
             Save
           </Button>
         </DialogActions>

@@ -23,7 +23,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client';
 import {
   useRefreshWorkspaceData,
@@ -54,7 +54,7 @@ const STAR_FILTERS = [
   { key: '4,5', label: '4–5★' },
 ];
 const IN_MOTION: ReviewStatus[] = ['drafting', 'pending', 'posting'];
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 interface SimulatedReview {
   stars?: number;
@@ -86,7 +86,8 @@ export default function Inbox() {
     return () => clearTimeout(timer);
   }, [search]);
   useEffect(() => setPage(1), [tab, stars, q, locationId, workspaceId]);
-  useEffect(() => setSelectedId(null), [workspaceId, locationId]);
+  // A new filter opens its first match, rather than keeping a review the list no longer shows.
+  useEffect(() => setSelectedId(null), [workspaceId, locationId, tab, stars, q]);
 
   const [poll, setPoll] = useState(false);
   const filters = useMemo(
@@ -132,6 +133,18 @@ export default function Inbox() {
     return () => window.removeEventListener('keydown', onKey);
   }, [data, selectedId]);
 
+  // The list scrolls on its own, so the page and the open review stay where they are.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [page, tab, stars, q, locationId]);
+  useEffect(() => {
+    if (!selectedId) return;
+    listRef.current
+      ?.querySelector(`[data-review-id="${selectedId}"]`)
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [selectedId]);
+
   const onUpdated = useCallback(() => void refresh(), [refresh]);
 
   const simulate = async (body: SimulatedReview) => {
@@ -163,11 +176,14 @@ export default function Inbox() {
     );
   }
   const pages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
+  const firstShown = (page - 1) * PAGE_SIZE + 1;
+  const lastShown = Math.min(page * PAGE_SIZE, data?.total ?? 0);
 
   const list = (
     <Stack
       sx={{
         height: '100%',
+        minHeight: 0,
         borderRight: { md: 1 },
         borderColor: 'divider',
         bgcolor: 'background.paper',
@@ -248,23 +264,32 @@ export default function Inbox() {
       <Tabs
         value={tab}
         onChange={(_, v: ReviewTab) => setTab(v)}
-        variant="scrollable"
+        variant="fullWidth"
         sx={{ px: 1, borderBottom: 1, borderColor: 'divider', minHeight: 40 }}
       >
         {TABS.map((t) => (
           <Tab
             key={t.key}
             value={t.key}
-            sx={{ minHeight: 40, px: 1.5 }}
+            sx={{ minHeight: 40, minWidth: 0, px: 0.5, fontSize: 13, whiteSpace: 'nowrap' }}
             label={
-              <Stack direction="row" spacing={0.75} alignItems="center">
+              <Stack direction="row" spacing={0.5} alignItems="center">
                 <span>{t.label}</span>
                 {!!data?.counts[t.key] && t.key !== 'all' && (
                   <Badge
                     badgeContent={data.counts[t.key]}
                     color={t.key === 'todo' ? 'primary' : 'default'}
                     max={99}
-                    sx={{ '& .MuiBadge-badge': { position: 'static', transform: 'none' } }}
+                    sx={{
+                      '& .MuiBadge-badge': {
+                        position: 'static',
+                        transform: 'none',
+                        fontSize: 11,
+                        height: 18,
+                        minWidth: 18,
+                        px: 0.5,
+                      },
+                    }}
                   />
                 )}
               </Stack>
@@ -272,7 +297,7 @@ export default function Inbox() {
           />
         ))}
       </Tabs>
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
+      <Box ref={listRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {isLoading || !data ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
             <CircularProgress size={24} />
@@ -293,6 +318,7 @@ export default function Inbox() {
             {data.reviews.map((r) => (
               <ListItemButton
                 key={r.id}
+                data-review-id={r.id}
                 selected={r.id === selectedId}
                 onClick={() => setSelectedId(r.id)}
                 sx={{
@@ -339,17 +365,29 @@ export default function Inbox() {
             ))}
           </List>
         )}
-        {pages > 1 && (
-          <Stack alignItems="center" sx={{ py: 2 }}>
+      </Box>
+      {!!data?.total && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ px: 2, py: 1, minHeight: 48, borderTop: 1, borderColor: 'divider' }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            {firstShown}–{lastShown} of {data.total}
+          </Typography>
+          {pages > 1 && (
             <Pagination
               count={pages}
               page={page}
               onChange={(_, value) => setPage(value)}
               size="small"
+              siblingCount={0}
+              boundaryCount={1}
             />
-          </Stack>
-        )}
-      </Box>
+          )}
+        </Stack>
+      )}
     </Stack>
   );
 
@@ -365,22 +403,29 @@ export default function Inbox() {
       justifyContent="center"
       sx={{ height: '100%', color: 'text.secondary' }}
     >
-      <Typography variant="body2">Select a review</Typography>
+      {selectedId ? (
+        <CircularProgress size={24} />
+      ) : (
+        <Typography variant="body2">Select a review</Typography>
+      )}
     </Stack>
   );
 
   return (
     <Box
       sx={{
-        height: { xs: 'calc(100vh - 64px)', md: '100vh' },
+        height: '100%',
         display: 'grid',
         gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '380px minmax(0, 1fr)' },
+        // Without a bounded row the grid grows to fit every review and the whole page scrolls.
+        gridTemplateRows: 'minmax(0, 1fr)',
+        overflow: 'hidden',
       }}
     >
       {desktop ? (
         <>
           {list}
-          <Box sx={{ minWidth: 0 }}>{detailPane}</Box>
+          <Box sx={{ minWidth: 0, minHeight: 0, height: '100%' }}>{detailPane}</Box>
         </>
       ) : selectedId ? (
         detailPane
