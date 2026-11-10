@@ -32,11 +32,14 @@ import {
   useWorkspaceId,
   wsPath,
 } from '../api/hooks';
+import GoogleEmptyState from '../components/GoogleEmptyState';
 import ReviewDetail from '../components/ReviewDetail';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
 import { timeAgo } from '../components/format';
+import { useAuth } from '../auth/AuthContext';
 import { managedLocations, useShell } from '../layout/ShellContext';
+import { hasAtLeast } from '@replypilot/shared';
 
 const TABS: { key: ReviewTab; label: string }[] = [
   { key: 'todo', label: 'To reply' },
@@ -144,6 +147,21 @@ export default function Inbox() {
   };
 
   const showLocation = managed.length > 1 && !locationId;
+
+  // Connected, but Google hasn't approved API access yet, so there's nothing to read. Admins get the
+  // choice of sample data, as before. Everyone else is told what they're waiting for.
+  const { workspace } = useAuth();
+  const waitingOn = status?.connections.find((c) => c.apiError && !c.sample);
+  const noReviewsAtAll = data?.counts.all === 0 && !q && !stars;
+  if (waitingOn && noReviewsAtAll) {
+    if (workspace && hasAtLeast(workspace.role, 'admin'))
+      return <GoogleEmptyState connection={waitingOn} />;
+    return (
+      <Box sx={{ p: 4 }}>
+        <Typography color="text.secondary">{waitingOn.apiError}</Typography>
+      </Box>
+    );
+  }
   const pages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
 
   const list = (

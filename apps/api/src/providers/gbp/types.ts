@@ -74,6 +74,8 @@ export class GoogleApiError extends Error {
     message: string,
     readonly statusCode: number,
     readonly googleStatus?: string,
+    // Google's machine-readable reason, such as SERVICE_DISABLED.
+    readonly reason?: string,
   ) {
     super(message);
     this.name = 'GoogleApiError';

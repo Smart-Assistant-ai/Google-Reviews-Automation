@@ -4,6 +4,7 @@ import { env } from '../../src/config';
 import { decrypt } from '../../src/lib/crypto';
 import { prisma } from '../../src/lib/prisma';
 import { syncLocation } from '../../src/modules/google/sync.service';
+import { notifyProblems } from '../../src/modules/reviews/jobs';
 import { sentEmails } from '../../src/providers/email/mock';
 import { mockGbp } from '../../src/providers/gbp/mock';
 import { signState } from '../../src/lib/signed-state';
@@ -573,5 +574,65 @@ describe('deactivating a location', () => {
     expect((await api('POST', user, `/locations/${location.id}/deactivate`)).statusCode).toBe(200);
     expect((await googleStatus(app, user)).locations[0]?.status).toBe('available');
     expect(await reviewCount(user.workspaceId)).toBe(before);
+  });
+});
+
+describe('Google not turning on reviews for the project yet', () => {
+  const disabled = {
+    status: 403,
+    reason: 'SERVICE_DISABLED',
+    message:
+      'Google My Business API has not been used in project 747480018010 before or it is disabled.',
+  };
+
+  it('keeps the location managed, explains it on the connection, and sends no lost-access email', async () => {
+    const user = await verifiedOwner();
+    mockGbp.failReviews('one@sample.test', disabled);
+    await connectGoogle(app, user, { email: 'one@sample.test' });
+    const status = await googleStatus(app, user);
+    expect(status.locations[0]?.status).toBe('active');
+    expect(status.connections[0]?.apiError).toMatch(/not approved/);
+    expect(status.connections[0]?.status).toBe('healthy');
+    await notifyProblems();
+    expect(sentEmails.filter((m) => /lost access/i.test(m.subject))).toHaveLength(0);
+  });
+
+  it('recognises it from the wording too, when Google sends no reason code', async () => {
+    const user = await verifiedOwner();
+    mockGbp.failReviews('one@sample.test', { status: 403, message: disabled.message });
+    await connectGoogle(app, user, { email: 'one@sample.test' });
+    expect((await googleStatus(app, user)).locations[0]?.status).toBe('active');
+  });
+
+  it('Check Google again loads the reviews once Google turns them on', async () => {
+    const user = await verifiedOwner();
+    mockGbp.failReviews('one@sample.test', disabled);
+    await connectGoogle(app, user, { email: 'one@sample.test' });
+    expect(await reviewCount(user.workspaceId)).toBe(0);
+
+    mockGbp.failReviews('one@sample.test', null);
+    const connection = (await googleStatus(app, user)).connections[0]!;
+    await api('POST', user, `/connections/${connection.id}/rescan`);
+    expect(await reviewCount(user.workspaceId)).toBeGreaterThan(0);
+    expect((await googleStatus(app, user)).connections[0]?.apiError).toBeNull();
+  });
+
+  it('offers sample data meanwhile, and gives the real location back when it stops', async () => {
+    const user = await verifiedOwner();
+    mockGbp.failReviews('one@sample.test', disabled);
+    await connectGoogle(app, user, { email: 'one@sample.test' });
+    const connection = (await googleStatus(app, user)).connections[0]!;
+    expect((await api('POST', user, `/connections/${connection.id}/sample-data`)).statusCode).toBe(
+      200,
+    );
+    expect(await reviewCount(user.workspaceId)).toBeGreaterThan(0);
+
+    mockGbp.failReviews('one@sample.test', null);
+    expect(
+      (await api('DELETE', user, `/connections/${connection.id}/sample-data`)).statusCode,
+    ).toBe(200);
+    const after = await googleStatus(app, user);
+    expect(after.connections[0]?.sample).toBe(false);
+    expect(after.locations.map((l) => l.status)).toEqual(['active']);
   });
 });

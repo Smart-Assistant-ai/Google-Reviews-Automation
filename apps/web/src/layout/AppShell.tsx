@@ -52,7 +52,8 @@ function ConnectionWarnings() {
   const dead = status.connections.filter((c) => c.status === 'needs_reconnect').length;
   const lost = status.locations.filter((l) => l.status === 'access_lost').length;
   const sample = status.connections.some((c) => c.sample || c.provider === 'mock');
-  if (!dead && !lost && !sample) return null;
+  const waiting = status.connections.some((c) => c.apiError && !c.sample);
+  if (!dead && !lost && !sample && !waiting) return null;
   return (
     <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
       {dead > 0 && (
@@ -63,6 +64,11 @@ function ConnectionWarnings() {
       {lost > 0 && (
         <Typography variant="caption" color="warning.main" component="div" sx={{ fontWeight: 600 }}>
           {lost} location{lost > 1 ? 's' : ''} lost access
+        </Typography>
+      )}
+      {waiting && (
+        <Typography variant="caption" color="text.secondary" component="div">
+          Waiting for Google to approve API access
         </Typography>
       )}
       {sample && (

@@ -123,7 +123,11 @@ onWorkspaceDeleted(async (workspaceId) => {
 export async function rescan(member: MemberContext, connectionId: string): Promise<void> {
   await findConnection(member.workspaceId, connectionId);
   const { activated } = await scanConnection(connectionId);
-  await syncFirst(activated);
+  const managed = await prisma.location.findMany({
+    where: { connectionId, status: 'active' },
+    select: { id: true },
+  });
+  await syncFirst([...new Set([...activated, ...managed.map((location) => location.id)])]);
 }
 
 export async function useSampleData(

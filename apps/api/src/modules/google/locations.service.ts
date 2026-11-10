@@ -5,17 +5,22 @@ import { prisma } from '../../lib/prisma';
 import type { GbpContext, GbpLocation, GbpProvider } from '../../providers/gbp';
 import { accessibleLocationIds, type MemberContext } from '../workspaces/access';
 import { findConnection, getContext, markNeedsReconnect, usesFakeData } from './connection.service';
+import { NOT_APPROVED_MESSAGE, classifyGoogleFailure } from './google-errors';
 import { syncLocation } from './sync.service';
 
 // Google can let someone sign in while refusing to read their profile, and quota stays at
 // zero until it approves us. Those leave the account connected, with the reason shown.
 export function readBlockedMessage(err: unknown): string | null {
-  const { statusCode, message } = err as { statusCode?: number; message?: string };
-  if (statusCode === 429)
-    return 'Google has not approved API access for this project yet, so we cannot read reviews.';
-  if (statusCode === 403) return `Google blocked reading this profile: ${message}`;
-  if (statusCode === 401) return 'Google needs you to sign in again.';
-  return null;
+  switch (classifyGoogleFailure(err)) {
+    case 'project':
+      return NOT_APPROVED_MESSAGE;
+    case 'reconnect':
+      return 'Google needs you to sign in again.';
+    case 'location':
+      return `Google blocked reading this profile: ${(err as Error).message}`;
+    default:
+      return null;
+  }
 }
 
 const NO_PROFILE = 'No Business Profile found on this Google account.';

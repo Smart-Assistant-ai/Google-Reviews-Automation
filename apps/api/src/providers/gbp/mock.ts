@@ -29,7 +29,14 @@ interface MockAccount {
   accountName: string;
   locations: Record<string, MockLocation>;
 }
+interface MockFailure {
+  status: number;
+  reason?: string;
+  message?: string;
+}
+
 interface MockUser {
+  reviewError?: MockFailure | null;
   scenario: MockScenario;
   accounts: string[];
   sharedAccounts: string[];
@@ -102,6 +109,7 @@ function ensureUser(userId: string, scenario: MockScenario = 'single'): MockUser
   if (existing && existing.accounts.length > 0) return existing;
   const accounts = SCENARIOS[scenario].map((count, index) => buildAccount(userId, index, count));
   const user: MockUser = {
+    reviewError: existing?.reviewError ?? null,
     readError: existing?.readError ?? null,
     sharedAccounts: existing?.sharedAccounts ?? [],
     scenario,
@@ -271,6 +279,16 @@ export const mockGbpProvider: GbpProvider = {
 
   async listReviews(ctx, accountName, locationName, pageToken) {
     assertReadable(ctx);
+    // Only reviews failing, like a project whose reviews API Google hasn't turned on yet.
+    const reviewError = store.users[ctx.connection.googleUserId]?.reviewError;
+    if (reviewError && ctx.connection.dataSource !== 'sample') {
+      throw new GoogleApiError(
+        reviewError.message ?? `Mock Google refused with ${reviewError.status}`,
+        reviewError.status,
+        undefined,
+        reviewError.reason,
+      );
+    }
     const path = `${accountName}/${locationName}`;
     const location = store.accounts[accountName]?.locations[path];
     if (!location || location.removed) throw new GoogleApiError('Location not found', 404);
@@ -336,6 +354,16 @@ export const mockGbp = {
   },
   clearReply(reviewName: string) {
     delete findReview(reviewName).reviewReply;
+  },
+  failReviews(email: string, failure: MockFailure | null) {
+    const userId = googleUserIdFor(email);
+    const user = store.users[userId] ?? {
+      scenario: 'single',
+      accounts: [],
+      sharedAccounts: [],
+      readError: null,
+    };
+    store.users[userId] = { ...user, reviewError: failure };
   },
   failReads(email: string, status: number | null) {
     const userId = googleUserIdFor(email);

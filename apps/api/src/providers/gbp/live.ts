@@ -23,7 +23,7 @@ async function call<T>(ctx: GbpContext, url: string, options: RequestInit = {}):
   });
   if (res.status === 204) return null as T;
   const body = (await res.json().catch(() => ({}))) as {
-    error?: { message?: string; status?: string };
+    error?: { message?: string; status?: string; details?: { reason?: string }[] };
   };
   if (!res.ok) {
     // A 429 before approval usually means the project still has a quota of zero.
@@ -31,6 +31,7 @@ async function call<T>(ctx: GbpContext, url: string, options: RequestInit = {}):
       body.error?.message ?? `Google API error ${res.status}`,
       res.status,
       body.error?.status,
+      body.error?.details?.find((detail) => detail.reason)?.reason,
     );
   }
   return body as T;

@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { STAR_TO_NUMBER, type GbpReply, type GbpReview } from '../../providers/gbp';
 import { getContext, markNeedsReconnect } from './connection.service';
+import { NOT_APPROVED_MESSAGE, classifyGoogleFailure } from './google-errors';
 
 // Older reviews go to the backlog and aren't drafted automatically.
 export const AUTO_DRAFT_WINDOW_DAYS = 30;
@@ -156,22 +157,20 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
       data: { apiError: null },
     });
   } catch (err) {
-    const status = (err as { statusCode?: number }).statusCode;
     const message = err instanceof Error ? err.message : 'Sync failed';
-    if (status === 401) {
+    const failure = classifyGoogleFailure(err);
+    if (failure === 'reconnect') {
       await markNeedsReconnect(location.connectionId);
-    } else if (status === 403 || status === 404) {
+    } else if (failure === 'project') {
+      await prisma.googleConnection.update({
+        where: { id: location.connectionId },
+        data: { apiError: NOT_APPROVED_MESSAGE },
+      });
+      await prisma.location.update({ where: { id: locationId }, data: { lastSyncError: message } });
+    } else if (failure === 'location') {
       await prisma.location.update({
         where: { id: locationId },
         data: { status: 'access_lost', lastSyncError: message },
-      });
-    } else if (status === 429) {
-      await prisma.googleConnection.update({
-        where: { id: location.connectionId },
-        data: {
-          apiError:
-            'Google has not approved API access for this project yet, so we cannot read reviews.',
-        },
       });
     } else {
       await prisma.location.update({ where: { id: locationId }, data: { lastSyncError: message } });
