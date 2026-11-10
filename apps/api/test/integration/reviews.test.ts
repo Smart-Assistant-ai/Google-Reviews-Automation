@@ -362,6 +362,9 @@ describe('replies', () => {
     });
     expect(row.actorUserId).toBe(user.id);
     expect(row.locationId).toBe(review.locationId);
+    // Names the location for the activity list, never the reviewer, whose details are purged.
+    const location = await prisma.location.findUniqueOrThrow({ where: { id: review.locationId } });
+    expect(row.meta).toEqual({ title: location.title });
   });
 });
 

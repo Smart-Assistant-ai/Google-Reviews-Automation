@@ -115,9 +115,13 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
             <Typography variant="h6" noWrap>
               {review.reviewerName ?? 'Reviewer'}
             </Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={{ xs: 0.25, sm: 1 }}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+            >
               <Stars value={review.starRating} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: '100%' }}>
                 {timeAgo(review.createTime)} · {review.location.title}
               </Typography>
             </Stack>
@@ -284,12 +288,18 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
                   spacing={1}
                   sx={{ mt: 1.5, flexWrap: 'wrap', gap: 1 }}
                 >
+                  {/* Google's limit is in bytes, which means nothing to an owner, so it only
+                      speaks up near the limit. */}
                   <Typography
                     variant="caption"
                     color={bytes > MAX_BYTES ? 'error' : 'text.secondary'}
                     sx={{ flex: 1 }}
                   >
-                    {bytes} / {MAX_BYTES} bytes
+                    {bytes > MAX_BYTES
+                      ? 'Too long for Google. Please shorten it.'
+                      : bytes > MAX_BYTES * 0.85
+                        ? 'Close to the length Google allows.'
+                        : ''}
                   </Typography>
                   {editable && (
                     <>

@@ -6,6 +6,14 @@ export const SAMPLE_BUSINESS = {
   title: 'Maple & Main',
   branches: ['Downtown', 'Riverside', 'Northgate', 'Harbour', 'Old Town'],
   address: '120 Main Street, Springfield',
+  // One per branch, in the same order, so a list of locations is easy to tell apart.
+  branchAddresses: [
+    '120 Main Street, Springfield',
+    '48 River Road, Springfield',
+    '9 North Avenue, Springfield',
+    '3 Harbour Way, Springfield',
+    '77 Old Town Square, Springfield',
+  ],
   ownerEmail: 'owner@mapleandmain.example',
 };
 

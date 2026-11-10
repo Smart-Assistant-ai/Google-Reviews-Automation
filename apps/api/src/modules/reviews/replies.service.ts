@@ -167,6 +167,8 @@ export async function postReply(
       actorUserId: member.userId,
       targetType: 'review',
       targetId: reviewId,
+      // The location, not the reviewer: review content is purged after 30 days, the log is not.
+      meta: { title: location.title },
       ip,
     });
   } catch (err) {
@@ -222,6 +224,7 @@ export async function deleteReply(
     actorUserId: member.userId,
     targetType: 'review',
     targetId: reviewId,
+    meta: { title: location.title },
     ip,
   });
 }

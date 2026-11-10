@@ -85,7 +85,9 @@ function buildAccount(userId: string, index: number, locationCount: number): str
         : `${SAMPLE_BUSINESS.title} ${branch}${i >= SAMPLE_BUSINESS.branches.length ? ` ${i + 1}` : ''}`;
     locations[`${name}/locations/${userId}-${index}-${1001 + i}`] = {
       title,
-      address: SAMPLE_BUSINESS.address,
+      address:
+        SAMPLE_BUSINESS.branchAddresses[i % SAMPLE_BUSINESS.branchAddresses.length] ??
+        SAMPLE_BUSINESS.address,
       seedOffset: index * 3 + i * 5,
     };
   }

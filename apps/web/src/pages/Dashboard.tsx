@@ -199,7 +199,12 @@ export default function Dashboard() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1280, mx: 'auto' }}>
-      <Stack direction="row" alignItems="center" sx={{ mb: 3 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={{ xs: 1.5, sm: 0 }}
+        sx={{ mb: 3 }}
+      >
         <Box sx={{ flex: 1 }}>
           <Typography variant="h5">Dashboard</Typography>
           <Typography variant="body2" color="text.secondary">

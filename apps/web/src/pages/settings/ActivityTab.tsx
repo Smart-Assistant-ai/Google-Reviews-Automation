@@ -28,6 +28,16 @@ const ACTION_LABELS: Record<string, string> = {
   'workspace.ownership_transferred': 'Transferred ownership',
 };
 
+// What the action was about, from what the API recorded with it: who was invited,
+// which Google account, which locations.
+function detailOf(meta: Record<string, unknown>): string | null {
+  if (Array.isArray(meta.locations)) return meta.locations.join(', ');
+  for (const key of ['email', 'title', 'to', 'name']) {
+    if (typeof meta[key] === 'string' && meta[key]) return meta[key] as string;
+  }
+  return null;
+}
+
 export default function ActivityTab() {
   const { data: rows } = useActivity();
   if (!rows) return <CircularProgress />;
@@ -38,7 +48,17 @@ export default function ActivityTab() {
         {rows.map((row, i) => (
           <ListItem key={row.id} divider={i < rows.length - 1}>
             <ListItemText
-              primary={ACTION_LABELS[row.action] ?? row.action}
+              primary={
+                <>
+                  {ACTION_LABELS[row.action] ?? row.action}
+                  {detailOf(row.meta) && (
+                    <Typography component="span" variant="body2" color="text.secondary">
+                      {' · '}
+                      {detailOf(row.meta)}
+                    </Typography>
+                  )}
+                </>
+              }
               primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
               secondary={row.actorName}
             />
