@@ -33,6 +33,7 @@ import { api } from '../api/client';
 import { useGoogleStatus } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
+import OutboxLink from '../components/OutboxLink';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import { useColorMode } from '../theme/ColorModeContext';
 import { ShellContext, managedLocations } from './ShellContext';
@@ -96,6 +97,7 @@ function EmailBanner() {
       }
     >
       Confirm your email to connect Google and post replies. We sent a link to {session.user.email}.
+      <OutboxLink />
     </Alert>
   );
 }

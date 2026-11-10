@@ -13,10 +13,12 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { env } from '../../config';
-import { randomToken, safeEqual } from '../../lib/crypto';
+import { randomToken } from '../../lib/crypto';
 import { prisma } from '../../lib/prisma';
-import { signState, verifyState } from '../../lib/signed-state';
+import { GOOGLE_COOKIE_PATH } from '../../lib/google-redirect';
+import { signState } from '../../lib/signed-state';
 import { assertEmailVerified, currentMember } from '../../plugins/access';
+import { registerGoogleCallbackFlow } from '../auth/google-callback';
 import { accessibleLocationIds, assertLocationAccess } from '../workspaces/access';
 import {
   callbackUrl,
@@ -37,7 +39,6 @@ import {
 import { syncLocation } from './sync.service';
 
 const CONNECT_COOKIE = 'rp_google_connect';
-const CONNECT_COOKIE_PATH = '/api/v1/google';
 
 const workspaceParams = z.object({ workspaceId: uuidSchema });
 const connectionParams = workspaceParams.extend({ connectionId: uuidSchema });
@@ -77,7 +78,7 @@ export async function googleRoutes(instance: FastifyInstance): Promise<void> {
         httpOnly: true,
         secure: env.COOKIE_SECURE,
         sameSite: 'lax',
-        path: CONNECT_COOKIE_PATH,
+        path: GOOGLE_COOKIE_PATH,
         maxAge: 600,
       });
       return startUrl(state);
@@ -218,55 +219,40 @@ export async function googleRoutes(instance: FastifyInstance): Promise<void> {
   );
 }
 
-// Google redirects the browser here, so it is public. The signed state and matching cookie are the proof.
-export async function googleCallbackRoutes(instance: FastifyInstance): Promise<void> {
-  const app = instance.withTypeProvider<ZodTypeProvider>();
+const connectResult = (workspaceId: string | undefined, query: string) =>
+  `${callbackUrl()}?${query}${workspaceId ? `&workspace=${workspaceId}` : ''}`;
 
-  app.get(
-    '/callback',
-    {
-      config: { access: 'public', rateLimit: { max: 30, timeWindow: '1 minute' } },
-      schema: {
-        querystring: z.object({
-          code: z.string().optional(),
-          state: z.string().optional(),
-          error: z.string().optional(),
-        }),
-      },
-    },
-    async (request, reply) => {
-      const { code, state, error } = request.query;
-      const fail = (reason: string, workspaceId?: string) => {
-        const workspace = workspaceId ? `&workspace=${workspaceId}` : '';
-        return reply.redirect(
-          `${callbackUrl()}?google_connected=false&error=${reason}${workspace}`,
-        );
-      };
+registerGoogleCallbackFlow({
+  purpose: 'google-connect',
+  cookie: CONNECT_COOKIE,
+  failUrl: (reason, payload) =>
+    connectResult(
+      payload ? String(payload.workspaceId) : undefined,
+      `google_connected=false&error=${reason}`,
+    ),
+  async handle(request, reply, payload, { code, error }) {
+    const workspaceId = String(payload.workspaceId);
+    const userId = String(payload.userId);
+    const fail = (reason: string) =>
+      reply.redirect(connectResult(workspaceId, `google_connected=false&error=${reason}`));
 
-      const payload = verifyState('google-connect', state);
-      const cookie = request.cookies[CONNECT_COOKIE];
-      reply.clearCookie(CONNECT_COOKIE, { path: CONNECT_COOKIE_PATH });
-      if (!payload || !cookie || !safeEqual(cookie, String(payload.nonce)))
-        return fail('google_state');
+    // They may have lost admin in the minutes since starting.
+    const member = await prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId } },
+    });
+    if (!member || member.removedAt || member.role === 'member') {
+      return reply.redirect(connectResult(undefined, 'google_connected=false&error=google_state'));
+    }
 
-      const workspaceId = String(payload.workspaceId);
-      const userId = String(payload.userId);
-      // They may have lost admin in the minutes since starting.
-      const member = await prisma.workspaceMember.findUnique({
-        where: { workspaceId_userId: { workspaceId, userId } },
-      });
-      if (!member || member.removedAt || member.role === 'member') return fail('google_state');
-
-      if (error || !code) return fail('google_denied', workspaceId);
-      try {
-        const connectionId = await completeConnect(workspaceId, userId, code, request.ip);
-        return reply.redirect(
-          `${callbackUrl()}?google_connected=true&workspace=${workspaceId}&connection=${connectionId}`,
-        );
-      } catch (err) {
-        request.log.warn({ err }, 'google connect failed');
-        return fail('google_failed', workspaceId);
-      }
-    },
-  );
-}
+    if (error || !code) return fail('google_denied');
+    try {
+      const connectionId = await completeConnect(workspaceId, userId, code, request.ip);
+      return reply.redirect(
+        connectResult(workspaceId, `google_connected=true&connection=${connectionId}`),
+      );
+    } catch (err) {
+      request.log.warn({ err }, 'google connect failed');
+      return fail('google_failed');
+    }
+  },
+});

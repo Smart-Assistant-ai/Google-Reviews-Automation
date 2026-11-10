@@ -1,7 +1,6 @@
 import { env } from '../../config';
+import { googleRedirectUri } from '../../lib/google-redirect';
 import type { GoogleIdentityProvider } from './types';
-
-const redirectUri = () => `${env.APP_URL}/api/v1/auth/google/callback`;
 
 // Sign-in only proves who someone is. It asks for no access to their Business Profile,
 // which has its own separate consent when they connect it.
@@ -9,7 +8,7 @@ export const liveGoogleIdentity: GoogleIdentityProvider = {
   getAuthUrl(state) {
     const params = new URLSearchParams({
       client_id: env.GOOGLE_CLIENT_ID!,
-      redirect_uri: redirectUri(),
+      redirect_uri: googleRedirectUri(),
       response_type: 'code',
       scope: 'openid email profile',
       prompt: 'select_account',
@@ -26,7 +25,7 @@ export const liveGoogleIdentity: GoogleIdentityProvider = {
         code,
         client_id: env.GOOGLE_CLIENT_ID!,
         client_secret: env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: redirectUri(),
+        redirect_uri: googleRedirectUri(),
         grant_type: 'authorization_code',
       }),
     });

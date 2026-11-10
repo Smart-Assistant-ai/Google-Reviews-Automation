@@ -12,6 +12,7 @@ import { useState, type FormEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { api } from '../api/client';
 import AuthLayout from '../components/AuthLayout';
+import OutboxLink from '../components/OutboxLink';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -43,6 +44,7 @@ export default function ForgotPassword() {
           {sent ? (
             <Alert severity="success" sx={{ mt: 2 }}>
               If that email has an account, a reset link is on its way. It works for 1 hour.
+              <OutboxLink />
             </Alert>
           ) : (
             <form onSubmit={(e) => void submit(e)}>

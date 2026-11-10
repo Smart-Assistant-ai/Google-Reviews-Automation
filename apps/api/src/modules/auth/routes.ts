@@ -17,11 +17,14 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { env } from '../../config';
 import { recordAudit } from '../../lib/audit';
-import { randomToken, safeEqual } from '../../lib/crypto';
+import { randomToken } from '../../lib/crypto';
 import { HttpError } from '../../lib/errors';
-import { signState, verifyState } from '../../lib/signed-state';
+import { GOOGLE_COOKIE_PATH } from '../../lib/google-redirect';
+import { signState } from '../../lib/signed-state';
 import { currentAuth } from '../../plugins/access';
+import { devOutboxEnabled } from '../../providers/email/outbox';
 import { googleIdentity, googleSignInEnabled } from '../../providers/google-identity';
+import { registerGoogleCallbackFlow } from './google-callback';
 import { signInWithGoogle } from './google';
 import * as auth from './service';
 import { createSession, revokeAllSessions, revokeByToken, rotateSession } from './sessions';
@@ -30,7 +33,6 @@ const REFRESH_COOKIE = 'rp_refresh';
 const REFRESH_PATH = '/api/v1/auth';
 const REFRESH_MAX_AGE = 30 * 86_400;
 const GOOGLE_COOKIE = 'rp_google_signin';
-const GOOGLE_COOKIE_PATH = '/api/v1/auth/google';
 
 function setRefreshCookie(reply: FastifyReply, token: string): void {
   reply.setCookie(REFRESH_COOKIE, token, {
@@ -71,7 +73,11 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
   app.get(
     '/config',
     { config: { access: 'public' }, schema: { response: { 200: authConfigResponse } } },
-    async () => ({ signupMode: env.SIGNUP_MODE, googleSignIn: googleSignInEnabled() }),
+    async () => ({
+      signupMode: env.SIGNUP_MODE,
+      googleSignIn: googleSignInEnabled(),
+      devOutbox: devOutboxEnabled(),
+    }),
   );
 
   app.post(
@@ -261,46 +267,30 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
       return reply.redirect(googleIdentity().getAuthUrl(state));
     },
   );
-
-  app.get(
-    '/google/callback',
-    {
-      config: { access: 'public', rateLimit: strict(30) },
-      schema: {
-        querystring: z.object({
-          code: z.string().optional(),
-          state: z.string().optional(),
-          error: z.string().optional(),
-        }),
-      },
-    },
-    async (request, reply) => {
-      const fail = (error: string) => reply.redirect(`${env.APP_URL}/login?error=${error}`);
-      const { code, state, error } = request.query;
-
-      const payload = verifyState('google-signin', state);
-      const cookie = request.cookies[GOOGLE_COOKIE];
-      reply.clearCookie(GOOGLE_COOKIE, { path: GOOGLE_COOKIE_PATH });
-      if (!payload || !cookie || !safeEqual(cookie, String(payload.nonce)))
-        return fail('google_state');
-      if (error || !code) return fail('google_failed');
-
-      try {
-        const identity = await googleIdentity().exchangeCode(code);
-        const invite = typeof payload.invite === 'string' ? payload.invite : undefined;
-        const result = await signInWithGoogle(identity, invite, request.ip);
-        if (!result.ok) return fail(result.error);
-        const { refreshToken } = await createSession(result.userId, sessionMeta(request));
-        setRefreshCookie(reply, refreshToken);
-        // Someone who already had an account still has to accept, on the page that checks it's for them.
-        const pending =
-          invite && !result.joinedInvitation ? `?invite=${encodeURIComponent(invite)}` : '';
-        return reply.redirect(`${env.APP_URL}/auth/callback${pending}`);
-      } catch (err) {
-        request.log.warn({ err }, 'google sign-in failed');
-        await recordAudit({ action: 'auth.google_failed', ip: request.ip });
-        return fail('google_failed');
-      }
-    },
-  );
 }
+
+registerGoogleCallbackFlow({
+  purpose: 'google-signin',
+  cookie: GOOGLE_COOKIE,
+  failUrl: (reason) => `${env.APP_URL}/login?error=${reason}`,
+  async handle(request, reply, payload, { code, error }) {
+    const fail = (reason: string) => reply.redirect(`${env.APP_URL}/login?error=${reason}`);
+    if (error || !code) return fail('google_failed');
+    try {
+      const identity = await googleIdentity().exchangeCode(code);
+      const invite = typeof payload.invite === 'string' ? payload.invite : undefined;
+      const result = await signInWithGoogle(identity, invite, request.ip);
+      if (!result.ok) return fail(result.error);
+      const { refreshToken } = await createSession(result.userId, sessionMeta(request));
+      setRefreshCookie(reply, refreshToken);
+      // Someone who already had an account still has to accept, on the page that checks it's for them.
+      const pending =
+        invite && !result.joinedInvitation ? `?invite=${encodeURIComponent(invite)}` : '';
+      return reply.redirect(`${env.APP_URL}/auth/callback${pending}`);
+    } catch (err) {
+      request.log.warn({ err }, 'google sign-in failed');
+      await recordAudit({ action: 'auth.google_failed', ip: request.ip });
+      return fail('google_failed');
+    }
+  },
+});

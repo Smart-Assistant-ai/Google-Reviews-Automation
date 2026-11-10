@@ -28,7 +28,7 @@ cp apps/api/.env.example apps/api/.env
 cp apps/api/.env.test.example apps/api/.env.test
 ```
 
-Fill in `apps/api/.env`, including `DATABASE_URL`. Generate `JWT_SECRET` and `ENCRYPTION_KEY` with `openssl rand -hex 32`. The app refuses to start if either is missing or still a placeholder. Then put the test database's address in `apps/api/.env.test`.
+Fill in `apps/api/.env`, including `DATABASE_URL` (the same username and password you'd use in pgAdmin, in one line: `postgresql://USER:PASSWORD@HOST:5432/DBNAME`). Generate `JWT_SECRET` and `ENCRYPTION_KEY` with `openssl rand -hex 32`. The app refuses to start if either is missing or still a placeholder. Then put the test database's address in `apps/api/.env.test`.
 
 ```bash
 pnpm db:generate
@@ -37,7 +37,11 @@ pnpm seed
 pnpm dev
 ```
 
-Open http://localhost:5173. `pnpm seed` prints a demo login with a fake multi-location business. In development, emails print to the API logs instead of being sent, so that's where to find verification links.
+Open http://localhost:5173. `pnpm seed` is optional: it adds a demo login with a fake multi-location business.
+
+Emails aren't sent from your machine unless you add a Resend key. Until then they land in a local inbox at http://localhost:5173/dev/outbox, and the app links to it wherever an email was sent.
+
+To use real Google, set `GBP_PROVIDER=live`, `GOOGLE_SIGNIN_PROVIDER=live`, the Google client ID and secret, and `API_URL=http://localhost:4000`. The Google project needs one redirect URI, `http://localhost:4000/api/v1/google/callback`, for both signing in and connecting.
 
 If ports 4000 or 5173 are taken, set `PORT` and `APP_URL` in `apps/api/.env`, then start the web app with `WEB_PORT` and `API_TARGET`.
 

@@ -90,10 +90,9 @@ sudo certbot --nginx -d app.your-domain.com
 
 ## 5. Google Console
 
-In the OAuth client (type: Web application), add both redirect URIs:
+In the OAuth client (type: Web application), add this redirect URI. Signing in and connecting a Business Profile both use it:
 
 - `https://app.your-domain.com/api/v1/google/callback`
-- `https://app.your-domain.com/api/v1/auth/google/callback`
 
 Until Google verifies the OAuth consent screen, it stays in Testing mode: only listed test users can connect, up to 100, and their tokens expire every 7 days. The app emails the owner when a token dies, and they reconnect from Settings.
 

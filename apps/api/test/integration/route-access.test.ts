@@ -44,9 +44,10 @@ const EXPECTED_PUBLIC = [
   'POST /api/v1/auth/forgot-password',
   'POST /api/v1/auth/reset-password',
   'GET /api/v1/auth/google/start',
-  'GET /api/v1/auth/google/callback',
   'GET /api/v1/invitations/preview',
   'GET /api/v1/google/callback',
+  // Only exists while email is the local mock. Production refuses that setting.
+  'GET /api/v1/dev/outbox',
 ];
 
 async function invite(owner: TestUser, role: 'admin' | 'member') {

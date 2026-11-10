@@ -7,6 +7,7 @@ import AcceptInvite from './pages/AcceptInvite';
 import AuthCallback from './pages/AuthCallback';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
+import DevOutbox from './pages/DevOutbox';
 import ForgotPassword from './pages/ForgotPassword';
 import Inbox from './pages/Inbox';
 import MockGoogle from './pages/MockGoogle';
@@ -72,6 +73,7 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/invite" element={<AcceptInvite />} />
+      <Route path="/dev/outbox" element={<DevOutbox />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/mock-google" element={<MockGoogle />} />
       <Route

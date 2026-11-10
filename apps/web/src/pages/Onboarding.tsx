@@ -19,6 +19,7 @@ import { useAuth } from '../auth/AuthContext';
 import GoogleEmptyState from '../components/GoogleEmptyState';
 import LocationPicker from '../components/LocationPicker';
 import Logo from '../components/Logo';
+import OutboxLink from '../components/OutboxLink';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 
 const CONNECT_ERRORS: Record<string, string> = {
@@ -148,6 +149,7 @@ export default function Onboarding() {
                 {!verified && (
                   <Alert severity="warning" sx={{ alignSelf: 'stretch' }}>
                     Confirm your email first. We sent a link to {session?.user.email}.
+                    <OutboxLink />
                     <Button
                       size="small"
                       sx={{ ml: 1 }}

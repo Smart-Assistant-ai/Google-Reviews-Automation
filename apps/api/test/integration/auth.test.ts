@@ -118,7 +118,7 @@ describe('allowlisted signup', () => {
 
   it('tells the web app which mode it is in', async () => {
     const res = await app.inject({ url: '/api/v1/auth/config' });
-    expect(res.json()).toEqual({ signupMode: 'allowlist', googleSignIn: true });
+    expect(res.json()).toEqual({ signupMode: 'allowlist', googleSignIn: true, devOutbox: true });
   });
 });
 
@@ -405,7 +405,7 @@ describe('Google sign-in', () => {
   async function callback(identity: Parameters<typeof code>[0], query = '') {
     const { state, nonce } = await start(query);
     return app.inject({
-      url: `/api/v1/auth/google/callback?code=${code(identity)}&state=${encodeURIComponent(state)}`,
+      url: `/api/v1/google/callback?code=${code(identity)}&state=${encodeURIComponent(state)}`,
       cookies: { rp_google_signin: nonce },
     });
   }
@@ -440,7 +440,7 @@ describe('Google sign-in', () => {
   it('refuses a callback without the matching browser cookie', async () => {
     const { state } = await start();
     const res = await app.inject({
-      url: `/api/v1/auth/google/callback?code=${code({ sub: 'x', email: uniqueEmail() })}&state=${encodeURIComponent(state)}`,
+      url: `/api/v1/google/callback?code=${code({ sub: 'x', email: uniqueEmail() })}&state=${encodeURIComponent(state)}`,
     });
     expect(errorOf(res)).toBe('google_state');
     expect(await prisma.user.count()).toBe(0);
@@ -449,7 +449,7 @@ describe('Google sign-in', () => {
   it('refuses a forged state', async () => {
     const { nonce } = await start();
     const res = await app.inject({
-      url: `/api/v1/auth/google/callback?code=${code({ sub: 'x', email: uniqueEmail() })}&state=forged.state`,
+      url: `/api/v1/google/callback?code=${code({ sub: 'x', email: uniqueEmail() })}&state=forged.state`,
       cookies: { rp_google_signin: nonce },
     });
     expect(errorOf(res)).toBe('google_state');
@@ -495,10 +495,15 @@ describe('Google sign-in', () => {
     expect(errorOf(res)).toBe('account_unavailable');
   });
 
+  it('sets its browser cookie where the shared Google callback can read it', async () => {
+    const res = await app.inject({ url: '/api/v1/auth/google/start' });
+    expect(res.cookies.find((c) => c.name === 'rp_google_signin')?.path).toBe('/api/v1/google');
+  });
+
   it('turns a provider failure into a friendly redirect', async () => {
     const { state, nonce } = await start();
     const res = await app.inject({
-      url: `/api/v1/auth/google/callback?error=access_denied&state=${encodeURIComponent(state)}`,
+      url: `/api/v1/google/callback?error=access_denied&state=${encodeURIComponent(state)}`,
       cookies: { rp_google_signin: nonce },
     });
     expect(errorOf(res)).toBe('google_failed');

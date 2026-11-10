@@ -29,6 +29,7 @@ import {
   wsPath,
 } from '../../api/hooks';
 import { useAuth } from '../../auth/AuthContext';
+import OutboxLink from '../../components/OutboxLink';
 import { managedLocations, useShell } from '../../layout/ShellContext';
 
 function LocationChooser({
@@ -199,7 +200,12 @@ export default function TeamTab() {
   return (
     <Stack spacing={3}>
       {error && <Alert severity="error">{error}</Alert>}
-      {notice && <Alert severity="success">{notice}</Alert>}
+      {notice && (
+        <Alert severity="success">
+          {notice}
+          <OutboxLink label="See the invitation" />
+        </Alert>
+      )}
 
       <Box>
         <Stack direction="row" alignItems="center" sx={{ mb: 1.5 }}>

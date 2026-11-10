@@ -9,7 +9,9 @@ import { accessPlugin } from './plugins/access';
 import { registerErrorHandling } from './plugins/errors';
 import { healthRoutes } from './plugins/health';
 import { authRoutes } from './modules/auth/routes';
-import { googleCallbackRoutes, googleRoutes } from './modules/google/routes';
+import { googleCallbackRoutes } from './modules/auth/google-callback';
+import { googleRoutes } from './modules/google/routes';
+import { devOutboxEnabled, devOutboxRoutes } from './providers/email/outbox';
 import { reviewRoutes } from './modules/reviews/routes';
 import { invitationRoutes, workspaceRoutes } from './modules/workspaces/routes';
 import { securityPlugin, type SecurityOptions } from './plugins/security';
@@ -44,6 +46,7 @@ export async function buildApp(options: BuildOptions = {}): Promise<FastifyInsta
   await app.register(invitationRoutes, { prefix: '/api/v1/invitations' });
   await app.register(googleRoutes, { prefix: '/api/v1/workspaces/:workspaceId/google' });
   await app.register(googleCallbackRoutes, { prefix: '/api/v1/google' });
+  if (devOutboxEnabled()) await app.register(devOutboxRoutes, { prefix: '/api/v1/dev' });
   await app.register(reviewRoutes, { prefix: '/api/v1/workspaces/:workspaceId' });
   options.extraRoutes?.(app);
 

@@ -1,4 +1,5 @@
 import { env } from '../../config';
+import { googleRedirectUri } from '../../lib/google-redirect';
 import { googleCalls } from './limits';
 import { GoogleApiError, type GbpContext, type GbpProvider } from './types';
 
@@ -8,7 +9,6 @@ const ACCOUNTS = 'https://mybusinessaccountmanagement.googleapis.com/v1';
 const BUSINESS_INFO = 'https://mybusinessbusinessinformation.googleapis.com/v1';
 
 const SCOPES = ['https://www.googleapis.com/auth/business.manage', 'openid', 'email'];
-const redirectUri = () => `${env.APP_URL}/api/v1/google/callback`;
 
 async function call<T>(ctx: GbpContext, url: string, options: RequestInit = {}): Promise<T> {
   await googleCalls.acquire();
@@ -48,7 +48,7 @@ export const liveGbpProvider: GbpProvider = {
   getAuthUrl(state) {
     const params = new URLSearchParams({
       client_id: env.GOOGLE_CLIENT_ID!,
-      redirect_uri: redirectUri(),
+      redirect_uri: googleRedirectUri(),
       response_type: 'code',
       scope: SCOPES.join(' '),
       access_type: 'offline',
@@ -66,7 +66,7 @@ export const liveGbpProvider: GbpProvider = {
         code,
         client_id: env.GOOGLE_CLIENT_ID!,
         client_secret: env.GOOGLE_CLIENT_SECRET!,
-        redirect_uri: redirectUri(),
+        redirect_uri: googleRedirectUri(),
         grant_type: 'authorization_code',
       }),
     });

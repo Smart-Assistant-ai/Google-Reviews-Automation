@@ -239,7 +239,7 @@ describe('invitations through Google sign-in', () => {
     const state = new URL(start.headers.location as string).searchParams.get('state')!;
     const nonce = start.cookies.find((c) => c.name === 'rp_google_signin')!.value;
     return app.inject({
-      url: `/api/v1/auth/google/callback?code=${code(sub, email)}&state=${encodeURIComponent(state)}`,
+      url: `/api/v1/google/callback?code=${code(sub, email)}&state=${encodeURIComponent(state)}`,
       cookies: { rp_google_signin: nonce },
     });
   }

@@ -37,7 +37,8 @@ export default function MockGoogle() {
   const [email, setEmail] = useState(signIn ? 'someone@example.test' : 'owner@sample.test');
   const [scenario, setScenario] = useState('multi');
 
-  const base = signIn ? '/api/v1/auth/google/callback' : '/api/v1/google/callback';
+  // Both flows return to one address, as with real Google.
+  const base = '/api/v1/google/callback';
   const go = (allow: boolean) => {
     const code = signIn
       ? encode({ sub: `mock-${email}`, email, name: email.split('@')[0], emailVerified: true })

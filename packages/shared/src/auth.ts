@@ -57,5 +57,14 @@ export type SessionResponse = z.infer<typeof sessionResponse>;
 export const authConfigResponse = z.object({
   signupMode: z.enum(['allowlist', 'open']),
   googleSignIn: z.boolean(),
+  // True when emails aren't really sent, so the web app links to the local inbox instead.
+  devOutbox: z.boolean(),
 });
 export type AuthConfig = z.infer<typeof authConfigResponse>;
+
+export const outboxResponse = z.object({
+  emails: z.array(
+    z.object({ to: z.string(), subject: z.string(), text: z.string(), sentAt: z.string() }),
+  ),
+});
+export type Outbox = z.infer<typeof outboxResponse>;
