@@ -1,0 +1,435 @@
+// One file describes the whole database, so models and migrations can't drift apart.
+// Conventions: UUID keys, timestamps with time zone, real foreign keys, snake_case in Postgres.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum AuthProvider {
+  password
+  google
+}
+
+enum OneTimeTokenPurpose {
+  verify_email
+  reset_password
+}
+
+model User {
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String     @unique
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  name            String?
+  status          UserStatus @default(active)
+  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  identities      AuthIdentity[]
+  sessions        Session[]
+  oneTimeTokens   OneTimeToken[]
+  memberships     WorkspaceMember[]
+  invitationsSent WorkspaceInvitation[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+// A user can log in more than one way. Google is matched on its stable user id, never on email.
+model AuthIdentity {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  provider       AuthProvider
+  providerUserId String       @map("provider_user_id")
+  passwordHash   String?      @map("password_hash")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider])
+  @@map("auth_identities")
+}
+
+// One row per logged-in device. Deleting or revoking it ends that login immediately.
+model Session {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  refreshTokenHash  String    @map("refresh_token_hash")
+  previousTokenHash String?   @map("previous_token_hash")
+  rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(6)
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(6)
+  ip                String?
+  userAgent         String?   @map("user_agent")
+  lastUsedAt        DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Email verification and password reset links. Only a hash is stored, so a database leak can't be replayed.
+model OneTimeToken {
+  id        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  purpose   OneTimeTokenPurpose
+  tokenHash String              @unique @map("token_hash")
+  expiresAt DateTime            @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime?           @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("one_time_tokens")
+}
+
+model SignupAllowlist {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String   @unique
+  note      String?
+  addedBy   String?  @map("added_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("signup_allowlist")
+}
+
+enum WorkspaceStatus {
+  active
+  suspended
+}
+
+enum MemberRole {
+  owner
+  admin
+  member
+}
+
+model Workspace {
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  status    WorkspaceStatus @default(active)
+  deletedAt DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  members     WorkspaceMember[]
+  invitations WorkspaceInvitation[]
+  connections GoogleConnection[]
+  locations   Location[]
+  reviews     Review[]
+  replies     Reply[]
+  voices      VoiceProfile[]
+  auditLogs   AuditLog[]
+
+  @@map("workspaces")
+}
+
+// Who belongs to a workspace. Roles live here, not on the user, because one person can be
+// an owner in one workspace and a member in another.
+model WorkspaceMember {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId       String     @map("workspace_id") @db.Uuid
+  userId            String     @map("user_id") @db.Uuid
+  role              MemberRole
+  scopeAllLocations Boolean    @default(true) @map("scope_all_locations")
+  removedAt         DateTime?  @map("removed_at") @db.Timestamptz(6)
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locations WorkspaceMemberLocation[]
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@map("workspace_members")
+}
+
+// The locations a member can reach when scope_all_locations is false.
+model WorkspaceMemberLocation {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId   String @map("member_id") @db.Uuid
+  locationId String @map("location_id") @db.Uuid
+
+  member   WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  location Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, locationId])
+  @@index([locationId])
+  @@map("workspace_member_locations")
+}
+
+model WorkspaceInvitation {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId       String     @map("workspace_id") @db.Uuid
+  email             String
+  role              MemberRole
+  scopeAllLocations Boolean    @default(true) @map("scope_all_locations")
+  locationIds       String[]   @default([]) @map("location_ids") @db.Uuid
+  tokenHash         String     @unique @map("token_hash")
+  invitedById       String     @map("invited_by") @db.Uuid
+  expiresAt         DateTime   @map("expires_at") @db.Timestamptz(6)
+  acceptedAt        DateTime?  @map("accepted_at") @db.Timestamptz(6)
+  revokedAt         DateTime?  @map("revoked_at") @db.Timestamptz(6)
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User      @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("workspace_invitations")
+}
+
+enum ConnectionProvider {
+  mock
+  live
+}
+
+enum ConnectionStatus {
+  healthy
+  needs_reconnect
+}
+
+enum DataSource {
+  google
+  sample
+}
+
+enum LocationStatus {
+  available
+  active
+  access_lost
+}
+
+// A workspace can connect several Google accounts. Tokens are encrypted before they get here.
+model GoogleConnection {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId         String             @map("workspace_id") @db.Uuid
+  provider            ConnectionProvider
+  googleUserId        String             @map("google_user_id")
+  googleEmail         String?            @map("google_email")
+  accessToken         String?            @map("access_token")
+  refreshToken        String?            @map("refresh_token")
+  expiresAt           DateTime?          @map("expires_at") @db.Timestamptz(6)
+  status              ConnectionStatus   @default(healthy)
+  dataSource          DataSource         @default(google) @map("data_source")
+  apiError            String?            @map("api_error")
+  reconnectNotifiedAt DateTime?          @map("reconnect_notified_at") @db.Timestamptz(6)
+  createdById         String?            @map("created_by") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace          Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  servedLocations    Location[]
+  reachableLocations ConnectionLocation[]
+
+  @@unique([workspaceId, googleUserId])
+  @@index([status])
+  @@map("google_connections")
+}
+
+// A business location. `available` means seen on Google but not chosen, so it is never synced.
+// connection_id is the one connection that serves it.
+model Location {
+  id                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId          String         @map("workspace_id") @db.Uuid
+  connectionId         String         @map("connection_id") @db.Uuid
+  googleAccountName    String         @map("google_account_name")
+  googleLocationName   String         @map("google_location_name")
+  title                String
+  address              String?
+  status               LocationStatus @default(available)
+  lastSyncedAt         DateTime?      @map("last_synced_at") @db.Timestamptz(6)
+  lastSyncAttemptAt    DateTime?      @map("last_sync_attempt_at") @db.Timestamptz(6)
+  lastSyncError        String?        @map("last_sync_error")
+  accessLostNotifiedAt DateTime?      @map("access_lost_notified_at") @db.Timestamptz(6)
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connection  GoogleConnection          @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  reachableBy ConnectionLocation[]
+  members     WorkspaceMemberLocation[]
+  reviews     Review[]
+  voice       VoiceProfile[]
+  auditLogs   AuditLog[]
+
+  @@unique([workspaceId, googleLocationName])
+  @@index([status, lastSyncAttemptAt])
+  @@index([connectionId])
+  @@map("locations")
+}
+
+// Every connection that can reach a location, so the user can choose and a location can
+// move to another connection when one is disconnected.
+model ConnectionLocation {
+  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  connectionId      String @map("connection_id") @db.Uuid
+  locationId        String @map("location_id") @db.Uuid
+  googleAccountName String @map("google_account_name")
+
+  connection GoogleConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  location   Location         @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, locationId])
+  @@index([locationId])
+  @@map("connection_locations")
+}
+
+enum ReplySource {
+  ai
+  human
+  google
+}
+
+enum ReplyState {
+  drafting
+  draft
+  posting
+  pending_google
+  live
+  rejected
+  failed
+}
+
+enum VoiceTone {
+  warm
+  professional
+  playful
+}
+
+enum LanguageMode {
+  match
+  english
+}
+
+// Unique per location, not globally. A global unique let one workspace's sync take over
+// another workspace's reviews when both connected the same business.
+model Review {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String    @map("workspace_id") @db.Uuid
+  locationId       String    @map("location_id") @db.Uuid
+  googleReviewId   String    @map("google_review_id")
+  reviewerName     String?   @map("reviewer_name")
+  reviewerPhotoUrl String?   @map("reviewer_photo_url")
+  starRating       Int       @map("star_rating")
+  comment          String?
+  media            Json      @default("[]")
+  createTime       DateTime  @map("create_time") @db.Timestamptz(6)
+  updateTime       DateTime? @map("update_time") @db.Timestamptz(6)
+  language         String?
+  sentiment        String?
+  topics           Json      @default("[]")
+  lastFetchedAt    DateTime  @default(now()) @map("last_fetched_at") @db.Timestamptz(6)
+  purgedAt         DateTime? @map("purged_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  location  Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  reply     Reply?
+
+  @@unique([locationId, googleReviewId])
+  @@index([locationId, createTime(sort: Desc)])
+  @@index([workspaceId, createTime(sort: Desc)])
+  @@index([lastFetchedAt])
+  @@map("reviews")
+}
+
+model Reply {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String      @map("workspace_id") @db.Uuid
+  reviewId         String      @unique @map("review_id") @db.Uuid
+  text             String      @default("")
+  source           ReplySource
+  state            ReplyState
+  googleReplyState String?     @map("google_reply_state")
+  policyViolation  String?     @map("policy_violation")
+  error            String?
+  draftAttempts    Int         @default(0) @map("draft_attempts")
+  postedAt         DateTime?   @map("posted_at") @db.Timestamptz(6)
+  postedById       String?     @map("posted_by") @db.Uuid
+  lastCheckedAt    DateTime?   @map("last_checked_at") @db.Timestamptz(6)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([state, lastCheckedAt])
+  @@map("replies")
+}
+
+// location_id null is the workspace default; a row with a location overrides it for that location.
+// Partial unique indexes in the migration enforce one of each, because a plain unique allows
+// any number of rows with a NULL location.
+model VoiceProfile {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String       @map("workspace_id") @db.Uuid
+  locationId   String?      @map("location_id") @db.Uuid
+  businessName String?      @map("business_name")
+  tone         VoiceTone    @default(warm)
+  signOff      String?      @map("sign_off")
+  ownerName    String?      @map("owner_name")
+  alwaysSay    String?      @map("always_say")
+  neverSay     String?      @map("never_say")
+  languageMode LanguageMode @default(match) @map("language_mode")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  location  Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("voice_profiles")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String?  @map("workspace_id") @db.Uuid
+  locationId  String?  @map("location_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  action      String
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id")
+  meta        Json     @default("{}")
+  ip          String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  location  Location?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  actor     User?      @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+  @@map("audit_logs")
+}
+
+// One row per background job. A job claims its row before running, so two processes can't run it
+// together, and last_error makes a stopped job visible.
+model JobRun {
+  name           String    @id
+  lastStartedAt  DateTime? @map("last_started_at") @db.Timestamptz(6)
+  lastFinishedAt DateTime? @map("last_finished_at") @db.Timestamptz(6)
+  lastError      String?   @map("last_error")
+  lockedUntil    DateTime? @map("locked_until") @db.Timestamptz(6)
+
+  @@map("job_runs")
+}
