@@ -20,6 +20,9 @@ const schema = z
     TRUST_PROXY: booleanString.optional(),
 
     APP_URL: z.string({ required_error: 'APP_URL is required' }).url('APP_URL must be a full URL'),
+    // Where Google sends people back to. Only differs from APP_URL in development, where the API
+    // runs on its own port and the Google project already lists that address.
+    API_URL: z.string().url('API_URL must be a full URL').optional(),
     DATABASE_URL: z.string({ required_error: 'DATABASE_URL is required' }).min(1),
 
     JWT_SECRET: secret('JWT_SECRET', 32),
@@ -83,13 +86,16 @@ const schema = z
       EMAIL_PROVIDER: value.EMAIL_PROVIDER ?? 'mock',
       COOKIE_SECURE: value.APP_URL.startsWith('https://'),
       APP_URL: value.APP_URL.replace(/\/$/, ''),
+      API_URL: (value.API_URL ?? value.APP_URL).replace(/\/$/, ''),
     };
   });
 
 export type Env = z.output<typeof schema>;
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
-  const parsed = schema.safeParse(source);
+  // An empty value (KEY= in a .env file) means "not set".
+  const cleaned = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''));
+  const parsed = schema.safeParse(cleaned);
   if (parsed.success) return parsed.data;
   const problems = parsed.error.issues.map(
     (issue) => `  - ${issue.path.join('.')}: ${issue.message}`,

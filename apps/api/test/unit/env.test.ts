@@ -77,9 +77,34 @@ describe('parseEnv', () => {
     );
   });
 
+  it('sends Google back to the app address unless the API has its own', () => {
+    expect(parseEnv(valid).API_URL).toBe('https://app.example.com');
+    const dev = {
+      ...valid,
+      NODE_ENV: 'development',
+      APP_URL: 'http://localhost:5173',
+      API_URL: 'http://localhost:4000/',
+    };
+    expect(parseEnv(dev).API_URL).toBe('http://localhost:4000');
+  });
+
   it('marks cookies Secure when the app runs on https', () => {
     expect(parseEnv(valid).COOKIE_SECURE).toBe(true);
     const dev = { ...valid, NODE_ENV: 'development', APP_URL: 'http://localhost:5173' };
     expect(parseEnv(dev).COOKIE_SECURE).toBe(false);
+  });
+});
+
+describe('empty values', () => {
+  it('treats KEY= as not set, so an empty key never counts as a real one', () => {
+    const env = parseEnv({
+      ...valid,
+      NODE_ENV: 'development',
+      GBP_PROVIDER: 'mock',
+      OPENAI_API_KEY: '',
+      API_URL: '',
+    });
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.API_URL).toBe(valid.APP_URL);
   });
 });
