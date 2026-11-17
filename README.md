@@ -59,10 +59,11 @@ If ports 4000 or 5173 are taken, set `PORT` and `APP_URL` in `apps/api/.env`, th
 ## Checks
 
 ```bash
+pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
 ```
 
-CI runs all four on every push.
+Run all five before opening a pull request. Nothing runs them on GitHub, and the tests need the test database from Setup.
