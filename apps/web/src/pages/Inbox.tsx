@@ -1,4 +1,4 @@
-import { reviewTabSchema, type ReviewStatus, type ReviewTab } from '@replypilot/shared';
+import { reviewTabSchema, uuidSchema, type ReviewStatus, type ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
@@ -68,12 +68,15 @@ function readView(params: URLSearchParams) {
   const tab = reviewTabSchema.safeParse(params.get('tab'));
   const stars = params.get('stars') ?? '';
   const page = Number(params.get('page'));
+  // Review IDs are UUIDs. Anything else is ignored rather than trusted: the inbox builds a page
+  // lookup from the ID, and a stray quote would break it.
+  const review = uuidSchema.safeParse(params.get('review'));
   return {
     tab: tab.success ? tab.data : 'todo',
     stars: STAR_FILTERS.some((f) => f.key === stars) ? stars : '',
     q: params.get('q')?.slice(0, 200) ?? '',
     page: Number.isInteger(page) && page > 1 ? page : 1,
-    review: params.get('review'),
+    review: review.success ? review.data : null,
   };
 }
 
