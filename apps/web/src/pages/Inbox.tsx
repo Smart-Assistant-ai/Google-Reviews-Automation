@@ -1,5 +1,6 @@
 import { reviewTabSchema, type ReviewStatus, type ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -8,7 +9,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   IconButton,
   InputAdornment,
   List,
@@ -39,6 +39,7 @@ import {
 import GoogleEmptyState from '../components/GoogleEmptyState';
 import Highlight from '../components/Highlight';
 import ReviewDetail from '../components/ReviewDetail';
+import { ReviewDetailSkeleton, ReviewListSkeleton } from '../components/ReviewSkeletons';
 import ShortcutsDialog, { Kbd } from '../components/ShortcutsDialog';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
@@ -144,7 +145,13 @@ export default function Inbox() {
   );
   // While a new filter loads, the old list stays on screen as a placeholder.
   const { data, isLoading, isPlaceholderData } = useReviews(filters, poll);
-  const { data: detail, isError: detailMissing } = useReview(selectedId, poll);
+  const {
+    data: detail,
+    isError: detailMissing,
+    error: detailError,
+    isFetching: detailFetching,
+    refetch: retryDetail,
+  } = useReview(selectedId, poll);
 
   // Refresh while anything is in motion, such as a draft being written or Google reviewing a reply.
   useEffect(() => {
@@ -389,9 +396,7 @@ export default function Inbox() {
       </Tabs>
       <Box ref={listRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {isLoading || !data ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <CircularProgress size={24} />
-          </Box>
+          <ReviewListSkeleton />
         ) : data.reviews.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ p: 6, color: 'text.secondary' }}>
             <InboxRoundedIcon sx={{ fontSize: 40 }} />
@@ -494,17 +499,38 @@ export default function Inbox() {
       onUpdated={onUpdated}
       onBack={desktop ? null : () => setSelectedId(null)}
     />
+  ) : detailMissing ? (
+    // Retries are off, so a review that failed to load says so instead of loading forever. The
+    // selection stays, so the next review isn't opened in its place.
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      spacing={1.5}
+      sx={{ height: '100%', p: 4, color: 'text.secondary', textAlign: 'center' }}
+    >
+      <ErrorOutlineRoundedIcon sx={{ fontSize: 36 }} />
+      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        Couldn&apos;t load this review
+      </Typography>
+      <Typography variant="body2">{detailError?.message}</Typography>
+      <Button
+        size="small"
+        variant="outlined"
+        onClick={() => void retryDetail()}
+        disabled={detailFetching}
+      >
+        Try again
+      </Button>
+    </Stack>
+  ) : selectedId ? (
+    <ReviewDetailSkeleton />
   ) : (
     <Stack
       alignItems="center"
       justifyContent="center"
       sx={{ height: '100%', color: 'text.secondary' }}
     >
-      {selectedId ? (
-        <CircularProgress size={24} />
-      ) : (
-        <Typography variant="body2">Select a review</Typography>
-      )}
+      <Typography variant="body2">Select a review</Typography>
     </Stack>
   );
 
