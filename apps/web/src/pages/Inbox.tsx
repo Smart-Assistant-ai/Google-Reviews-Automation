@@ -113,16 +113,38 @@ export default function Inbox() {
     const timer = setTimeout(() => setQ(search), 250);
     return () => clearTimeout(timer);
   }, [search]);
+
   // A new filter starts at its first page and opens its first match, rather than keeping a review
-  // the list no longer shows. The first render keeps what the URL asked for.
+  // the list no longer shows. The first render keeps what the URL asked for. This runs while
+  // rendering, so the list never asks for a page or review from the filter before.
   const filterKey = [workspaceId, locationId, tab, stars, q].join('|');
-  const lastFilterKey = useRef(filterKey);
-  useEffect(() => {
-    if (lastFilterKey.current === filterKey) return;
-    lastFilterKey.current = filterKey;
+  const [seenFilterKey, setSeenFilterKey] = useState(filterKey);
+  if (filterKey !== seenFilterKey) {
+    setSeenFilterKey(filterKey);
     setPage(1);
     setSelectedId(null);
-  }, [filterKey]);
+  }
+
+  // The URL can change without the inbox changing it, for example with the back button or the
+  // Inbox link in the sidebar. Then the inbox shows the view the URL asks for, page and review
+  // included. A URL the inbox wrote itself is never read back, so it can't undo a newer change.
+  const query = params.toString();
+  const [seenQuery, setSeenQuery] = useState(query);
+  const lastWritten = useRef(query);
+  if (query !== seenQuery) {
+    setSeenQuery(query);
+    if (query !== lastWritten.current) {
+      const view = readView(params);
+      setTab(view.tab);
+      setStars(view.stars);
+      setSearch(view.q);
+      setQ(view.q);
+      setPage(view.page);
+      setSelectedId(view.review);
+      // These are the URL's own filters, so they don't reset its page and review.
+      setSeenFilterKey([workspaceId, locationId, view.tab, view.stars, view.q].join('|'));
+    }
+  }
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -131,6 +153,9 @@ export default function Inbox() {
     if (q) next.set('q', q);
     if (page > 1) next.set('page', String(page));
     if (selectedId) next.set('review', selectedId);
+    // Once the URL shows what's on screen, it counts as written here, so going back to an older
+    // URL is still noticed as a change.
+    lastWritten.current = next.toString();
     if (next.toString() !== params.toString()) setParams(next, { replace: true });
   }, [tab, stars, q, page, selectedId, params, setParams]);
 
