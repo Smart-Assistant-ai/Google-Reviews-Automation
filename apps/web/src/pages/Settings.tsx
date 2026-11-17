@@ -1,6 +1,7 @@
 import { hasAtLeast } from '@replypilot/shared';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import AccountTab from './settings/AccountTab';
 import ActivityTab from './settings/ActivityTab';
@@ -26,15 +27,21 @@ export default function Settings() {
     return all.filter((t) => t.show);
   }, [isAdmin]);
 
-  const [selected, setSelected] = useState(isAdmin ? 'google' : 'voice');
-  const tab = tabs.find((t) => t.key === selected) ?? tabs[0]!;
+  // The tab lives in the URL (/settings?tab=team), so it survives a refresh and can be linked to.
+  // A tab this role can't see falls back to the usual first one.
+  const [params, setParams] = useSearchParams();
+  const fallback = isAdmin ? 'google' : 'voice';
+  const tab =
+    tabs.find((t) => t.key === params.get('tab')) ??
+    tabs.find((t) => t.key === fallback) ??
+    tabs[0]!;
 
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 960, mx: 'auto' }}>
       <Typography variant="h5">Settings</Typography>
       <Tabs
         value={tab.key}
-        onChange={(_, v: string) => setSelected(v)}
+        onChange={(_, v: string) => setParams({ tab: v }, { replace: true })}
         variant="scrollable"
         sx={{ my: 3, borderBottom: 1, borderColor: 'divider' }}
       >

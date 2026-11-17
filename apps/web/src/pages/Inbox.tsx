@@ -1,13 +1,14 @@
-import type { ReviewStatus, ReviewTab } from '@replypilot/shared';
+import { reviewTabSchema, type ReviewStatus, type ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
+import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
   Badge,
   Box,
   Button,
   Chip,
-  CircularProgress,
+  IconButton,
   InputAdornment,
   List,
   ListItemButton,
@@ -19,11 +20,13 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import {
   useRefreshWorkspaceData,
@@ -33,7 +36,10 @@ import {
   wsPath,
 } from '../api/hooks';
 import GoogleEmptyState from '../components/GoogleEmptyState';
+import Highlight from '../components/Highlight';
 import ReviewDetail from '../components/ReviewDetail';
+import { ReviewDetailSkeleton, ReviewListSkeleton } from '../components/ReviewSkeletons';
+import ShortcutsDialog, { Kbd } from '../components/ShortcutsDialog';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
 import { timeAgo } from '../components/format';
@@ -56,6 +62,20 @@ const STAR_FILTERS = [
 const IN_MOTION: ReviewStatus[] = ['drafting', 'pending', 'posting'];
 const PAGE_SIZE = 25;
 
+// The URL holds the view, so a refresh or a shared link opens the same tab, filters and review.
+function readView(params: URLSearchParams) {
+  const tab = reviewTabSchema.safeParse(params.get('tab'));
+  const stars = params.get('stars') ?? '';
+  const page = Number(params.get('page'));
+  return {
+    tab: tab.success ? tab.data : 'todo',
+    stars: STAR_FILTERS.some((f) => f.key === stars) ? stars : '',
+    q: params.get('q')?.slice(0, 200) ?? '',
+    page: Number.isInteger(page) && page > 1 ? page : 1,
+    review: params.get('review'),
+  };
+}
+
 interface SimulatedReview {
   stars?: number;
   text?: string;
@@ -72,22 +92,43 @@ export default function Inbox() {
     managed.find((l) => l.id === locationId && l.sample) ??
     (locationId ? undefined : managed.find((l) => l.sample));
 
-  const [tab, setTab] = useState<ReviewTab>('todo');
-  const [stars, setStars] = useState('');
-  const [search, setSearch] = useState('');
-  const [q, setQ] = useState('');
-  const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const [initial] = useState(() => readView(params));
+  const [tab, setTab] = useState<ReviewTab>(initial.tab);
+  const [stars, setStars] = useState(initial.stars);
+  const [search, setSearch] = useState(initial.q);
+  const [q, setQ] = useState(initial.q);
+  const [page, setPage] = useState(initial.page);
+  const [selectedId, setSelectedId] = useState<string | null>(initial.review);
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
+  const [shortcuts, setShortcuts] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setQ(search), 250);
     return () => clearTimeout(timer);
   }, [search]);
-  useEffect(() => setPage(1), [tab, stars, q, locationId, workspaceId]);
-  // A new filter opens its first match, rather than keeping a review the list no longer shows.
-  useEffect(() => setSelectedId(null), [workspaceId, locationId, tab, stars, q]);
+  // A new filter starts at its first page and opens its first match, rather than keeping a review
+  // the list no longer shows. The first render keeps what the URL asked for.
+  const filterKey = [workspaceId, locationId, tab, stars, q].join('|');
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (lastFilterKey.current === filterKey) return;
+    lastFilterKey.current = filterKey;
+    setPage(1);
+    setSelectedId(null);
+  }, [filterKey]);
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (tab !== 'todo') next.set('tab', tab);
+    if (stars) next.set('stars', stars);
+    if (q) next.set('q', q);
+    if (page > 1) next.set('page', String(page));
+    if (selectedId) next.set('review', selectedId);
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+  }, [tab, stars, q, page, selectedId, params, setParams]);
 
   const [poll, setPoll] = useState(false);
   const filters = useMemo(
@@ -101,8 +142,9 @@ export default function Inbox() {
     }),
     [tab, page, locationId, stars, q],
   );
-  const { data, isLoading } = useReviews(filters, poll);
-  const { data: detail } = useReview(selectedId, poll);
+  // While a new filter loads, the old list stays on screen as a placeholder.
+  const { data, isLoading, isPlaceholderData } = useReviews(filters, poll);
+  const { data: detail, isError: detailMissing } = useReview(selectedId, poll);
 
   // Refresh while anything is in motion, such as a draft being written or Google reviewing a reply.
   useEffect(() => {
@@ -112,17 +154,46 @@ export default function Inbox() {
     setPoll(moving);
   }, [data, detail]);
 
-  // On desktop the first review opens by itself.
+  // On desktop the first review opens by itself. A linked review that no longer exists, or that
+  // this person can't see, falls back to the list.
   useEffect(() => {
-    if (desktop && data && !data.reviews.some((r) => r.id === selectedId) && !detail) {
+    if (!data || isPlaceholderData || (selectedId && !detail && !detailMissing)) return;
+    if (!desktop) {
+      if (detailMissing) setSelectedId(null);
+      return;
+    }
+    if (!data.reviews.some((r) => r.id === selectedId) && !detail) {
       setSelectedId(data.reviews[0]?.id ?? null);
     }
-  }, [data, desktop, selectedId, detail]);
+  }, [data, isPlaceholderData, desktop, selectedId, detail, detailMissing]);
 
-  // j and k move through the list.
+  // A linked page past the end, for example after reviews were answered, shows the last one.
+  useEffect(() => {
+    if (data && !isPlaceholderData && data.total > 0 && page > Math.ceil(data.total / PAGE_SIZE)) {
+      setPage(Math.ceil(data.total / PAGE_SIZE));
+    }
+  }, [data, isPlaceholderData, page]);
+
+  // j and k move through the list, / jumps to search and ? lists the shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName ?? '')) {
+        if (e.key === 'Escape' && active === searchRef.current) active?.blur();
+        return;
+      }
+      // Keys pressed inside a dialog, such as a confirmation, belong to that dialog.
+      if (active?.closest('[role="dialog"]')) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (e.key === '?') {
+        setShortcuts(true);
+        return;
+      }
       if (!data?.reviews.length || !['j', 'k'].includes(e.key)) return;
       const index = data.reviews.findIndex((r) => r.id === selectedId);
       const next =
@@ -194,6 +265,18 @@ export default function Inbox() {
           <Typography variant="h5" sx={{ flex: 1 }}>
             Inbox
           </Typography>
+          {desktop && (
+            <Tooltip title="Keyboard shortcuts (?)">
+              <IconButton
+                size="small"
+                onClick={() => setShortcuts(true)}
+                aria-label="Keyboard shortcuts"
+                sx={{ mr: sampleLocation ? 1 : 0 }}
+              >
+                <KeyboardRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {sampleLocation && (
             <>
               <Button
@@ -239,12 +322,19 @@ export default function Inbox() {
           placeholder="Search reviews"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          inputRef={searchRef}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
                 <SearchRoundedIcon fontSize="small" />
               </InputAdornment>
             ),
+            endAdornment:
+              desktop && !search ? (
+                <InputAdornment position="end">
+                  <Kbd>/</Kbd>
+                </InputAdornment>
+              ) : undefined,
           }}
         />
         <Stack direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 0.75 }}>
@@ -299,9 +389,7 @@ export default function Inbox() {
       </Tabs>
       <Box ref={listRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {isLoading || !data ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <CircularProgress size={24} />
-          </Box>
+          <ReviewListSkeleton />
         ) : data.reviews.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ p: 6, color: 'text.secondary' }}>
             <InboxRoundedIcon sx={{ fontSize: 40 }} />
@@ -334,7 +422,7 @@ export default function Inbox() {
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Stars value={r.starRating} size={15} />
                   <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>
-                    {r.reviewerName ?? 'Reviewer'}
+                    <Highlight text={r.reviewerName ?? 'Reviewer'} query={q} />
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {timeAgo(r.createTime)}
@@ -351,7 +439,13 @@ export default function Inbox() {
                     overflow: 'hidden',
                   }}
                 >
-                  {r.comment ?? (r.purged ? 'Removed after 30 days' : 'Rating only')}
+                  {r.comment ? (
+                    <Highlight text={r.comment} query={q} />
+                  ) : r.purged ? (
+                    'Removed after 30 days'
+                  ) : (
+                    'Rating only'
+                  )}
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                   <StatusChip status={r.status} />
@@ -394,20 +488,19 @@ export default function Inbox() {
   const detailPane = detail ? (
     <ReviewDetail
       review={detail}
+      highlight={q}
       onUpdated={onUpdated}
       onBack={desktop ? null : () => setSelectedId(null)}
     />
+  ) : selectedId ? (
+    <ReviewDetailSkeleton />
   ) : (
     <Stack
       alignItems="center"
       justifyContent="center"
       sx={{ height: '100%', color: 'text.secondary' }}
     >
-      {selectedId ? (
-        <CircularProgress size={24} />
-      ) : (
-        <Typography variant="body2">Select a review</Typography>
-      )}
+      <Typography variant="body2">Select a review</Typography>
     </Stack>
   );
 
@@ -439,6 +532,7 @@ export default function Inbox() {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+      <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
     </Box>
   );
 }

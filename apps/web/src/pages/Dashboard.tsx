@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import {
   Box,
+  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -13,6 +14,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
+import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import {
   Bar,
   BarChart,
@@ -28,6 +30,8 @@ import { chartColors } from '../theme/chartColors';
 import { brand } from '../theme';
 import { useStats } from '../api/hooks';
 import { useShell } from '../layout/ShellContext';
+import SentimentCard from '../components/SentimentCard';
+import { downloadCsv, slug } from '../components/csv';
 
 const RANGES = [
   { value: 30, label: '30d' },
@@ -180,8 +184,38 @@ export default function Dashboard() {
   const theme = useTheme();
   const c = chartColors(theme.palette.mode);
   const [days, setDays] = useState(90);
-  const { locationId } = useShell();
+  const { locationId, status } = useShell();
   const { data } = useStats(days, locationId);
+
+  // The weekly numbers behind the charts, for a spreadsheet or a report.
+  const exportCsv = () => {
+    if (!data) return;
+    const place = status?.locations.find((l) => l.id === locationId)?.title;
+    const range = RANGES.find((r) => r.value === days)?.label ?? `${days}d`;
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsv(`reviews-by-week-${range}-${place ? slug(place) : 'all-locations'}-${today}.csv`, [
+      [
+        'Week starting',
+        'Reviews',
+        'Average rating',
+        '1 star',
+        '2 stars',
+        '3 stars',
+        '4 stars',
+        '5 stars',
+      ],
+      ...data.weekly.map((w) => [
+        w.week.slice(0, 10),
+        w.total,
+        w.avgRating,
+        w[1],
+        w[2],
+        w[3],
+        w[4],
+        w[5],
+      ]),
+    ]);
+  };
 
   const axis = { fontSize: 12, fill: theme.palette.text.secondary };
   const weekly = (data?.weekly ?? []).map((w) => ({
@@ -211,18 +245,29 @@ export default function Dashboard() {
             How customers feel, and how fast you respond.
           </Typography>
         </Box>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={days}
-          onChange={(_, v: number | null) => v && setDays(v)}
-        >
-          {RANGES.map((r) => (
-            <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>
-              {r.label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FileDownloadRoundedIcon />}
+            onClick={exportCsv}
+            disabled={!data?.weekly.length}
+          >
+            Export CSV
+          </Button>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={days}
+            onChange={(_, v: number | null) => v && setDays(v)}
+          >
+            {RANGES.map((r) => (
+              <ToggleButton key={r.value} value={r.value} sx={{ px: 2 }}>
+                {r.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Stack>
       </Stack>
 
       {!data ? (
@@ -261,6 +306,10 @@ export default function Dashboard() {
               suffix="hrs"
               hint="From review to reply posted"
             />
+          </Grid>
+
+          <Grid item xs={12}>
+            <SentimentCard sentiment={data.sentiment} />
           </Grid>
 
           <Grid item xs={12} md={7}>
