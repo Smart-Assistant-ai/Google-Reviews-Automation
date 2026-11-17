@@ -88,12 +88,20 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
   return (
     <Box
       sx={{
+        position: 'relative',
         minHeight: '100vh',
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
         bgcolor: 'background.default',
       }}
     >
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ position: 'absolute', top: 16, left: 16 }}
+      >
+        v1
+      </Typography>
       <Box
         sx={{
           display: 'flex',
