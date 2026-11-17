@@ -28,7 +28,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import {
   useRefreshWorkspaceData,
   useReview,
@@ -164,18 +164,25 @@ export default function Inbox() {
     setPoll(moving);
   }, [data, detail]);
 
+  // Only the API saying the review is gone or out of reach means it won't come back. A network
+  // or server error may pass, so the review stays open with its Try again button.
+  const reviewGone =
+    detailMissing &&
+    detailError instanceof ApiError &&
+    [400, 403, 404].includes(detailError.status);
+
   // On desktop the first review opens by itself. A linked review that no longer exists, or that
   // this person can't see, falls back to the list.
   useEffect(() => {
-    if (!data || isPlaceholderData || (selectedId && !detail && !detailMissing)) return;
+    if (!data || isPlaceholderData || (selectedId && !detail && !reviewGone)) return;
     if (!desktop) {
-      if (detailMissing) setSelectedId(null);
+      if (reviewGone) setSelectedId(null);
       return;
     }
     if (!data.reviews.some((r) => r.id === selectedId) && !detail) {
       setSelectedId(data.reviews[0]?.id ?? null);
     }
-  }, [data, isPlaceholderData, desktop, selectedId, detail, detailMissing]);
+  }, [data, isPlaceholderData, desktop, selectedId, detail, reviewGone]);
 
   // A linked page past the end, for example after reviews were answered, shows the last one.
   useEffect(() => {
