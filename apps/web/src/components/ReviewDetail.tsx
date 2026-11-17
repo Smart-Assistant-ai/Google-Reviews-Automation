@@ -17,6 +17,7 @@ import {
   Menu,
   MenuItem,
   Skeleton,
+  Snackbar,
   Stack,
   TextField,
   Tooltip,
@@ -30,6 +31,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import OutlinedFlagRoundedIcon from '@mui/icons-material/OutlinedFlagRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
 import { LANGUAGE_NAMES, timeAgo } from './format';
@@ -47,6 +49,7 @@ const VIOLATIONS: Record<string, string> = {
   PROMOTIONAL_CONTENT: 'Replies cannot offer discounts, coupons or free items.',
   CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
 };
+const ON_GOOGLE = ['pending', 'live', 'posting'];
 const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
   positive: 'success',
   neutral: 'default',
@@ -68,6 +71,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editingPosted, setEditingPosted] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [toast, setToast] = useState('');
 
   const reply = review.reply;
   const status = review.status;
@@ -78,12 +82,19 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
     setConfirmDelete(false);
   }, [review.id, reply?.text, reply?.state]);
 
-  const run = async (key: string, fn: () => Promise<Review>) => {
+  // done says what happened, from the review the API sent back, or nothing when there's no news.
+  const run = async (
+    key: string,
+    fn: () => Promise<Review>,
+    done?: (updated: Review) => string | null,
+  ) => {
     setBusy(key);
     setError('');
     try {
       const updated = await fn();
       onUpdated(updated);
+      const message = done?.(updated);
+      if (message) setToast(message);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -93,12 +104,43 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
 
   const regenerate = (instructions?: string) =>
     run('regen', () => api.post<Review>(`${path}/regenerate`, { instructions }));
-  const post = () => run('post', () => api.post<Review>(`${path}/post`, { text }));
-  const saveDraft = () => run('save', () => api.put<Review>(path, { text }));
-  const remove = () => run('delete', () => api.delete<Review>(path));
+  const post = () => {
+    const updating = editingPosted;
+    return run(
+      'post',
+      () => api.post<Review>(`${path}/post`, { text }),
+      // A post that Google refused comes back as rejected or failed, and the alert explains it.
+      (updated) =>
+        ON_GOOGLE.includes(updated.status)
+          ? updating
+            ? 'Reply updated on Google'
+            : 'Reply sent to Google'
+          : null,
+    );
+  };
+  const saveDraft = () =>
+    run(
+      'save',
+      () => api.put<Review>(path, { text }),
+      () => 'Draft saved',
+    );
+  const remove = () =>
+    run(
+      'delete',
+      () => api.delete<Review>(path),
+      () => 'Reply deleted from Google',
+    );
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text.trim());
+      setToast('Reply copied');
+    } catch {
+      setToast('Could not copy. Select the text and copy it instead.');
+    }
+  };
 
   const bytes = byteLength(text);
-  const posted = ['pending', 'live', 'posting'].includes(status);
+  const posted = ON_GOOGLE.includes(status);
   const editable =
     ['draft', 'rejected', 'failed', 'needs_reply', 'backlog'].includes(status) || editingPosted;
   const dirty = text !== (reply?.text || '');
@@ -214,6 +256,13 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
                 ? 'Your draft'
                 : 'AI draft'}
           </Typography>
+          {!!text.trim() && status !== 'drafting' && busy !== 'regen' && (
+            <Tooltip title="Copy reply">
+              <IconButton size="small" onClick={() => void copy()} aria-label="Copy reply">
+                <ContentCopyRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {editable && (
             <>
               <Button
@@ -382,6 +431,13 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast('')}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Stack>
   );
 }
