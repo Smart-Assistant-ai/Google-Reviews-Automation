@@ -30,7 +30,7 @@ import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { useGoogleStatus } from '../api/hooks';
+import { useGoogleStatus, useTodoCount } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
 import OutboxLink from '../components/OutboxLink';
@@ -39,8 +39,9 @@ import { useColorMode } from '../theme/ColorModeContext';
 import { ShellContext, managedLocations } from './ShellContext';
 
 const WIDTH = 256;
+const APP_NAME = 'ReplyPilot';
 const NAV = [
-  { to: '/inbox', label: 'Inbox', icon: <InboxRoundedIcon /> },
+  { to: '/inbox', label: 'Inbox', icon: <InboxRoundedIcon />, showCount: true },
   { to: '/dashboard', label: 'Dashboard', icon: <InsightsRoundedIcon /> },
   { to: '/settings', label: 'Settings', icon: <TuneRoundedIcon /> },
 ];
@@ -118,6 +119,20 @@ export default function AppShell() {
   const { data: status, isLoading } = useGoogleStatus();
   const [locationId, setLocationId] = useState<string | undefined>();
   const managed = useMemo(() => managedLocations(status), [status]);
+  const { data: todo = 0 } = useTodoCount(locationId);
+  const page = NAV.find((item) => location.pathname.startsWith(item.to))?.label;
+
+  // The tab says where you are and how many reviews wait, so it's useful among other tabs.
+  useEffect(() => {
+    const name = page ? `${page} · ${APP_NAME}` : APP_NAME;
+    document.title = todo > 0 ? `(${todo > 99 ? '99+' : todo}) ${name}` : name;
+  }, [page, todo]);
+  useEffect(
+    () => () => {
+      document.title = APP_NAME;
+    },
+    [],
+  );
 
   // Pages scroll inside the content area, so the sidebar and the inbox panes stay put.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -175,6 +190,26 @@ export default function AppShell() {
               primary={item.label}
               primaryTypographyProps={{ fontWeight: 600, fontSize: 14 }}
             />
+            {item.showCount && todo > 0 && (
+              <Box
+                component="span"
+                aria-label={`${todo} to reply`}
+                sx={{
+                  minWidth: 22,
+                  height: 20,
+                  px: 0.75,
+                  borderRadius: 10,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                }}
+              >
+                {todo > 99 ? '99+' : todo}
+              </Box>
+            )}
           </ListItemButton>
         ))}
       </List>
