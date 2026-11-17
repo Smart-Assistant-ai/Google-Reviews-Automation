@@ -1,6 +1,7 @@
 import type { ReviewStatus, ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
+import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
   Badge,
@@ -8,6 +9,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  IconButton,
   InputAdornment,
   List,
   ListItemButton,
@@ -19,6 +21,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -34,6 +37,7 @@ import {
 } from '../api/hooks';
 import GoogleEmptyState from '../components/GoogleEmptyState';
 import ReviewDetail from '../components/ReviewDetail';
+import ShortcutsDialog, { Kbd } from '../components/ShortcutsDialog';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
 import { timeAgo } from '../components/format';
@@ -80,6 +84,8 @@ export default function Inbox() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
+  const [shortcuts, setShortcuts] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setQ(search), 250);
@@ -119,10 +125,26 @@ export default function Inbox() {
     }
   }, [data, desktop, selectedId, detail]);
 
-  // j and k move through the list.
+  // j and k move through the list, / jumps to search and ? lists the shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName ?? '')) {
+        if (e.key === 'Escape' && active === searchRef.current) active?.blur();
+        return;
+      }
+      // Keys pressed inside a dialog, such as a confirmation, belong to that dialog.
+      if (active?.closest('[role="dialog"]')) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        return;
+      }
+      if (e.key === '?') {
+        setShortcuts(true);
+        return;
+      }
       if (!data?.reviews.length || !['j', 'k'].includes(e.key)) return;
       const index = data.reviews.findIndex((r) => r.id === selectedId);
       const next =
@@ -194,6 +216,18 @@ export default function Inbox() {
           <Typography variant="h5" sx={{ flex: 1 }}>
             Inbox
           </Typography>
+          {desktop && (
+            <Tooltip title="Keyboard shortcuts (?)">
+              <IconButton
+                size="small"
+                onClick={() => setShortcuts(true)}
+                aria-label="Keyboard shortcuts"
+                sx={{ mr: sampleLocation ? 1 : 0 }}
+              >
+                <KeyboardRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {sampleLocation && (
             <>
               <Button
@@ -239,12 +273,19 @@ export default function Inbox() {
           placeholder="Search reviews"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          inputRef={searchRef}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
                 <SearchRoundedIcon fontSize="small" />
               </InputAdornment>
             ),
+            endAdornment:
+              desktop && !search ? (
+                <InputAdornment position="end">
+                  <Kbd>/</Kbd>
+                </InputAdornment>
+              ) : undefined,
           }}
         />
         <Stack direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 0.75 }}>
@@ -439,6 +480,7 @@ export default function Inbox() {
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       />
+      <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
     </Box>
   );
 }
