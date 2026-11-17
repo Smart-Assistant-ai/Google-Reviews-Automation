@@ -6,6 +6,11 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   IconButton,
   Link,
@@ -62,6 +67,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
   const [error, setError] = useState('');
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editingPosted, setEditingPosted] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const reply = review.reply;
   const status = review.status;
@@ -69,6 +75,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
     setText(reply?.text || '');
     setError('');
     setEditingPosted(false);
+    setConfirmDelete(false);
   }, [review.id, reply?.text, reply?.state]);
 
   const run = async (key: string, fn: () => Promise<Review>) => {
@@ -240,7 +247,12 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
                 </IconButton>
               </Tooltip>
               <Tooltip title="Delete reply from Google">
-                <IconButton size="small" onClick={() => void remove()} disabled={!!busy}>
+                <IconButton
+                  size="small"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={!!busy}
+                  aria-label="Delete reply from Google"
+                >
                   <DeleteOutlineRoundedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -346,6 +358,30 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
           <OutlinedFlagRoundedIcon fontSize="inherit" /> Report this review to Google
         </Link>
       </Box>
+
+      {/* Deleting takes the reply off Google straight away, so it is never one click. */}
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete this reply from Google?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Customers will no longer see your reply to {review.reviewerName ?? 'this reviewer'}. You
+            can write a new one afterwards.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)}>Keep it</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmDelete(false);
+              void remove();
+            }}
+          >
+            Delete reply
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
