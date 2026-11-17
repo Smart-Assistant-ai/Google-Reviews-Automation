@@ -59,6 +59,21 @@ export function useReviews(filters: ReviewFilters, poll: boolean) {
   });
 }
 
+// How many reviews wait for a reply, for the sidebar and the browser tab. It sits under 'reviews'
+// so it refreshes whenever the inbox does, and checks again every minute for newly synced reviews.
+export function useTodoCount(locationId?: string) {
+  const id = useWorkspaceId();
+  return useQuery({
+    queryKey: ['reviews', id, 'todo-count', locationId],
+    queryFn: () =>
+      api
+        .get<ReviewList>(wsPath(id, '/reviews'), { tab: 'todo', page: 1, pageSize: 1, locationId })
+        .then((res) => res.counts.todo),
+    enabled: !!id,
+    refetchInterval: 60_000,
+  });
+}
+
 export function useReview(reviewId: string | null, poll: boolean) {
   const id = useWorkspaceId();
   return useQuery({

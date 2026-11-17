@@ -6,12 +6,18 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   IconButton,
   Link,
   Menu,
   MenuItem,
   Skeleton,
+  Snackbar,
   Stack,
   TextField,
   Tooltip,
@@ -25,6 +31,8 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import OutlinedFlagRoundedIcon from '@mui/icons-material/OutlinedFlagRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import Highlight from './Highlight';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
 import { LANGUAGE_NAMES, timeAgo } from './format';
@@ -42,6 +50,7 @@ const VIOLATIONS: Record<string, string> = {
   PROMOTIONAL_CONTENT: 'Replies cannot offer discounts, coupons or free items.',
   CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
 };
+const ON_GOOGLE = ['pending', 'live', 'posting'];
 const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
   positive: 'success',
   neutral: 'default',
@@ -50,11 +59,13 @@ const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
 
 interface Props {
   review: Review;
+  // The inbox search, marked in the review so it's clear why it matched.
+  highlight?: string;
   onUpdated: (review: Review) => void;
   onBack: (() => void) | null;
 }
 
-export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
+export default function ReviewDetail({ review, highlight, onUpdated, onBack }: Props) {
   const workspaceId = useWorkspaceId();
   const path = wsPath(workspaceId, `/reviews/${review.id}/reply`);
   const [text, setText] = useState('');
@@ -62,6 +73,8 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
   const [error, setError] = useState('');
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editingPosted, setEditingPosted] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [toast, setToast] = useState('');
 
   const reply = review.reply;
   const status = review.status;
@@ -69,14 +82,22 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
     setText(reply?.text || '');
     setError('');
     setEditingPosted(false);
+    setConfirmDelete(false);
   }, [review.id, reply?.text, reply?.state]);
 
-  const run = async (key: string, fn: () => Promise<Review>) => {
+  // done says what happened, from the review the API sent back, or nothing when there's no news.
+  const run = async (
+    key: string,
+    fn: () => Promise<Review>,
+    done?: (updated: Review) => string | null,
+  ) => {
     setBusy(key);
     setError('');
     try {
       const updated = await fn();
       onUpdated(updated);
+      const message = done?.(updated);
+      if (message) setToast(message);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -86,12 +107,43 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
 
   const regenerate = (instructions?: string) =>
     run('regen', () => api.post<Review>(`${path}/regenerate`, { instructions }));
-  const post = () => run('post', () => api.post<Review>(`${path}/post`, { text }));
-  const saveDraft = () => run('save', () => api.put<Review>(path, { text }));
-  const remove = () => run('delete', () => api.delete<Review>(path));
+  const post = () => {
+    const updating = editingPosted;
+    return run(
+      'post',
+      () => api.post<Review>(`${path}/post`, { text }),
+      // A post that Google refused comes back as rejected or failed, and the alert explains it.
+      (updated) =>
+        ON_GOOGLE.includes(updated.status)
+          ? updating
+            ? 'Reply updated on Google'
+            : 'Reply sent to Google'
+          : null,
+    );
+  };
+  const saveDraft = () =>
+    run(
+      'save',
+      () => api.put<Review>(path, { text }),
+      () => 'Draft saved',
+    );
+  const remove = () =>
+    run(
+      'delete',
+      () => api.delete<Review>(path),
+      () => 'Reply deleted from Google',
+    );
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text.trim());
+      setToast('Reply copied');
+    } catch {
+      setToast('Could not copy. Select the text and copy it instead.');
+    }
+  };
 
   const bytes = byteLength(text);
-  const posted = ['pending', 'live', 'posting'].includes(status);
+  const posted = ON_GOOGLE.includes(status);
   const editable =
     ['draft', 'rejected', 'failed', 'needs_reply', 'backlog'].includes(status) || editingPosted;
   const dirty = text !== (reply?.text || '');
@@ -113,7 +165,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" noWrap>
-              {review.reviewerName ?? 'Reviewer'}
+              <Highlight text={review.reviewerName ?? 'Reviewer'} query={highlight} />
             </Typography>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -130,7 +182,9 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
         </Stack>
 
         <Typography sx={{ mt: 3, fontSize: 17, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-          {review.comment ?? (
+          {review.comment ? (
+            <Highlight text={review.comment} query={highlight} />
+          ) : (
             <Box component="span" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
               {review.purged
                 ? 'Removed after 30 days, as Google requires. It comes back if Google still lists this review.'
@@ -207,6 +261,13 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
                 ? 'Your draft'
                 : 'AI draft'}
           </Typography>
+          {!!text.trim() && status !== 'drafting' && busy !== 'regen' && (
+            <Tooltip title="Copy reply">
+              <IconButton size="small" onClick={() => void copy()} aria-label="Copy reply">
+                <ContentCopyRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {editable && (
             <>
               <Button
@@ -240,7 +301,12 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
                 </IconButton>
               </Tooltip>
               <Tooltip title="Delete reply from Google">
-                <IconButton size="small" onClick={() => void remove()} disabled={!!busy}>
+                <IconButton
+                  size="small"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={!!busy}
+                  aria-label="Delete reply from Google"
+                >
                   <DeleteOutlineRoundedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -346,6 +412,37 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
           <OutlinedFlagRoundedIcon fontSize="inherit" /> Report this review to Google
         </Link>
       </Box>
+
+      {/* Deleting takes the reply off Google straight away, so it is never one click. */}
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete this reply from Google?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Customers will no longer see your reply to {review.reviewerName ?? 'this reviewer'}. You
+            can write a new one afterwards.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)}>Keep it</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmDelete(false);
+              void remove();
+            }}
+          >
+            Delete reply
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast('')}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Stack>
   );
 }
