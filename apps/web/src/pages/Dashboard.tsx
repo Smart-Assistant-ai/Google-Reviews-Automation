@@ -28,6 +28,7 @@ import { chartColors } from '../theme/chartColors';
 import { brand } from '../theme';
 import { useStats } from '../api/hooks';
 import { useShell } from '../layout/ShellContext';
+import SentimentCard from '../components/SentimentCard';
 
 const RANGES = [
   { value: 30, label: '30d' },
@@ -261,6 +262,10 @@ export default function Dashboard() {
               suffix="hrs"
               hint="From review to reply posted"
             />
+          </Grid>
+
+          <Grid item xs={12}>
+            <SentimentCard sentiment={data.sentiment} />
           </Grid>
 
           <Grid item xs={12} md={7}>
