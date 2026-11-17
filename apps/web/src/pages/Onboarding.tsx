@@ -114,7 +114,7 @@ export default function Onboarding() {
                 <Alert severity="error" sx={{ alignSelf: 'stretch' }}>
                   {error}
                 </Alert>
-                <Button variant="contained" onClick={() => navigate('/settings')}>
+                <Button variant="contained" onClick={() => navigate('/settings?tab=google')}>
                   Back to Settings
                 </Button>
               </Stack>
