@@ -36,6 +36,7 @@ import {
   wsPath,
 } from '../api/hooks';
 import GoogleEmptyState from '../components/GoogleEmptyState';
+import Highlight from '../components/Highlight';
 import ReviewDetail from '../components/ReviewDetail';
 import ShortcutsDialog, { Kbd } from '../components/ShortcutsDialog';
 import Stars from '../components/Stars';
@@ -375,7 +376,7 @@ export default function Inbox() {
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Stars value={r.starRating} size={15} />
                   <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>
-                    {r.reviewerName ?? 'Reviewer'}
+                    <Highlight text={r.reviewerName ?? 'Reviewer'} query={q} />
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {timeAgo(r.createTime)}
@@ -392,7 +393,13 @@ export default function Inbox() {
                     overflow: 'hidden',
                   }}
                 >
-                  {r.comment ?? (r.purged ? 'Removed after 30 days' : 'Rating only')}
+                  {r.comment ? (
+                    <Highlight text={r.comment} query={q} />
+                  ) : r.purged ? (
+                    'Removed after 30 days'
+                  ) : (
+                    'Rating only'
+                  )}
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                   <StatusChip status={r.status} />
@@ -435,6 +442,7 @@ export default function Inbox() {
   const detailPane = detail ? (
     <ReviewDetail
       review={detail}
+      highlight={q}
       onUpdated={onUpdated}
       onBack={desktop ? null : () => setSelectedId(null)}
     />

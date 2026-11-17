@@ -32,6 +32,7 @@ import OutlinedFlagRoundedIcon from '@mui/icons-material/OutlinedFlagRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import Highlight from './Highlight';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
 import { LANGUAGE_NAMES, timeAgo } from './format';
@@ -58,11 +59,13 @@ const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
 
 interface Props {
   review: Review;
+  // The inbox search, marked in the review so it's clear why it matched.
+  highlight?: string;
   onUpdated: (review: Review) => void;
   onBack: (() => void) | null;
 }
 
-export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
+export default function ReviewDetail({ review, highlight, onUpdated, onBack }: Props) {
   const workspaceId = useWorkspaceId();
   const path = wsPath(workspaceId, `/reviews/${review.id}/reply`);
   const [text, setText] = useState('');
@@ -162,7 +165,7 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" noWrap>
-              {review.reviewerName ?? 'Reviewer'}
+              <Highlight text={review.reviewerName ?? 'Reviewer'} query={highlight} />
             </Typography>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
@@ -179,7 +182,9 @@ export default function ReviewDetail({ review, onUpdated, onBack }: Props) {
         </Stack>
 
         <Typography sx={{ mt: 3, fontSize: 17, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-          {review.comment ?? (
+          {review.comment ? (
+            <Highlight text={review.comment} query={highlight} />
+          ) : (
             <Box component="span" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
               {review.purged
                 ? 'Removed after 30 days, as Google requires. It comes back if Google still lists this review.'
