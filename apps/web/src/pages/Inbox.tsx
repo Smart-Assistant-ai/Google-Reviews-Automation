@@ -1,4 +1,4 @@
-import type { ReviewStatus, ReviewTab } from '@replypilot/shared';
+import { reviewTabSchema, type ReviewStatus, type ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import {
   useRefreshWorkspaceData,
@@ -61,6 +62,20 @@ const STAR_FILTERS = [
 const IN_MOTION: ReviewStatus[] = ['drafting', 'pending', 'posting'];
 const PAGE_SIZE = 25;
 
+// The URL holds the view, so a refresh or a shared link opens the same tab, filters and review.
+function readView(params: URLSearchParams) {
+  const tab = reviewTabSchema.safeParse(params.get('tab'));
+  const stars = params.get('stars') ?? '';
+  const page = Number(params.get('page'));
+  return {
+    tab: tab.success ? tab.data : 'todo',
+    stars: STAR_FILTERS.some((f) => f.key === stars) ? stars : '',
+    q: params.get('q')?.slice(0, 200) ?? '',
+    page: Number.isInteger(page) && page > 1 ? page : 1,
+    review: params.get('review'),
+  };
+}
+
 interface SimulatedReview {
   stars?: number;
   text?: string;
@@ -77,12 +92,14 @@ export default function Inbox() {
     managed.find((l) => l.id === locationId && l.sample) ??
     (locationId ? undefined : managed.find((l) => l.sample));
 
-  const [tab, setTab] = useState<ReviewTab>('todo');
-  const [stars, setStars] = useState('');
-  const [search, setSearch] = useState('');
-  const [q, setQ] = useState('');
-  const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const [initial] = useState(() => readView(params));
+  const [tab, setTab] = useState<ReviewTab>(initial.tab);
+  const [stars, setStars] = useState(initial.stars);
+  const [search, setSearch] = useState(initial.q);
+  const [q, setQ] = useState(initial.q);
+  const [page, setPage] = useState(initial.page);
+  const [selectedId, setSelectedId] = useState<string | null>(initial.review);
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
   const [shortcuts, setShortcuts] = useState(false);
@@ -92,9 +109,26 @@ export default function Inbox() {
     const timer = setTimeout(() => setQ(search), 250);
     return () => clearTimeout(timer);
   }, [search]);
-  useEffect(() => setPage(1), [tab, stars, q, locationId, workspaceId]);
-  // A new filter opens its first match, rather than keeping a review the list no longer shows.
-  useEffect(() => setSelectedId(null), [workspaceId, locationId, tab, stars, q]);
+  // A new filter starts at its first page and opens its first match, rather than keeping a review
+  // the list no longer shows. The first render keeps what the URL asked for.
+  const filterKey = [workspaceId, locationId, tab, stars, q].join('|');
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (lastFilterKey.current === filterKey) return;
+    lastFilterKey.current = filterKey;
+    setPage(1);
+    setSelectedId(null);
+  }, [filterKey]);
+
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (tab !== 'todo') next.set('tab', tab);
+    if (stars) next.set('stars', stars);
+    if (q) next.set('q', q);
+    if (page > 1) next.set('page', String(page));
+    if (selectedId) next.set('review', selectedId);
+    if (next.toString() !== params.toString()) setParams(next, { replace: true });
+  }, [tab, stars, q, page, selectedId, params, setParams]);
 
   const [poll, setPoll] = useState(false);
   const filters = useMemo(
@@ -108,8 +142,9 @@ export default function Inbox() {
     }),
     [tab, page, locationId, stars, q],
   );
-  const { data, isLoading } = useReviews(filters, poll);
-  const { data: detail } = useReview(selectedId, poll);
+  // While a new filter loads, the old list stays on screen as a placeholder.
+  const { data, isLoading, isPlaceholderData } = useReviews(filters, poll);
+  const { data: detail, isError: detailMissing } = useReview(selectedId, poll);
 
   // Refresh while anything is in motion, such as a draft being written or Google reviewing a reply.
   useEffect(() => {
@@ -119,12 +154,25 @@ export default function Inbox() {
     setPoll(moving);
   }, [data, detail]);
 
-  // On desktop the first review opens by itself.
+  // On desktop the first review opens by itself. A linked review that no longer exists, or that
+  // this person can't see, falls back to the list.
   useEffect(() => {
-    if (desktop && data && !data.reviews.some((r) => r.id === selectedId) && !detail) {
+    if (!data || isPlaceholderData || (selectedId && !detail && !detailMissing)) return;
+    if (!desktop) {
+      if (detailMissing) setSelectedId(null);
+      return;
+    }
+    if (!data.reviews.some((r) => r.id === selectedId) && !detail) {
       setSelectedId(data.reviews[0]?.id ?? null);
     }
-  }, [data, desktop, selectedId, detail]);
+  }, [data, isPlaceholderData, desktop, selectedId, detail, detailMissing]);
+
+  // A linked page past the end, for example after reviews were answered, shows the last one.
+  useEffect(() => {
+    if (data && !isPlaceholderData && data.total > 0 && page > Math.ceil(data.total / PAGE_SIZE)) {
+      setPage(Math.ceil(data.total / PAGE_SIZE));
+    }
+  }, [data, isPlaceholderData, page]);
 
   // j and k move through the list, / jumps to search and ? lists the shortcuts.
   useEffect(() => {
