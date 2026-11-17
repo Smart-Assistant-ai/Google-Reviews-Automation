@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   IconButton,
   InputAdornment,
   List,
@@ -39,6 +38,7 @@ import {
 import GoogleEmptyState from '../components/GoogleEmptyState';
 import Highlight from '../components/Highlight';
 import ReviewDetail from '../components/ReviewDetail';
+import { ReviewDetailSkeleton, ReviewListSkeleton } from '../components/ReviewSkeletons';
 import ShortcutsDialog, { Kbd } from '../components/ShortcutsDialog';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
@@ -389,9 +389,7 @@ export default function Inbox() {
       </Tabs>
       <Box ref={listRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {isLoading || !data ? (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <CircularProgress size={24} />
-          </Box>
+          <ReviewListSkeleton />
         ) : data.reviews.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ p: 6, color: 'text.secondary' }}>
             <InboxRoundedIcon sx={{ fontSize: 40 }} />
@@ -494,17 +492,15 @@ export default function Inbox() {
       onUpdated={onUpdated}
       onBack={desktop ? null : () => setSelectedId(null)}
     />
+  ) : selectedId ? (
+    <ReviewDetailSkeleton />
   ) : (
     <Stack
       alignItems="center"
       justifyContent="center"
       sx={{ height: '100%', color: 'text.secondary' }}
     >
-      {selectedId ? (
-        <CircularProgress size={24} />
-      ) : (
-        <Typography variant="body2">Select a review</Typography>
-      )}
+      <Typography variant="body2">Select a review</Typography>
     </Stack>
   );
 
