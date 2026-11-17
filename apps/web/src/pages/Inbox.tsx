@@ -1,5 +1,6 @@
 import { reviewTabSchema, uuidSchema, type ReviewStatus, type ReviewTab } from '@replypilot/shared';
 import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
@@ -536,7 +537,8 @@ export default function Inbox() {
     />
   ) : detailMissing ? (
     // Retries are off, so a review that failed to load says so instead of loading forever. The
-    // selection stays, so the next review isn't opened in its place.
+    // selection stays, so the next review isn't opened in its place. On a phone this pane fills
+    // the screen, so it also offers the way back to the list.
     <Stack
       alignItems="center"
       justifyContent="center"
@@ -548,14 +550,25 @@ export default function Inbox() {
         Couldn&apos;t load this review
       </Typography>
       <Typography variant="body2">{detailError?.message}</Typography>
-      <Button
-        size="small"
-        variant="outlined"
-        onClick={() => void retryDetail()}
-        disabled={detailFetching}
-      >
-        Try again
-      </Button>
+      <Stack direction="row" spacing={1}>
+        {!desktop && (
+          <Button
+            size="small"
+            startIcon={<ArrowBackRoundedIcon />}
+            onClick={() => setSelectedId(null)}
+          >
+            All reviews
+          </Button>
+        )}
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={() => void retryDetail()}
+          disabled={detailFetching}
+        >
+          Try again
+        </Button>
+      </Stack>
     </Stack>
   ) : selectedId ? (
     <ReviewDetailSkeleton />
