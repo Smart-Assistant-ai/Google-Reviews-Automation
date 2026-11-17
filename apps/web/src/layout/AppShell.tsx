@@ -11,6 +11,7 @@ import {
   AppBar,
   Box,
   Button,
+  ButtonBase,
   Divider,
   Drawer,
   IconButton,
@@ -55,8 +56,20 @@ function ConnectionWarnings() {
   const sample = status.connections.some((c) => c.sample || c.provider === 'mock');
   const waiting = status.connections.some((c) => c.apiError && !c.sample);
   if (!dead && !lost && !sample && !waiting) return null;
+  // Every warning is fixed on the Google tab, so the box takes you there.
   return (
-    <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
+    <ButtonBase
+      component={NavLink}
+      to="/settings?tab=google"
+      sx={{
+        p: 1.5,
+        borderRadius: 2,
+        bgcolor: 'action.hover',
+        display: 'block',
+        textAlign: 'left',
+        '&:hover': { bgcolor: 'action.selected' },
+      }}
+    >
       {dead > 0 && (
         <Typography variant="caption" color="warning.main" component="div" sx={{ fontWeight: 600 }}>
           Google needs reconnecting
@@ -77,7 +90,10 @@ function ConnectionWarnings() {
           Using sample data
         </Typography>
       )}
-    </Box>
+      <Typography variant="caption" color="primary" component="div" sx={{ mt: 0.5 }}>
+        Open Google settings
+      </Typography>
+    </ButtonBase>
   );
 }
 
