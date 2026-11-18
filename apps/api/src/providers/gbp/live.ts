@@ -53,7 +53,9 @@ export const liveGbpProvider: GbpProvider = {
       response_type: 'code',
       scope: SCOPES.join(' '),
       access_type: 'offline',
-      prompt: 'consent',
+      // The account picker always shows, so someone signed in to Google as the wrong account can switch.
+      // Consent always shows too, which is what makes Google send a refresh token every time.
+      prompt: 'select_account consent',
       state,
     });
     return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
