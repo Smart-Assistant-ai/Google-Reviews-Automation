@@ -6,7 +6,7 @@ import { sendEmail } from '../../providers/email';
 import { renderEmail } from '../../providers/email/template';
 import { getContext, usesFakeData, markNeedsReconnect } from '../google/connection.service';
 import { scanConnection } from '../google/locations.service';
-import { applyGoogleReply, reviewIdOf, syncLocation } from '../google/sync.service';
+import { applyModerationResult, reviewIdOf, syncLocation } from '../google/sync.service';
 import { adminEmails } from '../workspaces/service';
 import { draftForReview } from './draft.service';
 import { purgeExpiredContent } from './purge.service';
@@ -110,8 +110,7 @@ export async function checkPendingReplies(): Promise<void> {
           if (!reply) continue;
           waiting.delete(reply.review.googleReviewId);
           // No reply listed yet means Google hasn't caught up, so it stays pending.
-          if (review.reviewReply)
-            await applyGoogleReply(reply.workspaceId, reply.reviewId, review.reviewReply);
+          if (review.reviewReply) await applyModerationResult(reply, review.reviewReply);
         }
         pageToken = page.nextPageToken;
         pages += 1;
