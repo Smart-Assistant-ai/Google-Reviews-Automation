@@ -6,7 +6,7 @@ import { sendEmail } from '../../providers/email';
 import { renderEmail } from '../../providers/email/template';
 import { getContext, usesFakeData, markNeedsReconnect } from '../google/connection.service';
 import { scanConnection } from '../google/locations.service';
-import { reviewResourceName, syncLocation } from '../google/sync.service';
+import { applyGoogleReply, reviewIdOf, syncLocation } from '../google/sync.service';
 import { adminEmails } from '../workspaces/service';
 import { draftForReview } from './draft.service';
 import { purgeExpiredContent } from './purge.service';
@@ -19,6 +19,7 @@ const DRAFT_CONCURRENCY = 3;
 const MAX_DRAFT_ATTEMPTS = 5;
 const STUCK_POSTING_AFTER = 5 * MINUTE;
 const LIVE_CHECK_EVERY = MINUTE;
+const CHECK_PAGES = 4;
 
 // Everything here reads what is due from the database, so a restart loses nothing.
 export async function syncDueLocations(): Promise<void> {
@@ -69,8 +70,10 @@ export async function runDraftQueue(): Promise<void> {
   }
 }
 
-// Picks up Google's verdict on posted replies. A real reply is checked at most once a minute, because
-// checking every few seconds would use up the whole quota with only 15 replies waiting.
+// Picks up Google's verdict on posted replies. Google's lookup of a single review leaves the verdict
+// out, so each location's review list is read instead, newest first, a few pages deep. A reply further
+// back is settled by the next full sync, which reads every page. A real reply is checked at most once a
+// minute, because checking every few seconds would use up the whole quota with only 15 replies waiting.
 export async function checkPendingReplies(): Promise<void> {
   const pending = await prisma.reply.findMany({
     where: { state: 'pending_google' },
@@ -78,38 +81,50 @@ export async function checkPendingReplies(): Promise<void> {
     orderBy: { lastCheckedAt: { sort: 'asc', nulls: 'first' } },
     take: 50,
   });
+  const byLocation = new Map<string, typeof pending>();
   for (const reply of pending) {
-    const { location } = reply.review;
-    const fake = usesFakeData(location.connection);
+    const fake = usesFakeData(reply.review.location.connection);
     const recentlyChecked =
       reply.lastCheckedAt && Date.now() - reply.lastCheckedAt.getTime() < LIVE_CHECK_EVERY;
     if (!fake && recentlyChecked) continue;
+    const key = reply.review.locationId;
+    byLocation.set(key, [...(byLocation.get(key) ?? []), reply]);
+  }
+
+  for (const replies of byLocation.values()) {
+    const { location } = replies[0]!.review;
+    const waiting = new Map(replies.map((reply) => [reply.review.googleReviewId, reply]));
     try {
       const { provider, ctx } = await getContext(location.connectionId);
-      const review = await provider.getReview(
-        ctx,
-        reviewResourceName(location, reply.review.googleReviewId),
-      );
-      const google = review.reviewReply;
-      if (!google || google.reviewReplyState === 'PENDING') {
-        await prisma.reply.update({ where: { id: reply.id }, data: { lastCheckedAt: new Date() } });
-        continue;
-      }
-      await prisma.reply.update({
-        where: { id: reply.id },
-        data: {
-          state: google.reviewReplyState === 'REJECTED' ? 'rejected' : 'live',
-          googleReplyState: google.reviewReplyState ?? 'APPROVED',
-          policyViolation: google.policyViolation ?? null,
-          lastCheckedAt: new Date(),
-        },
-      });
+      let pageToken: string | undefined;
+      let pages = 0;
+      do {
+        const page = await provider.listReviews(
+          ctx,
+          location.googleAccountName,
+          location.googleLocationName,
+          pageToken,
+        );
+        for (const review of page.reviews ?? []) {
+          const reply = waiting.get(reviewIdOf(review));
+          if (!reply) continue;
+          waiting.delete(reply.review.googleReviewId);
+          // No reply listed yet means Google hasn't caught up, so it stays pending.
+          if (review.reviewReply)
+            await applyGoogleReply(reply.workspaceId, reply.reviewId, review.reviewReply);
+        }
+        pageToken = page.nextPageToken;
+        pages += 1;
+      } while (pageToken && waiting.size > 0 && pages < CHECK_PAGES);
     } catch (err) {
       if ((err as { statusCode?: number }).statusCode === 401)
         await markNeedsReconnect(location.connectionId);
-      await prisma.reply.update({ where: { id: reply.id }, data: { lastCheckedAt: new Date() } });
-      console.warn('[moderation-check]', reply.id, (err as Error).message);
+      console.warn('[moderation-check]', location.id, (err as Error).message);
     }
+    await prisma.reply.updateMany({
+      where: { id: { in: replies.map((reply) => reply.id) } },
+      data: { lastCheckedAt: new Date() },
+    });
   }
 }
 

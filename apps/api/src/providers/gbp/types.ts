@@ -1,6 +1,7 @@
 export interface GbpReply {
   comment: string;
   updateTime?: string;
+  // Google's moderation verdict. Only the review list has it, not a single review's lookup.
   reviewReplyState?: 'REVIEW_REPLY_STATE_UNSPECIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   // Only set on a rejected reply. Google adds new reasons over time.
   policyViolation?: string;
@@ -65,7 +66,6 @@ export interface GbpProvider {
     locationName: string,
     pageToken?: string,
   ): Promise<{ reviews?: GbpReview[]; nextPageToken?: string }>;
-  getReview(ctx: GbpContext, reviewName: string): Promise<GbpReview>;
   updateReply(ctx: GbpContext, reviewName: string, comment: string): Promise<GbpReply>;
   deleteReply(ctx: GbpContext, reviewName: string): Promise<void>;
 }

@@ -235,6 +235,22 @@ describe('replies', () => {
     expect(after.reply.policyViolation).toBe('ADVERTISING_AND_SOLICITATION');
   });
 
+  it("keeps a reply pending while Google's review list doesn't show it yet", async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thank you.' });
+    const stored = await prisma.review.findUniqueOrThrow({
+      where: { id: review.id },
+      include: { location: true },
+    });
+    const { googleAccountName, googleLocationName } = stored.location;
+    mockGbp.clearReply(
+      `${googleAccountName}/${googleLocationName}/reviews/${stored.googleReviewId}`,
+    );
+    await checkPendingReplies();
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('pending');
+  });
+
   it('refuses posting nothing, or more than Google allows', async () => {
     const user = await ownerWithReviews();
     const review = await firstReview(user);

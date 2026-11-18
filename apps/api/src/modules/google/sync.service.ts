@@ -13,7 +13,7 @@ const GOOGLE_STATE_TO_LOCAL = {
   REJECTED: 'rejected',
 } as const;
 
-const reviewIdOf = (review: GbpReview) =>
+export const reviewIdOf = (review: GbpReview) =>
   review.reviewId ?? review.name.split('/reviews/')[1] ?? review.name;
 
 export const reviewResourceName = (
@@ -21,7 +21,7 @@ export const reviewResourceName = (
   googleReviewId: string,
 ) => `${location.googleAccountName}/${location.googleLocationName}/reviews/${googleReviewId}`;
 
-async function applyGoogleReply(
+export async function applyGoogleReply(
   workspaceId: string,
   reviewId: string,
   reply: GbpReply,

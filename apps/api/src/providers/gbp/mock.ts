@@ -302,13 +302,6 @@ export const mockGbpProvider: GbpProvider = {
     return { reviews: result.items.map(publicReview), nextPageToken: result.nextPageToken };
   },
 
-  async getReview(ctx, reviewName) {
-    assertReadable(ctx);
-    const review = findReview(reviewName);
-    settle(review);
-    return publicReview(review);
-  },
-
   async updateReply(ctx, reviewName, comment) {
     assertReadable(ctx);
     const review = findReview(reviewName);

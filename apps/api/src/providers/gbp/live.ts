@@ -149,8 +149,6 @@ export const liveGbpProvider: GbpProvider = {
       `${V4}/${accountName}/${locationName}/reviews?${query({ pageSize: '50', pageToken })}`,
     ),
 
-  getReview: (ctx, reviewName) => call(ctx, `${V4}/${reviewName}`),
-
   updateReply: (ctx, reviewName, comment) =>
     call(ctx, `${V4}/${reviewName}/reply`, { method: 'PUT', body: JSON.stringify({ comment }) }),
 
