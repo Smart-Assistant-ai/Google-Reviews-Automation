@@ -26,6 +26,24 @@ export default function GoogleEmptyState({ connection }: { connection: Connectio
     }
   };
 
+  // An account with no Business Profile has nothing to lose, so it goes before trying another one.
+  // Otherwise the only way out would be signing out of the app.
+  const switchAccount = async () => {
+    setBusy('switch');
+    setError('');
+    try {
+      await api.delete(wsPath(workspaceId, `/google/connections/${connection.id}`));
+      const { url } = await api.post<{ url: string }>(
+        wsPath(workspaceId, '/google/connections/start'),
+      );
+      window.location.href = url;
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy('');
+      await refresh();
+    }
+  };
+
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, display: 'flex', justifyContent: 'center' }}>
       <Card sx={{ maxWidth: 560, width: '100%' }}>
@@ -56,6 +74,11 @@ export default function GoogleEmptyState({ connection }: { connection: Connectio
               <Button variant="outlined" disabled={!!busy} onClick={run('rescan', '/rescan')}>
                 {busy === 'rescan' ? 'Checking…' : 'Check Google again'}
               </Button>
+              {connection.locationCount === 0 && (
+                <Button disabled={!!busy} onClick={() => void switchAccount()}>
+                  {busy === 'switch' ? 'Opening Google…' : 'Use another Google account'}
+                </Button>
+              )}
             </Stack>
             <Typography variant="caption" color="text.secondary">
               Sample data is a fictional business. Replies you post to it never reach Google.
