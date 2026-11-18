@@ -137,7 +137,7 @@ export default function Onboarding() {
                 )}
               </Stack>
             ) : blocked ? (
-              <GoogleEmptyState connection={blocked} />
+              <GoogleEmptyState connection={blocked} bare />
             ) : (
               <Stack spacing={3} alignItems="flex-start">
                 <Typography variant="h5">Connect your Google Business Profile</Typography>
