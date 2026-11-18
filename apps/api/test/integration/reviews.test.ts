@@ -299,11 +299,16 @@ describe('replies', () => {
     expect(refused.json().error.code).toBe('real_posting_disabled');
     const reply = await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } });
     expect(reply.state).not.toBe('pending_google');
+    // The review says so up front, so the screen can explain instead of failing on click.
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().postingOff).toBe(true);
+    const listed = await req('GET', user, '/reviews?tab=all');
+    expect(listed.json().reviews.every((r: { postingOff: boolean }) => r.postingOff)).toBe(true);
 
     await prisma.googleConnection.update({
       where: { id: location.connectionId },
       data: { dataSource: 'sample' },
     });
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().postingOff).toBe(false);
     expect(
       (await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Hello' })).statusCode,
     ).toBe(200);
