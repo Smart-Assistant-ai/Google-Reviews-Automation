@@ -23,7 +23,10 @@ export function readBlockedMessage(err: unknown): string | null {
   }
 }
 
-const NO_PROFILE = 'No Business Profile found on this Google account.';
+// Says what to do next, because the usual cause is signing in with a different Google account
+// from the one that manages the profile.
+const NO_PROFILE =
+  'No Business Profile found on this Google account. Connect the Google account that owns or manages the profile, or ask its owner to add this account as a manager.';
 
 async function readAllLocations(provider: GbpProvider, ctx: GbpContext) {
   const found: { accountName: string; location: GbpLocation }[] = [];
