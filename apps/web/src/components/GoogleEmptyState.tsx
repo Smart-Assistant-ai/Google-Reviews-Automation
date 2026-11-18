@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import { useRefreshWorkspaceData, useWorkspaceId, wsPath } from '../api/hooks';
 
-// Shown when a Google sign-in worked but there is nothing to show yet, often because
-// Google has not approved API access.
+// Shown when a Google sign-in worked but there is nothing to show yet, often because Google is
+// refusing the app's requests, such as an API switched off or a rate limit.
 export default function GoogleEmptyState({ connection }: { connection: Connection }) {
   const workspaceId = useWorkspaceId();
   const refresh = useRefreshWorkspaceData();

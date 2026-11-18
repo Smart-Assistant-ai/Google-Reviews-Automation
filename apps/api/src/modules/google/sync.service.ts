@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { STAR_TO_NUMBER, type GbpReply, type GbpReview } from '../../providers/gbp';
 import { getContext, markNeedsReconnect } from './connection.service';
-import { NOT_APPROVED_MESSAGE, classifyGoogleFailure } from './google-errors';
+import { classifyGoogleFailure, projectProblem } from './google-errors';
 
 // Older reviews go to the backlog and aren't drafted automatically.
 export const AUTO_DRAFT_WINDOW_DAYS = 30;
@@ -170,7 +170,7 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
     } else if (failure === 'project') {
       await prisma.googleConnection.update({
         where: { id: location.connectionId },
-        data: { apiError: NOT_APPROVED_MESSAGE },
+        data: { apiError: projectProblem(err) },
       });
       await prisma.location.update({ where: { id: locationId }, data: { lastSyncError: message } });
     } else if (failure === 'location') {

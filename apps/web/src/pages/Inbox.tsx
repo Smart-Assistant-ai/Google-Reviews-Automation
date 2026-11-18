@@ -275,7 +275,7 @@ export default function Inbox() {
 
   const showLocation = managed.length > 1 && !locationId;
 
-  // Connected, but Google hasn't approved API access yet, so there's nothing to read. Admins get the
+  // Connected, but Google is refusing to send reviews, so there's nothing to read. Admins get the
   // choice of sample data, as before. Everyone else is told what they're waiting for.
   const { workspace } = useAuth();
   const waitingOn = status?.connections.find((c) => c.apiError && !c.sample);

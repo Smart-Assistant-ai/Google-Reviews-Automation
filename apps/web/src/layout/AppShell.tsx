@@ -82,7 +82,7 @@ function ConnectionWarnings() {
       )}
       {waiting && (
         <Typography variant="caption" color="text.secondary" component="div">
-          Waiting for Google to approve API access
+          Google isn't sending reviews right now
         </Typography>
       )}
       {sample && (
