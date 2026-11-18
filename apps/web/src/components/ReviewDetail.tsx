@@ -46,9 +46,15 @@ const REWRITES = [
   { label: 'More formal', instructions: 'Use a more formal, professional tone.' },
   { label: 'Mention a return visit', instructions: 'Warmly invite them to visit again.' },
 ];
+// What to change for the reasons Google gives most often. Any other reason falls back to a plain retry.
 const VIOLATIONS: Record<string, string> = {
-  PROMOTIONAL_CONTENT: 'Replies cannot offer discounts, coupons or free items.',
-  CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
+  ADVERTISING_AND_SOLICITATION:
+    'Remove any offers, discounts, contact details or links, then post again.',
+  PERSONAL_INFO: 'Remove any personal details, then post again.',
+  OBSCENITY_AND_PROFANITY: 'Remove any swearing, then post again.',
+  OFFENSIVE: 'Rewrite it politely, then post again.',
+  HARASSMENT: 'Keep it about the experience, not the person, then post again.',
+  OFF_TOPIC: 'Keep it about what the review says, then post again.',
 };
 const ON_GOOGLE = ['pending', 'live', 'posting'];
 const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
@@ -147,6 +153,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
   const editable =
     ['draft', 'rejected', 'failed', 'needs_reply', 'backlog'].includes(status) || editingPosted;
   const dirty = text !== (reply?.text || '');
+  const { postingOff } = review;
 
   return (
     <Stack sx={{ height: '100%', overflowY: 'auto' }}>
@@ -221,6 +228,13 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+          </Alert>
+        )}
+
+        {postingOff && (editable || posted) && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Posting to Google is switched off on this server, so replies can&apos;t be posted,
+            updated or deleted here. You can still edit, save and copy them.
           </Alert>
         )}
 
@@ -301,14 +315,17 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
                 </IconButton>
               </Tooltip>
               <Tooltip title="Delete reply from Google">
-                <IconButton
-                  size="small"
-                  onClick={() => setConfirmDelete(true)}
-                  disabled={!!busy}
-                  aria-label="Delete reply from Google"
-                >
-                  <DeleteOutlineRoundedIcon fontSize="small" />
-                </IconButton>
+                {/* A span, because a tooltip can't listen to a disabled button. */}
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={!!busy || postingOff}
+                    aria-label="Delete reply from Google"
+                  >
+                    <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+                </span>
               </Tooltip>
             </>
           )}
@@ -388,7 +405,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
                         variant="contained"
                         endIcon={<SendRoundedIcon />}
                         onClick={() => void post()}
-                        disabled={!!busy || !text.trim() || bytes > MAX_BYTES}
+                        disabled={!!busy || postingOff || !text.trim() || bytes > MAX_BYTES}
                       >
                         {editingPosted ? 'Update reply' : 'Post reply'}
                       </Button>

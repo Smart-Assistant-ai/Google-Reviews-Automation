@@ -90,11 +90,29 @@ sudo certbot --nginx -d app.your-domain.com
 
 ## 5. Google Console
 
-In the OAuth client (type: Web application), add this redirect URI. Signing in and connecting a Business Profile both use it:
+Use the project Google approved for the Business Profile API. Before approval every Business Profile API has a quota of 0, and the app shows that Google is limiting its requests.
+
+**OAuth client** (Google Auth Platform → Clients, type Web application). Add this redirect URI. Signing in and connecting a Business Profile both use it:
 
 - `https://app.your-domain.com/api/v1/google/callback`
 
-Until Google verifies the OAuth consent screen, it stays in Testing mode: only listed test users can connect, up to 100, and their tokens expire every 7 days. The app emails the owner when a token dies, and they reconnect from Settings.
+**Branding:** add your domain under Authorized domains. **Data Access:** add the `https://www.googleapis.com/auth/business.manage` scope.
+
+**APIs** (APIs & Services → Library). Enable all three:
+
+| API                                  | What the app uses it for                         |
+| ------------------------------------ | ------------------------------------------------ |
+| My Business Account Management API   | Listing the Google accounts someone manages      |
+| My Business Business Information API | Listing each account's locations                 |
+| Google My Business API               | Reading reviews, and posting or deleting replies |
+
+The Google My Business API is the older v4 API, and it's still the only one with reviews. Library search often doesn't find it, so open it directly, pick the project, and click Enable: `https://console.cloud.google.com/apis/library/mybusiness.googleapis.com`. The Business Profile Performance API is a different one, for insights, and the app doesn't use it. While an API is off, the app says an API it needs is switched off, and Settings → Google shows Google's own wording, with the API's name, under the location.
+
+After approval, each API's Quotas tab shows 300 requests a minute instead of 0. The app keeps under that on its own.
+
+**Google Workspace accounts:** if the account that manages a Business Profile is a Workspace account, its admin must have Google Business Profile turned on for that user. Otherwise Google answers with 403 Permission denied.
+
+**Testing mode:** until Google verifies the OAuth consent screen, only listed test users can connect, up to 100, and their tokens expire every 7 days. The app emails the owner when a token dies, and they reconnect from Settings.
 
 ## 6. First deploy
 

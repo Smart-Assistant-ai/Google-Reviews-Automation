@@ -54,6 +54,8 @@ function ConnectionWarnings() {
   const dead = status.connections.filter((c) => c.status === 'needs_reconnect').length;
   const lost = status.locations.filter((l) => l.status === 'access_lost').length;
   const sample = status.connections.some((c) => c.sample || c.provider === 'mock');
+  // Covers Google refusing the app and an account with no Business Profile alike, so it names
+  // neither. The Google tab, where the box leads, gives the exact reason.
   const waiting = status.connections.some((c) => c.apiError && !c.sample);
   if (!dead && !lost && !sample && !waiting) return null;
   // Every warning is fixed on the Google tab, so the box takes you there.
@@ -82,7 +84,7 @@ function ConnectionWarnings() {
       )}
       {waiting && (
         <Typography variant="caption" color="text.secondary" component="div">
-          Waiting for Google to approve API access
+          A Google account needs attention
         </Typography>
       )}
       {sample && (

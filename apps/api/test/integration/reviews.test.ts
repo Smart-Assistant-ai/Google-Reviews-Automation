@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
+import { syncLocation } from '../../src/modules/google/sync.service';
 import { runDraftQueue, checkPendingReplies } from '../../src/modules/reviews/jobs';
 import { purgeExpiredContent } from '../../src/modules/reviews/purge.service';
 import { sentEmails } from '../../src/providers/email/mock';
-import { mockGbp } from '../../src/providers/gbp/mock';
+import { mockGbp, mockGbpProvider } from '../../src/providers/gbp/mock';
 import { signup, testApp, tokenFromEmail, uniqueEmail, type TestUser } from '../helpers/app';
 import { resetDb } from '../helpers/db';
 import { connectGoogle, googleStatus, selectLocations, verifyEmail } from '../helpers/google';
@@ -22,6 +23,9 @@ beforeEach(async () => {
   sentEmails.length = 0;
   env.SIGNUP_MODE = 'open';
   env.GOOGLE_POSTING_ENABLED = false;
+});
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 const req = (
@@ -232,7 +236,87 @@ describe('replies', () => {
     await checkPendingReplies();
     const after = (await req('GET', user, `/reviews/${review.id}`)).json();
     expect(after.status).toBe('rejected');
-    expect(after.reply.policyViolation).toBe('PROMOTIONAL_CONTENT');
+    expect(after.reply.policyViolation).toBe('ADVERTISING_AND_SOLICITATION');
+  });
+
+  it("keeps a reply pending while Google's review list doesn't show it yet", async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thank you.' });
+    const stored = await prisma.review.findUniqueOrThrow({
+      where: { id: review.id },
+      include: { location: true },
+    });
+    const { googleAccountName, googleLocationName } = stored.location;
+    mockGbp.clearReply(
+      `${googleAccountName}/${googleLocationName}/reviews/${stored.googleReviewId}`,
+    );
+    await checkPendingReplies();
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('pending');
+  });
+
+  // Google's list is read first and written from after, so the owner can act in between.
+  const pause = () => new Promise((resolve) => setTimeout(resolve, 5));
+  function duringNextReviewList(ownerAction: () => Promise<unknown>) {
+    const listReviews = mockGbpProvider.listReviews.bind(mockGbpProvider);
+    vi.spyOn(mockGbpProvider, 'listReviews').mockImplementationOnce(async (...args) => {
+      const page = await listReviews(...args);
+      await pause();
+      await ownerAction();
+      return page;
+    });
+  }
+
+  it("doesn't bring back a reply deleted while Google's verdict was being read", async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thank you.' });
+    duringNextReviewList(() => prisma.reply.delete({ where: { reviewId: review.id } }));
+    await checkPendingReplies();
+    expect(await prisma.reply.findUnique({ where: { reviewId: review.id } })).toBeNull();
+  });
+
+  it("doesn't let an older verdict overwrite a reply posted again meanwhile", async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thank you.' });
+    duringNextReviewList(() =>
+      prisma.reply.update({ where: { reviewId: review.id }, data: { text: 'Thank you so much.' } }),
+    );
+    await checkPendingReplies();
+    expect(await prisma.reply.findUnique({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'Thank you so much.',
+      state: 'pending_google',
+    });
+  });
+
+  it("a sync doesn't overwrite a draft saved after it read the reply", async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thank you.' });
+    await checkPendingReplies();
+    // Swapped by hand and put back, because a Vitest spy on a Prisma model breaks it for later tests.
+    const findUnique = prisma.reply.findUnique;
+    let saved = false;
+    prisma.reply.findUnique = (async (args: Parameters<typeof findUnique>[0]) => {
+      const seen = await findUnique(args);
+      if (!saved && args.where.reviewId === review.id) {
+        saved = true;
+        await pause();
+        await req('PUT', user, `/reviews/${review.id}/reply`, { text: 'Thanks, see you soon.' });
+      }
+      return seen;
+    }) as never;
+    try {
+      await syncLocation(review.locationId);
+    } finally {
+      prisma.reply.findUnique = findUnique;
+    }
+    expect(saved).toBe(true);
+    expect(await prisma.reply.findUnique({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'Thanks, see you soon.',
+      state: 'draft',
+    });
   });
 
   it('refuses posting nothing, or more than Google allows', async () => {
@@ -283,11 +367,16 @@ describe('replies', () => {
     expect(refused.json().error.code).toBe('real_posting_disabled');
     const reply = await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } });
     expect(reply.state).not.toBe('pending_google');
+    // The review says so up front, so the screen can explain instead of failing on click.
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().postingOff).toBe(true);
+    const listed = await req('GET', user, '/reviews?tab=all');
+    expect(listed.json().reviews.every((r: { postingOff: boolean }) => r.postingOff)).toBe(true);
 
     await prisma.googleConnection.update({
       where: { id: location.connectionId },
       data: { dataSource: 'sample' },
     });
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().postingOff).toBe(false);
     expect(
       (await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Hello' })).statusCode,
     ).toBe(200);

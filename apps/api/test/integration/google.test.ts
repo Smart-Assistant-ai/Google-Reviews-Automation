@@ -385,12 +385,12 @@ describe('changes on Google', () => {
     expect((await googleStatus(app, user)).connections[0]?.status).toBe('healthy');
   });
 
-  it('Google blocking access before approval leaves the account connected, with the reason', async () => {
+  it('Google limiting the app leaves the account connected, with the reason', async () => {
     const user = await verifiedOwner();
     mockGbp.failReads('blocked@sample.test', 429);
     await connectGoogle(app, user, { email: 'blocked@sample.test' });
     const status = await googleStatus(app, user);
-    expect(status.connections[0]?.apiError).toMatch(/not approved/);
+    expect(status.connections[0]?.apiError).toMatch(/limiting/);
   });
 });
 
@@ -609,7 +609,7 @@ describe('deactivating a location', () => {
   });
 });
 
-describe('Google not turning on reviews for the project yet', () => {
+describe('an API the app needs being switched off', () => {
   const disabled = {
     status: 403,
     reason: 'SERVICE_DISABLED',
@@ -623,7 +623,7 @@ describe('Google not turning on reviews for the project yet', () => {
     await connectGoogle(app, user, { email: 'one@sample.test' });
     const status = await googleStatus(app, user);
     expect(status.locations[0]?.status).toBe('active');
-    expect(status.connections[0]?.apiError).toMatch(/not approved/);
+    expect(status.connections[0]?.apiError).toMatch(/switched off/);
     expect(status.connections[0]?.status).toBe('healthy');
     await notifyProblems();
     expect(sentEmails.filter((m) => /lost access/i.test(m.subject))).toHaveLength(0);

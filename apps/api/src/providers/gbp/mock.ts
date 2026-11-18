@@ -140,7 +140,7 @@ function buildReview(locationPath: string, seed: SeedReview, createTime: string)
   if (seed.reply) {
     // Answered about five hours later, so the dashboard shows a realistic response time.
     const updateTime = new Date(new Date(createTime).getTime() + 5 * 3_600_000).toISOString();
-    review.reviewReply = { comment: seed.reply, updateTime, replyState: 'APPROVED' };
+    review.reviewReply = { comment: seed.reply, updateTime, reviewReplyState: 'APPROVED' };
   }
   return review;
 }
@@ -157,24 +157,24 @@ function reviewsOf(locationPath: string, location: MockLocation): StoredReview[]
   return location.reviews;
 }
 
+// Google files offers, phone numbers and links in a reply under advertising.
 function moderationVerdict(comment: string): string | null {
-  if (/\b(discounts?|coupons?|vouchers?|promo codes?|free \w+)\b|\d+\s*% off/i.test(comment))
-    return 'PROMOTIONAL_CONTENT';
-  if (/(\+?\d[\d\s-]{8,}\d)|https?:\/\//i.test(comment)) return 'CONTACT_INFORMATION';
-  return null;
+  const offer = /\b(discounts?|coupons?|vouchers?|promo codes?|free \w+)\b|\d+\s*% off/i;
+  const contact = /(\+?\d[\d\s-]{8,}\d)|https?:\/\//i;
+  return offer.test(comment) || contact.test(comment) ? 'ADVERTISING_AND_SOLICITATION' : null;
 }
 
 function settle(review: StoredReview): void {
   const reply = review.reviewReply;
   if (
     !reply ||
-    reply.replyState !== 'PENDING' ||
+    reply.reviewReplyState !== 'PENDING' ||
     reply.moderateAt === undefined ||
     Date.now() < reply.moderateAt
   )
     return;
   const violation = moderationVerdict(reply.comment);
-  reply.replyState = violation ? 'REJECTED' : 'APPROVED';
+  reply.reviewReplyState = violation ? 'REJECTED' : 'APPROVED';
   if (violation) reply.policyViolation = violation;
   delete reply.moderateAt;
   save();
@@ -302,20 +302,13 @@ export const mockGbpProvider: GbpProvider = {
     return { reviews: result.items.map(publicReview), nextPageToken: result.nextPageToken };
   },
 
-  async getReview(ctx, reviewName) {
-    assertReadable(ctx);
-    const review = findReview(reviewName);
-    settle(review);
-    return publicReview(review);
-  },
-
   async updateReply(ctx, reviewName, comment) {
     assertReadable(ctx);
     const review = findReview(reviewName);
     review.reviewReply = {
       comment,
       updateTime: new Date().toISOString(),
-      replyState: 'PENDING',
+      reviewReplyState: 'PENDING',
       moderateAt: Date.now() + env.MOCK_MODERATION_SECONDS * 1000,
     };
     save();

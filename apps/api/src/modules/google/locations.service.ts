@@ -5,15 +5,15 @@ import { prisma } from '../../lib/prisma';
 import type { GbpContext, GbpLocation, GbpProvider } from '../../providers/gbp';
 import { accessibleLocationIds, type MemberContext } from '../workspaces/access';
 import { findConnection, getContext, markNeedsReconnect, usesFakeData } from './connection.service';
-import { NOT_APPROVED_MESSAGE, classifyGoogleFailure } from './google-errors';
+import { classifyGoogleFailure, projectProblem } from './google-errors';
 import { syncLocation } from './sync.service';
 
-// Google can let someone sign in while refusing to read their profile, and quota stays at
-// zero until it approves us. Those leave the account connected, with the reason shown.
+// Google can let someone sign in while refusing to read their profile, or refuse the whole app,
+// such as an API switched off or a rate limit. Those leave the account connected, with the reason shown.
 export function readBlockedMessage(err: unknown): string | null {
   switch (classifyGoogleFailure(err)) {
     case 'project':
-      return NOT_APPROVED_MESSAGE;
+      return projectProblem(err);
     case 'reconnect':
       return 'Google needs you to sign in again.';
     case 'location':
@@ -23,7 +23,10 @@ export function readBlockedMessage(err: unknown): string | null {
   }
 }
 
-const NO_PROFILE = 'No Business Profile found on this Google account.';
+// Says what to do next, because the usual cause is signing in with a different Google account
+// from the one that manages the profile.
+const NO_PROFILE =
+  'No Business Profile found on this Google account. Connect the Google account that owns or manages the profile, or ask its owner to add this account as a manager.';
 
 async function readAllLocations(provider: GbpProvider, ctx: GbpContext) {
   const found: { accountName: string; location: GbpLocation }[] = [];

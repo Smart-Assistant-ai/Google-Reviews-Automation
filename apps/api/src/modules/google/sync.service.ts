@@ -1,8 +1,8 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma, ReplyState } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { STAR_TO_NUMBER, type GbpReply, type GbpReview } from '../../providers/gbp';
 import { getContext, markNeedsReconnect } from './connection.service';
-import { NOT_APPROVED_MESSAGE, classifyGoogleFailure } from './google-errors';
+import { classifyGoogleFailure, projectProblem } from './google-errors';
 
 // Older reviews go to the backlog and aren't drafted automatically.
 export const AUTO_DRAFT_WINDOW_DAYS = 30;
@@ -13,7 +13,7 @@ const GOOGLE_STATE_TO_LOCAL = {
   REJECTED: 'rejected',
 } as const;
 
-const reviewIdOf = (review: GbpReview) =>
+export const reviewIdOf = (review: GbpReview) =>
   review.reviewId ?? review.name.split('/reviews/')[1] ?? review.name;
 
 export const reviewResourceName = (
@@ -21,42 +21,63 @@ export const reviewResourceName = (
   googleReviewId: string,
 ) => `${location.googleAccountName}/${location.googleLocationName}/reviews/${googleReviewId}`;
 
+// The states where our copy follows Google. Anything else is the owner's work in progress.
+const FOLLOWS_GOOGLE: ReplyState[] = ['pending_google', 'live', 'rejected'];
+
+// What the reply Google lists means for our copy.
+function fromGoogle(reply: GbpReply) {
+  // A reply with no verdict, or one we don't know, counts as approved.
+  const googleReplyState =
+    reply.reviewReplyState === 'PENDING' || reply.reviewReplyState === 'REJECTED'
+      ? reply.reviewReplyState
+      : 'APPROVED';
+  return {
+    text: reply.comment,
+    state: GOOGLE_STATE_TO_LOCAL[googleReplyState],
+    googleReplyState,
+    policyViolation: reply.policyViolation ?? null,
+  };
+}
+
 async function applyGoogleReply(
   workspaceId: string,
   reviewId: string,
   reply: GbpReply,
 ): Promise<void> {
-  const googleState = reply.replyState ?? 'APPROVED';
-  const state = GOOGLE_STATE_TO_LOCAL[googleState] ?? 'live';
+  const values = fromGoogle(reply);
   const local = await prisma.reply.findUnique({ where: { reviewId } });
   if (!local) {
     await prisma.reply.create({
       data: {
         workspaceId,
         reviewId,
-        text: reply.comment,
         source: 'google',
-        state,
-        googleReplyState: googleState,
-        policyViolation: reply.policyViolation ?? null,
+        ...values,
         postedAt: reply.updateTime ? new Date(reply.updateTime) : null,
       },
     });
     return;
   }
-  // A posted reply follows Google, so an edit made directly on Google shows here too.
-  // A draft in progress is the owner's work, so sync never overwrites it.
-  if (['pending_google', 'live', 'rejected'].includes(local.state)) {
-    await prisma.reply.update({
-      where: { id: local.id },
-      data: {
-        text: reply.comment,
-        state,
-        googleReplyState: googleState,
-        policyViolation: reply.policyViolation ?? null,
-      },
-    });
-  }
+  // A posted reply follows Google, so an edit made directly on Google shows here too. A draft in
+  // progress is the owner's work, so sync never overwrites it, even one saved after the read above:
+  // the write lands only if the reply hasn't changed since.
+  await prisma.reply.updateMany({
+    where: { id: local.id, updatedAt: local.updatedAt, state: { in: FOLLOWS_GOOGLE } },
+    data: values,
+  });
+}
+
+// Google's verdict on a reply we posted, read a moment ago. It lands only if that reply is still
+// waiting and hasn't changed since it was picked for checking. One deleted, edited or posted again
+// meanwhile keeps what the owner did, and a deleted reply never comes back from the older list.
+export async function applyModerationResult(
+  posted: { id: string; updatedAt: Date },
+  reply: GbpReply,
+): Promise<void> {
+  await prisma.reply.updateMany({
+    where: { id: posted.id, updatedAt: posted.updatedAt, state: 'pending_google' },
+    data: fromGoogle(reply),
+  });
 }
 
 export interface SyncResult {
@@ -166,7 +187,7 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
     } else if (failure === 'project') {
       await prisma.googleConnection.update({
         where: { id: location.connectionId },
-        data: { apiError: NOT_APPROVED_MESSAGE },
+        data: { apiError: projectProblem(err) },
       });
       await prisma.location.update({ where: { id: locationId }, data: { lastSyncError: message } });
     } else if (failure === 'location') {

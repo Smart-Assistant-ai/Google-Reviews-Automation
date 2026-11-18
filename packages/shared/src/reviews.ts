@@ -40,6 +40,8 @@ export const reviewSchema = z.object({
   topics: z.array(z.string()),
   status: reviewStatusSchema,
   purged: z.boolean(),
+  // Real Google data on a server with posting switched off: replies can't be posted or deleted here.
+  postingOff: z.boolean(),
   reply: replySchema.nullable(),
 });
 export type Review = z.infer<typeof reviewSchema>;

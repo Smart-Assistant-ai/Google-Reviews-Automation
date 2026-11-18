@@ -188,7 +188,7 @@ GbpProvider (interface)
   listAccounts() · listLocations(account) · listReviews(location, pageToken)
   getReview(name) · updateReply(name, text) · deleteReply(name)
   ├─ MockGbpProvider  – fixtures copied byte-for-byte from the v4 docs' JSON shapes
-  │                     (incl. reviewReply.replyState, policyViolation, reviewMediaItems),
+  │                     (incl. reviewReply.reviewReplyState, policyViolation, reviewMediaItems),
   │                     seeded multilingual reviews, a "simulate new review" dev button,
   │                     simulated moderation (PENDING → APPROVED/REJECTED after N seconds), simulated 429/401
   └─ LiveGbpProvider  – googleapis / REST v4 calls
