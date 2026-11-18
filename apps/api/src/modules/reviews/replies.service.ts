@@ -152,7 +152,7 @@ export async function postReply(
       where: { id: reply.id },
       data: {
         state: 'pending_google',
-        googleReplyState: result?.replyState ?? 'PENDING',
+        googleReplyState: result?.reviewReplyState ?? 'PENDING',
         postedAt: new Date(),
         postedById: member.userId,
         error: null,

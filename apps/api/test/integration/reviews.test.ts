@@ -232,7 +232,7 @@ describe('replies', () => {
     await checkPendingReplies();
     const after = (await req('GET', user, `/reviews/${review.id}`)).json();
     expect(after.status).toBe('rejected');
-    expect(after.reply.policyViolation).toBe('PROMOTIONAL_CONTENT');
+    expect(after.reply.policyViolation).toBe('ADVERTISING_AND_SOLICITATION');
   });
 
   it('refuses posting nothing, or more than Google allows', async () => {

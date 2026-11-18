@@ -26,8 +26,12 @@ async function applyGoogleReply(
   reviewId: string,
   reply: GbpReply,
 ): Promise<void> {
-  const googleState = reply.replyState ?? 'APPROVED';
-  const state = GOOGLE_STATE_TO_LOCAL[googleState] ?? 'live';
+  // A reply with no verdict, or one we don't know, counts as approved.
+  const googleState =
+    reply.reviewReplyState === 'PENDING' || reply.reviewReplyState === 'REJECTED'
+      ? reply.reviewReplyState
+      : 'APPROVED';
+  const state = GOOGLE_STATE_TO_LOCAL[googleState];
   const local = await prisma.reply.findUnique({ where: { reviewId } });
   if (!local) {
     await prisma.reply.create({

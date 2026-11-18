@@ -1,7 +1,8 @@
 export interface GbpReply {
   comment: string;
   updateTime?: string;
-  replyState?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewReplyState?: 'REVIEW_REPLY_STATE_UNSPECIFIED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  // Only set on a rejected reply. Google adds new reasons over time.
   policyViolation?: string;
 }
 

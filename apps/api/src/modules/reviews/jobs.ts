@@ -91,15 +91,15 @@ export async function checkPendingReplies(): Promise<void> {
         reviewResourceName(location, reply.review.googleReviewId),
       );
       const google = review.reviewReply;
-      if (!google || google.replyState === 'PENDING') {
+      if (!google || google.reviewReplyState === 'PENDING') {
         await prisma.reply.update({ where: { id: reply.id }, data: { lastCheckedAt: new Date() } });
         continue;
       }
       await prisma.reply.update({
         where: { id: reply.id },
         data: {
-          state: google.replyState === 'REJECTED' ? 'rejected' : 'live',
-          googleReplyState: google.replyState ?? 'APPROVED',
+          state: google.reviewReplyState === 'REJECTED' ? 'rejected' : 'live',
+          googleReplyState: google.reviewReplyState ?? 'APPROVED',
           policyViolation: google.policyViolation ?? null,
           lastCheckedAt: new Date(),
         },

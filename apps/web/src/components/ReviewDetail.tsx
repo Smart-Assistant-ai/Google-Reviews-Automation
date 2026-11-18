@@ -46,9 +46,15 @@ const REWRITES = [
   { label: 'More formal', instructions: 'Use a more formal, professional tone.' },
   { label: 'Mention a return visit', instructions: 'Warmly invite them to visit again.' },
 ];
+// What to change for the reasons Google gives most often. Any other reason falls back to a plain retry.
 const VIOLATIONS: Record<string, string> = {
-  PROMOTIONAL_CONTENT: 'Replies cannot offer discounts, coupons or free items.',
-  CONTACT_INFORMATION: 'Replies cannot contain phone numbers or links.',
+  ADVERTISING_AND_SOLICITATION:
+    'Remove any offers, discounts, contact details or links, then post again.',
+  PERSONAL_INFO: 'Remove any personal details, then post again.',
+  OBSCENITY_AND_PROFANITY: 'Remove any swearing, then post again.',
+  OFFENSIVE: 'Rewrite it politely, then post again.',
+  HARASSMENT: 'Keep it about the experience, not the person, then post again.',
+  OFF_TOPIC: 'Keep it about what the review says, then post again.',
 };
 const ON_GOOGLE = ['pending', 'live', 'posting'];
 const SENTIMENT_COLOR: Record<string, ChipProps['color']> = {
