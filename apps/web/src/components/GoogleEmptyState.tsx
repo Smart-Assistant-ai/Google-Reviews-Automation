@@ -34,15 +34,17 @@ export default function GoogleEmptyState({
   };
 
   // An account with no Business Profile has nothing to lose, so it goes before trying another one.
-  // Otherwise the only way out would be signing out of the app.
+  // Otherwise the only way out would be signing out of the app. Google's address comes first, so the
+  // account is removed only once it's certain to leave for Google. If either step fails, the account
+  // is still here, and so is this screen with the error on it.
   const switchAccount = async () => {
     setBusy('switch');
     setError('');
     try {
-      await api.delete(wsPath(workspaceId, `/google/connections/${connection.id}`));
       const { url } = await api.post<{ url: string }>(
         wsPath(workspaceId, '/google/connections/start'),
       );
+      await api.delete(wsPath(workspaceId, `/google/connections/${connection.id}`));
       window.location.href = url;
     } catch (err) {
       setError((err as Error).message);
