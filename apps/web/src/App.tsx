@@ -10,11 +10,14 @@ import Dashboard from './pages/Dashboard';
 import DevOutbox from './pages/DevOutbox';
 import ForgotPassword from './pages/ForgotPassword';
 import Inbox from './pages/Inbox';
+import Landing from './pages/Landing';
 import MockGoogle from './pages/MockGoogle';
 import NoWorkspace from './pages/NoWorkspace';
 import Onboarding from './pages/Onboarding';
+import Privacy from './pages/Privacy';
 import ResetPassword from './pages/ResetPassword';
 import Settings from './pages/Settings';
+import Terms from './pages/Terms';
 import VerifyEmail from './pages/VerifyEmail';
 
 function FullPageLoader() {
@@ -50,6 +53,15 @@ function PublicOnly({
   return <Navigate to={invite ? `/invite?token=${encodeURIComponent(invite)}` : '/'} replace />;
 }
 
+// The home page explains ReplyPilot to visitors, and Google's verification reads it too. Someone
+// already logged in goes straight to their inbox.
+function Home() {
+  const { session, loading } = useAuth();
+  if (loading) return <FullPageLoader />;
+  if (session) return <Navigate to="/inbox" replace />;
+  return <Landing />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -77,6 +89,9 @@ export default function App() {
           </PublicOnly>
         }
       />
+      <Route path="/" element={<Home />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/invite" element={<AcceptInvite />} />
@@ -106,7 +121,6 @@ export default function App() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<Navigate to="/inbox" replace />} />
         <Route path="/inbox" element={<Inbox />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/settings" element={<Settings />} />
