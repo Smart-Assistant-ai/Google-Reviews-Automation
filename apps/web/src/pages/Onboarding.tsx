@@ -8,11 +8,12 @@ import {
   CardContent,
   CircularProgress,
   Container,
+  Link,
   Stack,
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useGoogleStatus, useRefreshWorkspaceData, useWorkspaceId, wsPath } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
@@ -174,6 +175,11 @@ export default function Onboarding() {
                 </Button>
                 <Typography variant="caption" color="text.secondary">
                   You can disconnect anytime from Settings. We delete its review data when you do.
+                  See what we do with your Google data in our{' '}
+                  <Link component={RouterLink} to="/privacy" target="_blank">
+                    privacy policy
+                  </Link>
+                  .
                 </Typography>
               </Stack>
             )}

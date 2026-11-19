@@ -174,6 +174,19 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
               <Button type="submit" variant="contained" size="large" disabled={busy}>
                 {signup ? 'Create account' : 'Log in'}
               </Button>
+              {signup && (
+                <Typography variant="caption" color="text.secondary">
+                  By creating an account, you agree to our{' '}
+                  <Link component={RouterLink} to="/terms">
+                    terms of service
+                  </Link>{' '}
+                  and{' '}
+                  <Link component={RouterLink} to="/privacy">
+                    privacy policy
+                  </Link>
+                  .
+                </Typography>
+              )}
             </Stack>
           </form>
           {config?.googleSignIn && (
