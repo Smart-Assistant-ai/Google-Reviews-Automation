@@ -1,4 +1,9 @@
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
+import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import { Box, Button, Card, CardContent, Container, Grid, Stack, Typography } from '@mui/material';
+import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import PublicLayout from '../components/PublicLayout';
 import Stars from '../components/Stars';
@@ -17,6 +22,29 @@ const STEPS = [
   {
     title: 'Approve and post',
     body: 'Edit the draft if you like, then post it to Google. ReplyPilot shows when Google publishes it, or why Google turned it down.',
+  },
+];
+
+const FEATURES: { icon: ReactNode; title: string; body: string }[] = [
+  {
+    icon: <InboxRoundedIcon color="primary" />,
+    title: 'One inbox for every location',
+    body: 'Every review in one place, filtered by what still needs a reply.',
+  },
+  {
+    icon: <AutoAwesomeRoundedIcon color="primary" />,
+    title: 'Drafts you control',
+    body: 'Set your tone and sign-off once. Nothing is posted until you approve it.',
+  },
+  {
+    icon: <InsightsRoundedIcon color="primary" />,
+    title: 'See how you are rated',
+    body: 'Average rating over time, weekly review volume and the topics customers mention.',
+  },
+  {
+    icon: <GroupsRoundedIcon color="primary" />,
+    title: 'Work as a team',
+    body: 'Invite colleagues, and choose which locations each person looks after.',
   },
 ];
 
@@ -100,6 +128,22 @@ export default function Landing() {
           </Grid>
         </Container>
       </Box>
+
+      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
+        <Grid container spacing={3}>
+          {FEATURES.map((feature) => (
+            <Grid item xs={12} sm={6} md={3} key={feature.title}>
+              {feature.icon}
+              <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mt: 1 }}>
+                {feature.title}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {feature.body}
+              </Typography>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
     </PublicLayout>
   );
 }
