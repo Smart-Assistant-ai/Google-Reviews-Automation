@@ -1,4 +1,5 @@
 import { Link, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { LegalPage, Section } from '../components/PublicLayout';
 import { COMPANY, CONTACT_EMAIL, LEGAL_UPDATED } from '../legal';
 
@@ -92,6 +93,92 @@ export default function Privacy() {
           reply voice settings and a few of your recent replies to our AI provider, OpenAI. OpenAI
           processes this only to return the draft, under terms that don&apos;t allow it to train its
           models on that data. Drafts are suggestions: please read each one before you post it.
+        </Typography>
+      </Section>
+
+      <Section title="5. Who else processes your information">
+        <Typography>
+          We share information only with the providers that run ReplyPilot for us:
+        </Typography>
+        <ul>
+          <li>Amazon Web Services, which hosts our servers and database;</li>
+          <li>Cloudflare, which carries traffic to our site;</li>
+          <li>OpenAI, which drafts replies as described above;</li>
+          <li>Resend, which sends our emails, such as sign-up confirmation and alerts;</li>
+          <li>Sentry, which receives error reports so we can fix problems;</li>
+          <li>Google, when we post or change replies on your Business Profile for you.</li>
+        </ul>
+        <Typography>
+          We may also share information if the law requires it, or with a buyer if our business is
+          sold, under this same policy.
+        </Typography>
+      </Section>
+
+      <Section title="6. How long we keep it">
+        <ul>
+          <li>
+            Review content from Google is refreshed while you stay connected. Content Google no
+            longer gives us is removed within 30 days of when we last received it.
+          </li>
+          <li>
+            When you disconnect a Google account, we delete its locations, reviews and replies from
+            ReplyPilot. Unless another of your workspaces still uses that Google account, we also
+            ask Google to cancel our access.
+          </li>
+          <li>
+            When you delete your account, we remove your personal details and any workspace only you
+            belong to. We keep a record that the account existed, without your name or email, for
+            security.
+          </li>
+          <li>Replies already posted on Google stay on Google until you delete them there.</li>
+        </ul>
+      </Section>
+
+      <Section title="7. Security">
+        <Typography>
+          Traffic to ReplyPilot is encrypted with HTTPS. Google access tokens are encrypted in our
+          database, passwords are stored only as hashes, and every action that changes your profile
+          is recorded in your workspace&apos;s activity log.
+        </Typography>
+      </Section>
+
+      <Section title="8. Cookies">
+        <Typography>
+          We use only the cookies ReplyPilot needs to keep you signed in and to secure the Google
+          sign-in step. We don&apos;t use advertising or tracking cookies. Our pages load fonts from
+          Google Fonts.
+        </Typography>
+      </Section>
+
+      <Section title="9. Your choices">
+        <ul>
+          <li>
+            Disconnect a Google account at any time in Settings, or remove ReplyPilot&apos;s access
+            from your{' '}
+            <Link href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">
+              Google Account permissions
+            </Link>
+            .
+          </li>
+          <li>Delete your account in Settings, under Account.</li>
+          <li>Ask us for a copy of your information, or to correct or delete it, at {mail}.</li>
+        </ul>
+      </Section>
+
+      <Section title="10. Children">
+        <Typography>
+          ReplyPilot is for businesses and isn&apos;t meant for anyone under 16.
+        </Typography>
+      </Section>
+
+      <Section title="11. Changes">
+        <Typography>
+          If we change this policy, we&apos;ll update the date above, and tell you by email or in
+          the app before a significant change takes effect. See also our{' '}
+          <Link component={RouterLink} to="/terms">
+            terms of service
+          </Link>
+          .
         </Typography>
       </Section>
     </LegalPage>
