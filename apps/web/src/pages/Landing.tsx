@@ -5,6 +5,21 @@ import Stars from '../components/Stars';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
 // plainly what ReplyPilot does with a connected Business Profile and links the privacy policy.
+const STEPS = [
+  {
+    title: 'Connect your Business Profile',
+    body: 'Sign in with the Google account that owns or manages your profile, then choose which locations ReplyPilot looks after.',
+  },
+  {
+    title: 'Get a draft for every review',
+    body: "Each new review gets a reply drafted by AI in your business's voice and in the reviewer's language. Make it shorter, warmer or more formal with one click.",
+  },
+  {
+    title: 'Approve and post',
+    body: 'Edit the draft if you like, then post it to Google. ReplyPilot shows when Google publishes it, or why Google turned it down.',
+  },
+];
+
 export default function Landing() {
   return (
     <PublicLayout>
@@ -62,6 +77,29 @@ export default function Landing() {
           </Grid>
         </Grid>
       </Container>
+
+      <Box sx={{ bgcolor: 'action.hover', py: { xs: 6, md: 8 } }}>
+        <Container maxWidth="lg">
+          <Typography variant="h4" component="h2">
+            How it works
+          </Typography>
+          <Grid container spacing={3} sx={{ mt: 1 }}>
+            {STEPS.map((step, i) => (
+              <Grid item xs={12} md={4} key={step.title}>
+                <Typography variant="overline" color="primary">
+                  Step {i + 1}
+                </Typography>
+                <Typography variant="h6" component="h3">
+                  {step.title}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  {step.body}
+                </Typography>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
     </PublicLayout>
   );
 }
