@@ -2,7 +2,18 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
-import { Box, Button, Card, CardContent, Container, Grid, Stack, Typography } from '@mui/material';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Container,
+  Grid,
+  Link,
+  Stack,
+  Typography,
+} from '@mui/material';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import PublicLayout from '../components/PublicLayout';
@@ -143,6 +154,27 @@ export default function Landing() {
             </Grid>
           ))}
         </Grid>
+
+        <Card variant="outlined" sx={{ mt: 6 }}>
+          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <LockRoundedIcon color="primary" />
+              <Typography variant="h6" component="h2">
+                What ReplyPilot does with your Google data
+              </Typography>
+            </Stack>
+            <Typography color="text.secondary" sx={{ mt: 1.5 }}>
+              When you connect, Google asks you to let ReplyPilot manage your Business Profile. We
+              use that permission only to list the profiles and locations you manage, read their
+              reviews, and post, edit or delete the replies you approve. We don&apos;t sell your
+              data, use it for advertising, or use it to train AI models. You can disconnect at any
+              time in Settings or from your Google Account.
+            </Typography>
+            <Link component={RouterLink} to="/privacy" sx={{ display: 'inline-block', mt: 1.5 }}>
+              Read our privacy policy
+            </Link>
+          </CardContent>
+        </Card>
       </Container>
     </PublicLayout>
   );
