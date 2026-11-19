@@ -1,4 +1,5 @@
 import { Link, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { LegalPage, Section } from '../components/PublicLayout';
 import { COMPANY, CONTACT_EMAIL, LEGAL_UPDATED } from '../legal';
 
@@ -56,6 +57,62 @@ export default function Terms() {
           <li>resell the service or copy it.</li>
         </ul>
         <Typography>We may suspend an account that breaks these rules.</Typography>
+      </Section>
+
+      <Section title="6. Fees">
+        <Typography>
+          If ReplyPilot or a plan you choose has a fee, we&apos;ll show it to you, and you&apos;ll
+          agree to it before you are charged.
+        </Typography>
+      </Section>
+
+      <Section title="7. Your data">
+        <Typography>
+          Your reviews, replies and settings stay yours. You let us use them only to run ReplyPilot
+          for you, as our{' '}
+          <Link component={RouterLink} to="/privacy">
+            privacy policy
+          </Link>{' '}
+          explains.
+        </Typography>
+      </Section>
+
+      <Section title="8. Availability and warranty">
+        <Typography>
+          We work to keep ReplyPilot running and accurate, but it is provided &ldquo;as is&rdquo;.
+          We can&apos;t promise it will always be available or error-free, and it depends on
+          Google&apos;s services, which we don&apos;t control.
+        </Typography>
+      </Section>
+
+      <Section title="9. Limitation of liability">
+        <Typography>
+          To the extent the law allows, we aren&apos;t liable for indirect or consequential losses,
+          such as lost profits or harm to reputation, and our total liability is limited to the
+          amount you paid us in the 12 months before the claim.
+        </Typography>
+      </Section>
+
+      <Section title="10. Ending your use">
+        <Typography>
+          You can stop at any time by deleting your account in Settings. We may end or suspend the
+          service with notice, or without notice if you break these terms.
+        </Typography>
+      </Section>
+
+      <Section title="11. Law">
+        <Typography>
+          {COMPANY} is a United States company. These terms are governed by the laws of the United
+          States and of the state where {COMPANY} is registered, except where the law of your
+          country gives you rights that can&apos;t be waived.
+        </Typography>
+      </Section>
+
+      <Section title="12. Changes and contact">
+        <Typography>
+          We may update these terms. We&apos;ll change the date above and tell you before a
+          significant change takes effect. Questions go to {mail}.
+        </Typography>
       </Section>
     </LegalPage>
   );
