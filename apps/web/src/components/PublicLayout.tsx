@@ -75,3 +75,48 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     </Box>
   );
 }
+
+// A long legal page: a title, the date it last changed, then numbered sections.
+export function LegalPage({
+  title,
+  updated,
+  children,
+}: {
+  title: string;
+  updated: string;
+  children: ReactNode;
+}) {
+  return (
+    <PublicLayout>
+      <Container maxWidth="md" sx={{ py: { xs: 4, md: 6 } }}>
+        <Typography variant="h4" component="h1">
+          {title}
+        </Typography>
+        <Typography color="text.secondary" sx={{ mt: 1, mb: 4 }}>
+          Last updated {updated}
+        </Typography>
+        <Stack
+          spacing={2}
+          sx={{
+            '& h2': { mt: 2 },
+            '& p, & li': { color: 'text.secondary', lineHeight: 1.7 },
+            '& ul': { pl: 3, my: 0 },
+          }}
+        >
+          {children}
+        </Stack>
+      </Container>
+    </PublicLayout>
+  );
+}
+
+export function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box component="section">
+      <Typography variant="h6" component="h2" gutterBottom>
+        {title}
+      </Typography>
+      <Stack spacing={1.5}>{children}</Stack>
+    </Box>
+  );
+}
