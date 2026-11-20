@@ -8,7 +8,13 @@ const provider: EmailProvider =
     ? resendProvider(env.RESEND_API_KEY!, env.EMAIL_FROM)
     : mockEmailProvider;
 
+// With email off, nothing that needs an email is offered: confirming an email address, resetting a
+// password, inviting a teammate, or the emails about Google problems. Their code stays, ready for
+// the day a Resend key is added.
+export const emailEnabled = () => env.EMAIL_PROVIDER !== 'off';
+
 export async function sendEmail(message: EmailMessage): Promise<void> {
+  if (!emailEnabled()) throw new Error('Email is switched off (EMAIL_PROVIDER=off)');
   await provider.send(message);
 }
 

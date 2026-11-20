@@ -60,6 +60,16 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...valid, EMAIL_PROVIDER: 'mock' })).toThrow('EMAIL_PROVIDER');
   });
 
+  it('requires email to be chosen in production, resend or off', () => {
+    const { EMAIL_PROVIDER: _removed, ...rest } = valid;
+    expect(() => parseEnv(rest)).toThrow('EMAIL_PROVIDER');
+  });
+
+  it('runs production with email off, which needs no Resend key', () => {
+    const { RESEND_API_KEY: _removed, ...rest } = valid;
+    expect(parseEnv({ ...rest, EMAIL_PROVIDER: 'off' }).EMAIL_PROVIDER).toBe('off');
+  });
+
   it('requires a Resend key when sending real email', () => {
     const { RESEND_API_KEY: _removed, ...rest } = valid;
     expect(() => parseEnv(rest)).toThrow('RESEND_API_KEY');
