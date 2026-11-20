@@ -24,8 +24,7 @@ export default function Privacy() {
             account&apos;s email address and name.
           </li>
           <li>
-            Your workspace: your business name, the reply voice you set (tone and sign-off), and the
-            email addresses of colleagues you invite.
+            Your workspace: your business name and the reply voice you set (tone and sign-off).
           </li>
           <li>The drafts and replies you write or edit in ReplyPilot.</li>
         </ul>
@@ -61,8 +60,8 @@ export default function Privacy() {
           <li>to show your reviews in your inbox and your dashboard;</li>
           <li>to draft replies to your reviews with AI, for you to check and change;</li>
           <li>
-            to post, edit or delete a reply on Google when you or a colleague in your workspace
-            choose to. ReplyPilot never posts a reply nobody approved;
+            to post, edit or delete a reply on Google when you choose to. ReplyPilot never posts a
+            reply you didn&apos;t approve;
           </li>
           <li>
             to tell you when Google publishes or turns down a reply, or when access needs fixing.
