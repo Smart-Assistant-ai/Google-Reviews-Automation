@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { HttpError, notFound } from '../lib/errors';
 import { prisma } from '../lib/prisma';
+import { emailEnabled } from '../providers/email';
 import type { MemberContext } from '../modules/workspaces/access';
 
 export type AccessLevel = 'public' | 'authenticated' | 'member' | 'admin' | 'owner';
@@ -127,8 +128,9 @@ export function currentMember(request: FastifyRequest): MemberContext {
 }
 
 // Connecting Google or posting acts publicly under the business's name, so the email must be real.
+// With email off there is no way to confirm one, so the rule waits until email is switched on.
 export function assertEmailVerified(request: FastifyRequest): void {
-  if (!currentAuth(request).user.emailVerifiedAt) {
+  if (emailEnabled() && !currentAuth(request).user.emailVerifiedAt) {
     throw new HttpError(403, 'Please confirm your email first', 'email_not_verified');
   }
 }

@@ -216,6 +216,7 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
       schema: { response: { 200: okResponse } },
     },
     async (request) => {
+      if (!emailEnabled()) throw new HttpError(404, 'Not found', 'not_found');
       await auth.resendVerification(currentAuth(request).userId, request.log);
       return { ok: true as const };
     },
