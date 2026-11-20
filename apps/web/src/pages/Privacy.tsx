@@ -104,7 +104,6 @@ export default function Privacy() {
           <li>Amazon Web Services, which hosts our servers and database;</li>
           <li>Cloudflare, which carries traffic to our site;</li>
           <li>OpenAI, which drafts replies as described above;</li>
-          <li>Resend, which sends our emails, such as sign-up confirmation and alerts;</li>
           <li>Sentry, which receives error reports so we can fix problems;</li>
           <li>Google, when we post or change replies on your Business Profile for you.</li>
         </ul>
