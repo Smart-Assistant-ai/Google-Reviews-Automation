@@ -197,7 +197,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
             </>
           )}
           <Stack spacing={1} sx={{ mt: 3 }}>
-            {!signup && (
+            {!signup && config?.emails && (
               <Link component={RouterLink} to="/forgot-password" variant="body2">
                 Forgot your password?
               </Link>

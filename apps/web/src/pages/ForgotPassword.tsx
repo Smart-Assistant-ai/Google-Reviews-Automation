@@ -9,8 +9,9 @@ import {
   Typography,
 } from '@mui/material';
 import { useState, type FormEvent } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Navigate, Link as RouterLink } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuthConfig } from '../api/hooks';
 import AuthLayout from '../components/AuthLayout';
 import OutboxLink from '../components/OutboxLink';
 
@@ -19,6 +20,10 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const { data: config } = useAuthConfig();
+
+  // The reset link only reaches people by email.
+  if (config && !config.emails) return <Navigate to="/login" replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
