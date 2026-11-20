@@ -31,7 +31,7 @@ import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { useGoogleStatus, useTodoCount } from '../api/hooks';
+import { useAuthConfig, useGoogleStatus, useTodoCount } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
 import OutboxLink from '../components/OutboxLink';
@@ -101,8 +101,10 @@ function ConnectionWarnings() {
 
 function EmailBanner() {
   const { session } = useAuth();
+  const { data: config } = useAuthConfig();
   const [sent, setSent] = useState(false);
-  if (!session || session.user.emailVerified) return null;
+  // With email off there is nothing to confirm, and nothing waits on it.
+  if (!session || session.user.emailVerified || !config?.emails) return null;
   return (
     <Alert
       severity="warning"

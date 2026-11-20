@@ -15,7 +15,13 @@ import {
 import { useEffect, useState } from 'react';
 import { Navigate, Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
-import { useGoogleStatus, useRefreshWorkspaceData, useWorkspaceId, wsPath } from '../api/hooks';
+import {
+  useAuthConfig,
+  useGoogleStatus,
+  useRefreshWorkspaceData,
+  useWorkspaceId,
+  wsPath,
+} from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import GoogleEmptyState from '../components/GoogleEmptyState';
 import LocationPicker from '../components/LocationPicker';
@@ -37,6 +43,7 @@ export default function Onboarding() {
   const [params] = useSearchParams();
   const refresh = useRefreshWorkspaceData();
   const { data: status, isLoading } = useGoogleStatus();
+  const { data: config } = useAuthConfig();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(CONNECT_ERRORS[params.get('error') ?? ''] ?? '');
 
@@ -49,7 +56,8 @@ export default function Onboarding() {
   if (!workspace) return <Navigate to="/no-workspace" replace />;
   if (!hasAtLeast(workspace.role, 'admin')) return <Navigate to="/inbox" replace />;
 
-  const verified = session?.user.emailVerified;
+  // With email off there is no way to confirm one, so connecting doesn't wait on it.
+  const verified = session?.user.emailVerified || config?.emails !== true;
   const managed = status?.locations.filter((l) => l.status !== 'available') ?? [];
   const available = status?.locations.filter((l) => l.status === 'available') ?? [];
   // Someone who already manages locations only stays here to see a failed connect, or to pick
