@@ -2,6 +2,7 @@ import { Alert, Button, Card, CardContent, Stack, TextField, Typography } from '
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuthConfig } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import AuthLayout from '../components/AuthLayout';
 
@@ -10,6 +11,8 @@ export default function NoWorkspace() {
   const { workspace, reload, switchWorkspace, logout } = useAuth();
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  // Joining someone else's workspace takes an emailed invitation.
+  const emails = useAuthConfig().data?.emails === true;
 
   if (workspace) return <Navigate to="/" replace />;
 
@@ -30,7 +33,7 @@ export default function NoWorkspace() {
           <Stack spacing={2}>
             <Typography variant="h5">You&apos;re not in a workspace</Typography>
             <Typography color="text.secondary">
-              Create one for your business, or ask a teammate to invite you.
+              Create one for your business{emails && ', or ask a teammate to invite you'}.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField
