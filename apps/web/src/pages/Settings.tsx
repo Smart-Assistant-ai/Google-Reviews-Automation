@@ -2,6 +2,7 @@ import { hasAtLeast } from '@replypilot/shared';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
 import { useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAuthConfig } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import AccountTab from './settings/AccountTab';
 import ActivityTab from './settings/ActivityTab';
@@ -13,19 +14,21 @@ import WorkspaceTab from './settings/WorkspaceTab';
 export default function Settings() {
   const { workspace } = useAuth();
   const isAdmin = workspace ? hasAtLeast(workspace.role, 'admin') : false;
+  // Teammates join through an emailed invitation, so the tab waits until email is switched on.
+  const emails = useAuthConfig().data?.emails === true;
 
   // Controls a role can't use aren't shown. The API refuses them regardless.
   const tabs = useMemo(() => {
     const all: { key: string; label: string; el: ReactNode; show: boolean }[] = [
       { key: 'voice', label: 'Reply voice', el: <VoiceTab />, show: true },
       { key: 'google', label: 'Google & locations', el: <GoogleTab />, show: isAdmin },
-      { key: 'team', label: 'Team', el: <TeamTab />, show: true },
+      { key: 'team', label: 'Team', el: <TeamTab />, show: emails },
       { key: 'activity', label: 'Activity', el: <ActivityTab />, show: isAdmin },
       { key: 'workspace', label: 'Workspace', el: <WorkspaceTab />, show: isAdmin },
       { key: 'account', label: 'Your account', el: <AccountTab />, show: true },
     ];
     return all.filter((t) => t.show);
-  }, [isAdmin]);
+  }, [isAdmin, emails]);
 
   // The tab lives in the URL (/settings?tab=team), so it survives a refresh and can be linked to.
   // A tab this role can't see falls back to the usual first one.
