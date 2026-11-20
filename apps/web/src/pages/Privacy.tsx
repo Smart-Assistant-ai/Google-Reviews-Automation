@@ -64,7 +64,8 @@ export default function Privacy() {
             reply you didn&apos;t approve;
           </li>
           <li>
-            to tell you when Google publishes or turns down a reply, or when access needs fixing.
+            to show you in ReplyPilot when Google publishes or turns down a reply, or when access
+            needs fixing.
           </li>
         </ul>
         <Typography>
