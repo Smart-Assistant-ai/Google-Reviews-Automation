@@ -229,6 +229,7 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
       schema: { body: forgotPasswordBody, response: { 200: okResponse } },
     },
     async (request) => {
+      if (!emailEnabled()) throw new HttpError(404, 'Not found', 'not_found');
       // Not awaited: sending takes time only for real accounts, and that time would reveal who has one.
       void auth
         .forgotPassword(request.body.email, request.log)
