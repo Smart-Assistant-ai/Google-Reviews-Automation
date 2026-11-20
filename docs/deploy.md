@@ -8,7 +8,7 @@ You do the steps in AWS, DNS and Google Console, and you keep all real secrets. 
 
 - A server you can SSH into, and a domain or subdomain pointing at it, for example `app.your-domain.com`.
 - A Postgres server. Use the team's if there is one, otherwise create an RDS instance.
-- A Resend account with your sending domain verified.
+- A Resend account with your sending domain verified, if the app should send email. Without one, set `EMAIL_PROVIDER=off`.
 - A Google Cloud project with an OAuth client (see Google below).
 
 ## 1. Database
@@ -65,6 +65,7 @@ GBP_PROVIDER=live
 GOOGLE_SIGNIN_PROVIDER=live
 GOOGLE_CLIENT_ID=from-google-console
 GOOGLE_CLIENT_SECRET=from-google-console
+# Without a Resend account, use EMAIL_PROVIDER=off and leave the key empty.
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=from-resend
 EMAIL_FROM=ReplyPilot <hello@your-domain.com>

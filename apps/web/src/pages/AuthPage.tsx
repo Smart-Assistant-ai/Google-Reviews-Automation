@@ -23,8 +23,7 @@ const GOOGLE_ERRORS: Record<string, string> = {
   google_state: 'That sign-in link expired. Please try again.',
   google_failed: 'Google sign-in failed. Please try again.',
   google_unverified: 'Your Google account email is not verified, so we cannot use it to sign in.',
-  verify_first:
-    'An account with this email already exists but has not been confirmed. Log in with your password, or reset it, and then you can use Google.',
+  verify_first: 'An account with this email already exists. Log in with your password instead.',
   signup_not_allowed: 'Signup is by invitation only for now. Please contact us to get access.',
   account_unavailable: 'This account is not available.',
 };
@@ -198,7 +197,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
             </>
           )}
           <Stack spacing={1} sx={{ mt: 3 }}>
-            {!signup && (
+            {!signup && config?.emails && (
               <Link component={RouterLink} to="/forgot-password" variant="body2">
                 Forgot your password?
               </Link>

@@ -24,8 +24,7 @@ export default function Terms() {
       <Section title="2. Your account">
         <Typography>
           Keep your login details safe and tell us at {mail} if you think someone else has used your
-          account. You are responsible for what happens in your workspace, including what your
-          invited colleagues do.
+          account. You are responsible for what happens in your workspace.
         </Typography>
       </Section>
 

@@ -21,7 +21,9 @@ import {
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { HttpError } from '../../lib/errors';
 import { currentAuth, currentMember } from '../../plugins/access';
+import { emailEnabled } from '../../providers/email';
 import { me } from '../auth/service';
 import * as invitations from './invitations';
 import * as workspaces from './service';
@@ -169,8 +171,16 @@ export async function workspaceRoutes(instance: FastifyInstance): Promise<void> 
         response: { 200: createdInvitationResponse },
       },
     },
-    async (request) =>
-      invitations.createInvitation(currentMember(request), request.body, request.log, request.ip),
+    async (request) => {
+      // The invitation link only reaches the person by email.
+      if (!emailEnabled()) throw new HttpError(404, 'Not found', 'not_found');
+      return invitations.createInvitation(
+        currentMember(request),
+        request.body,
+        request.log,
+        request.ip,
+      );
+    },
   );
 
   app.delete(

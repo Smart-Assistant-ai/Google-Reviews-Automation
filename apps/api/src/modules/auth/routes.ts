@@ -22,6 +22,7 @@ import { HttpError } from '../../lib/errors';
 import { GOOGLE_COOKIE_PATH } from '../../lib/google-redirect';
 import { signState } from '../../lib/signed-state';
 import { currentAuth } from '../../plugins/access';
+import { emailEnabled } from '../../providers/email';
 import { devOutboxEnabled } from '../../providers/email/outbox';
 import { googleIdentity, googleSignInEnabled } from '../../providers/google-identity';
 import { registerGoogleCallbackFlow } from './google-callback';
@@ -76,6 +77,7 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
     async () => ({
       signupMode: env.SIGNUP_MODE,
       googleSignIn: googleSignInEnabled(),
+      emails: emailEnabled(),
       devOutbox: devOutboxEnabled(),
     }),
   );
@@ -214,6 +216,7 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
       schema: { response: { 200: okResponse } },
     },
     async (request) => {
+      if (!emailEnabled()) throw new HttpError(404, 'Not found', 'not_found');
       await auth.resendVerification(currentAuth(request).userId, request.log);
       return { ok: true as const };
     },
@@ -226,6 +229,7 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
       schema: { body: forgotPasswordBody, response: { 200: okResponse } },
     },
     async (request) => {
+      if (!emailEnabled()) throw new HttpError(404, 'Not found', 'not_found');
       // Not awaited: sending takes time only for real accounts, and that time would reveal who has one.
       void auth
         .forgotPassword(request.body.email, request.log)

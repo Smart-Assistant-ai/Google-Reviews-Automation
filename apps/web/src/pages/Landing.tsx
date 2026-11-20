@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useAuthConfig } from '../api/hooks';
 import PublicLayout from '../components/PublicLayout';
 import Stars from '../components/Stars';
 
@@ -36,7 +37,7 @@ const STEPS = [
   },
 ];
 
-const FEATURES: { icon: ReactNode; title: string; body: string }[] = [
+const FEATURES: { icon: ReactNode; title: string; body: string; needsEmail?: boolean }[] = [
   {
     icon: <InboxRoundedIcon color="primary" />,
     title: 'One inbox for every location',
@@ -56,10 +57,14 @@ const FEATURES: { icon: ReactNode; title: string; body: string }[] = [
     icon: <GroupsRoundedIcon color="primary" />,
     title: 'Work as a team',
     body: 'Invite colleagues, and choose which locations each person looks after.',
+    // Invitations go out by email.
+    needsEmail: true,
   },
 ];
 
 export default function Landing() {
+  const emails = useAuthConfig().data?.emails === true;
+  const features = FEATURES.filter((feature) => emails || !feature.needsEmail);
   return (
     <PublicLayout>
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
@@ -142,8 +147,8 @@ export default function Landing() {
 
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
         <Grid container spacing={3}>
-          {FEATURES.map((feature) => (
-            <Grid item xs={12} sm={6} md={3} key={feature.title}>
+          {features.map((feature) => (
+            <Grid item xs={12} sm={6} md={12 / features.length} key={feature.title}>
               {feature.icon}
               <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mt: 1 }}>
                 {feature.title}

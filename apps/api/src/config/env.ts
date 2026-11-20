@@ -41,7 +41,9 @@ const schema = z
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-    EMAIL_PROVIDER: z.enum(['mock', 'resend']).optional(),
+    // off sends no email and hides what needs one: confirming an email, resetting a password,
+    // inviting a teammate, and the emails about Google problems.
+    EMAIL_PROVIDER: z.enum(['off', 'mock', 'resend']).optional(),
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().default('ReplyPilot <onboarding@resend.dev>'),
 
@@ -59,8 +61,11 @@ const schema = z
     if (production && !value.GBP_PROVIDER) {
       fail('GBP_PROVIDER', 'GBP_PROVIDER must be chosen in production (mock or live)');
     }
-    if (production && value.EMAIL_PROVIDER !== 'resend') {
-      fail('EMAIL_PROVIDER', 'EMAIL_PROVIDER must be resend in production');
+    if (production && !value.EMAIL_PROVIDER) {
+      fail('EMAIL_PROVIDER', 'EMAIL_PROVIDER must be chosen in production (resend or off)');
+    }
+    if (production && value.EMAIL_PROVIDER === 'mock') {
+      fail('EMAIL_PROVIDER', 'EMAIL_PROVIDER cannot be mock in production (resend or off)');
     }
     if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       fail('RESEND_API_KEY', 'RESEND_API_KEY is required to send real email');

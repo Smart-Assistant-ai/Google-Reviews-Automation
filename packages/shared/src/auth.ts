@@ -57,6 +57,9 @@ export type SessionResponse = z.infer<typeof sessionResponse>;
 export const authConfigResponse = z.object({
   signupMode: z.enum(['allowlist', 'open']),
   googleSignIn: z.boolean(),
+  // False when the server sends no email, so the app hides what needs one: confirming an email,
+  // resetting a password and inviting a teammate.
+  emails: z.boolean(),
   // True when emails aren't really sent, so the web app links to the local inbox instead.
   devOutbox: z.boolean(),
 });

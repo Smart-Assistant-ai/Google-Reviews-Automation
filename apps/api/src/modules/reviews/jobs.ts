@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/node';
 import { env } from '../../config';
 import { prisma } from '../../lib/prisma';
 import type { JobDefinition } from '../../jobs/runner';
-import { sendEmail } from '../../providers/email';
+import { emailEnabled, sendEmail } from '../../providers/email';
 import { renderEmail } from '../../providers/email/template';
 import { getContext, usesFakeData, markNeedsReconnect } from '../google/connection.service';
 import { scanConnection } from '../google/locations.service';
@@ -178,6 +178,9 @@ async function emailAdmins(
 // was told. If nobody could be reached it stays unmarked, so the next run tries again. One problem
 // failing never holds up the others.
 export async function notifyProblems(): Promise<void> {
+  // The app still shows these problems on screen. Without email, the marks stay unset, so switching
+  // email on later sends one email for each problem that is still there.
+  if (!emailEnabled()) return;
   const settingsUrl = `${env.APP_URL}/settings`;
 
   const dead = await prisma.googleConnection.findMany({

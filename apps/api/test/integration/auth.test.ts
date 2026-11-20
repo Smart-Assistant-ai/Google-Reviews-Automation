@@ -118,7 +118,12 @@ describe('allowlisted signup', () => {
 
   it('tells the web app which mode it is in', async () => {
     const res = await app.inject({ url: '/api/v1/auth/config' });
-    expect(res.json()).toEqual({ signupMode: 'allowlist', googleSignIn: true, devOutbox: true });
+    expect(res.json()).toEqual({
+      signupMode: 'allowlist',
+      googleSignIn: true,
+      emails: true,
+      devOutbox: true,
+    });
   });
 });
 

@@ -5,7 +5,7 @@ import { recordAudit } from '../../lib/audit';
 import { AttemptLimiter } from '../../lib/attempt-limiter';
 import { HttpError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
-import { sendEmailSafely } from '../../providers/email';
+import { emailEnabled, sendEmailSafely } from '../../providers/email';
 import { createWorkspaceWithOwner } from '../workspaces/create';
 import { findUsableInvitation, joinFromInvitation } from '../workspaces/invitations-core';
 import { runWorkspaceCleanups } from '../workspaces/lifecycle';
@@ -132,7 +132,7 @@ export async function signup(input: SignupInput, log: Logger, ip?: string): Prom
   });
 
   await recordAudit({ action: 'auth.signup', actorUserId: user.id, ip });
-  if (!invitation)
+  if (!invitation && emailEnabled())
     await sendEmailSafely(
       verifyEmailMessage(email, await issueToken(user.id, 'verify_email')),
       log,
