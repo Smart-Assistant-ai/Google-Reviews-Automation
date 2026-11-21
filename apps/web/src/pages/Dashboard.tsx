@@ -32,7 +32,7 @@ import { useStats } from '../api/hooks';
 import { useShell } from '../layout/ShellContext';
 import SentimentCard from '../components/SentimentCard';
 import { downloadCsv, slug } from '../components/csv';
-import { plural } from '../components/format';
+import { capitalize, plural } from '../components/format';
 
 const RANGES = [
   { value: 30, label: '30d' },
@@ -227,6 +227,7 @@ export default function Dashboard() {
   }));
   const topics = (data?.topics ?? []).map((t) => ({
     ...t,
+    topic: capitalize(t.topic),
     complained: -t.negative,
     praised: t.positive,
   }));
