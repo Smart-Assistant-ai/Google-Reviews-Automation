@@ -283,9 +283,11 @@ export default function Inbox() {
         return;
       }
       // The physical key counts, so j and k work with Caps Lock or Shift on, and on keyboards
-      // whose letters aren't Latin. Autofill sends key events with no key at all.
+      // whose letters aren't Latin. The letter is only a fallback, for a key event with no code.
+      // Autofill sends key events with no key at all.
       const key = e.key?.toLowerCase();
-      const step = e.code === 'KeyJ' || key === 'j' ? 1 : e.code === 'KeyK' || key === 'k' ? -1 : 0;
+      const step =
+        e.code === 'KeyJ' ? 1 : e.code === 'KeyK' ? -1 : key === 'j' ? 1 : key === 'k' ? -1 : 0;
       // While a page is still loading, the list on screen is the old one, so wait for it.
       if (!data?.reviews.length || !step || isPlaceholderData) return;
       const index = data.reviews.findIndex((r) => r.id === selectedId);
