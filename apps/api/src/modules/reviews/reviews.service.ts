@@ -9,6 +9,7 @@ import {
   type MemberContext,
 } from '../workspaces/access';
 import { usesFakeData } from '../google/connection.service';
+import { cleanTopics } from './analysis';
 
 const BACKLOG_DAYS = 30;
 const backlogCutoff = () => new Date(Date.now() - BACKLOG_DAYS * 86_400_000);
@@ -50,7 +51,8 @@ export function reviewDto(review: ReviewRow): ReviewDto {
     createTime: review.createTime.toISOString(),
     language: review.language,
     sentiment: review.sentiment,
-    topics: review.topics as string[],
+    // Saved before topics were checked, a review may hold something else, which would break the screen.
+    topics: cleanTopics(review.topics),
     status: statusOf(review),
     purged: review.purgedAt !== null,
     postingOff: !usesFakeData(review.location.connection) && !env.GOOGLE_POSTING_ENABLED,

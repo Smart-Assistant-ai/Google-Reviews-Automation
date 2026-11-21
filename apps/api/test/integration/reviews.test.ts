@@ -562,6 +562,17 @@ describe('voice', () => {
   });
 });
 
+describe('saved topics', () => {
+  it('only sends topics that are text', async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await prisma.review.update({ where: { id: review.id }, data: { topics: [42, null, 'staff'] } });
+    const res = await req('GET', user, `/reviews/${review.id}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().topics).toEqual(['staff']);
+  });
+});
+
 describe('dashboard', () => {
   it('adds up reviews across locations', async () => {
     const user = await ownerWithReviews('multi');
@@ -574,6 +585,48 @@ describe('dashboard', () => {
     ).toBe(counts.all);
     expect(stats.weekly.length).toBeGreaterThan(0);
     expect(stats.topics.length).toBeGreaterThan(0);
+  });
+
+  it('counts a topic once whatever its case or spacing', async () => {
+    const user = await ownerWithReviews();
+    await prisma.review.updateMany({
+      where: { workspaceId: user.workspaceId },
+      data: { topics: [] },
+    });
+    const reviews = await prisma.review.findMany({
+      where: { workspaceId: user.workspaceId },
+      take: 3,
+    });
+    const spellings = ['Staff', 'staff', ' staff '];
+    for (const [i, review] of reviews.entries()) {
+      await prisma.review.update({
+        where: { id: review.id },
+        data: { topics: [spellings[i]!], createTime: new Date() },
+      });
+    }
+    const stats = (await req('GET', user, '/stats?days=365')).json();
+    const staff = stats.topics.filter(
+      (t: { topic: string }) => t.topic.trim().toLowerCase() === 'staff',
+    );
+    expect(staff).toHaveLength(1);
+    expect(staff[0].topic).toBe('staff');
+    expect(staff[0].positive + staff[0].neutral + staff[0].negative).toBe(reviews.length);
+  });
+
+  it('skips saved topics that are not text instead of failing', async () => {
+    const user = await ownerWithReviews();
+    await prisma.review.updateMany({
+      where: { workspaceId: user.workspaceId },
+      data: { topics: [] },
+    });
+    const review = await firstReview(user);
+    await prisma.review.update({
+      where: { id: review.id },
+      data: { topics: [42, null, ' staff ', ''], createTime: new Date() },
+    });
+    const res = await req('GET', user, '/stats?days=365');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().topics.map((t: { topic: string }) => t.topic)).toEqual(['staff']);
   });
 
   it('is empty, not broken, with no locations', async () => {

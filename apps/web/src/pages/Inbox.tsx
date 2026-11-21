@@ -3,14 +3,14 @@ import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
-import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
+import SearchOffRoundedIcon from '@mui/icons-material/SearchOffRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import {
   Badge,
   Box,
   Button,
   Chip,
-  IconButton,
   InputAdornment,
   List,
   ListItemButton,
@@ -22,7 +22,6 @@ import {
   Tab,
   Tabs,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -86,6 +85,50 @@ interface SimulatedReview {
   text?: string;
 }
 
+// Why the inbox shows no reviews, said on the right where the open review would be.
+function emptyInbox(view: {
+  hasLocations: boolean;
+  filtered: boolean;
+  anyReviews: boolean;
+  tab: ReviewTab;
+}): { Icon: typeof InboxRoundedIcon; title: string; body: string } {
+  if (!view.hasLocations)
+    return {
+      Icon: InboxRoundedIcon,
+      title: 'No locations yet',
+      body: 'Ask an admin to give you access to a location, and its reviews will show up here.',
+    };
+  if (view.filtered)
+    return {
+      Icon: SearchOffRoundedIcon,
+      title: 'No reviews match',
+      body: 'Try another search or star rating.',
+    };
+  if (!view.anyReviews)
+    return {
+      Icon: InboxRoundedIcon,
+      title: 'No reviews yet',
+      body: 'New Google reviews show up here as soon as they arrive.',
+    };
+  if (view.tab === 'todo')
+    return {
+      Icon: TaskAltRoundedIcon,
+      title: 'All caught up',
+      body: 'Every review has a reply. New ones show up here as they arrive.',
+    };
+  if (view.tab === 'posted')
+    return {
+      Icon: InboxRoundedIcon,
+      title: 'No posted replies yet',
+      body: 'Replies you post to Google show up here.',
+    };
+  return {
+    Icon: InboxRoundedIcon,
+    title: 'No backlog',
+    body: 'Reviews older than 30 days that still need a reply show up here.',
+  };
+}
+
 export default function Inbox() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
@@ -108,6 +151,12 @@ export default function Inbox() {
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
   const [shortcuts, setShortcuts] = useState(false);
+  // Which review to open once j or k has turned the page, and the page and filters that's for.
+  const [pageEdge, setPageEdge] = useState<{
+    edge: 'first' | 'last';
+    page: number;
+    view: string;
+  } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -237,15 +286,52 @@ export default function Inbox() {
         setShortcuts(true);
         return;
       }
-      if (!data?.reviews.length || !['j', 'k'].includes(e.key)) return;
+      // The physical key counts, so j and k work with Caps Lock or Shift on, and on keyboards
+      // whose letters aren't Latin. The letter is only a fallback, for a key event with no code.
+      // Autofill sends key events with no key at all.
+      const key = e.key?.toLowerCase();
+      const step =
+        e.code === 'KeyJ' ? 1 : e.code === 'KeyK' ? -1 : key === 'j' ? 1 : key === 'k' ? -1 : 0;
+      // While a page is still loading, the list on screen is the old one, so wait for it.
+      if (!data?.reviews.length || !step || isPlaceholderData) return;
       const index = data.reviews.findIndex((r) => r.id === selectedId);
-      const next =
-        e.key === 'j' ? Math.min(index + 1, data.reviews.length - 1) : Math.max(index - 1, 0);
-      setSelectedId(data.reviews[next]?.id ?? null);
+      const next = index + step;
+      // Past either end of the page, the next or previous page opens at the review next in line.
+      if (index !== -1 && next >= data.reviews.length) {
+        if (page < Math.ceil(data.total / PAGE_SIZE)) {
+          setPageEdge({ edge: 'first', page: page + 1, view: filterKey });
+          setPage(page + 1);
+        }
+        return;
+      }
+      if (index !== -1 && next < 0) {
+        if (page > 1) {
+          setPageEdge({ edge: 'last', page: page - 1, view: filterKey });
+          setPage(page - 1);
+        }
+        return;
+      }
+      setSelectedId(data.reviews[Math.max(next, 0)]?.id ?? null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [data, selectedId]);
+  }, [data, isPlaceholderData, selectedId, page, filterKey]);
+
+  // Once the page j or k turned to has loaded, open its first or last review. If another page or
+  // other filters took its place first, from the page numbers, a filter or the back button, the
+  // turn is forgotten.
+  useEffect(() => {
+    if (!pageEdge) return;
+    if (pageEdge.page !== page || pageEdge.view !== filterKey) {
+      setPageEdge(null);
+      return;
+    }
+    if (!data || isPlaceholderData) return;
+    setPageEdge(null);
+    const review =
+      pageEdge.edge === 'first' ? data.reviews[0] : data.reviews[data.reviews.length - 1];
+    if (review) setSelectedId(review.id);
+  }, [pageEdge, page, filterKey, data, isPlaceholderData]);
 
   // The list scrolls on its own, so the page and the open review stay where they are.
   const listRef = useRef<HTMLDivElement>(null);
@@ -293,6 +379,47 @@ export default function Inbox() {
   const firstShown = (page - 1) * PAGE_SIZE + 1;
   const lastShown = Math.min(page * PAGE_SIZE, data?.total ?? 0);
 
+  // With no review to show, the right side says why, instead of asking to pick one.
+  const empty =
+    data && !isPlaceholderData && data.reviews.length === 0
+      ? emptyInbox({
+          hasLocations: managed.length > 0,
+          filtered: Boolean(q || stars),
+          anyReviews: data.counts.all > 0,
+          tab,
+        })
+      : null;
+  const emptyView = empty && (
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      spacing={1}
+      sx={{ height: '100%', p: 4, color: 'text.secondary', textAlign: 'center' }}
+    >
+      <empty.Icon sx={{ fontSize: 40 }} />
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        {empty.title}
+      </Typography>
+      <Typography variant="body2" sx={{ maxWidth: 360 }}>
+        {empty.body}
+      </Typography>
+      {(q || stars) && (
+        <Button
+          size="small"
+          variant="outlined"
+          sx={{ mt: 1 }}
+          onClick={() => {
+            setSearch('');
+            setQ('');
+            setStars('');
+          }}
+        >
+          Clear search and filters
+        </Button>
+      )}
+    </Stack>
+  );
+
   const list = (
     <Stack
       sx={{
@@ -308,18 +435,6 @@ export default function Inbox() {
           <Typography variant="h5" sx={{ flex: 1 }}>
             Inbox
           </Typography>
-          {desktop && (
-            <Tooltip title="Keyboard shortcuts (?)">
-              <IconButton
-                size="small"
-                onClick={() => setShortcuts(true)}
-                aria-label="Keyboard shortcuts"
-                sx={{ mr: sampleLocation ? 1 : 0 }}
-              >
-                <KeyboardRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
           {sampleLocation && (
             <>
               <Button
@@ -433,6 +548,9 @@ export default function Inbox() {
       <Box ref={listRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {isLoading || !data ? (
           <ReviewListSkeleton />
+        ) : !desktop && emptyView ? (
+          // A phone has no right side, so the list itself says why it's empty.
+          emptyView
         ) : data.reviews.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ p: 6, color: 'text.secondary' }}>
             <InboxRoundedIcon sx={{ fontSize: 40 }} />
@@ -572,6 +690,8 @@ export default function Inbox() {
     </Stack>
   ) : selectedId ? (
     <ReviewDetailSkeleton />
+  ) : emptyView ? (
+    emptyView
   ) : (
     <Stack
       alignItems="center"

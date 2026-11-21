@@ -15,3 +15,11 @@ export function timeAgo(date: string): string {
 }
 
 export const LANGUAGE_NAMES: Record<string, string> = { en: 'English', es: 'Spanish' };
+
+// "1 review", "2 reviews".
+export function plural(count: number, word: string, many = `${word}s`): string {
+  return `${count} ${count === 1 ? word : many}`;
+}
+
+// Topics come back from the AI in lowercase, such as "price & billing". Labels start with a capital.
+export const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);

@@ -1,3 +1,4 @@
+import { WORKSPACE_NAME_MAX } from '@replypilot/shared';
 import {
   Alert,
   Box,
@@ -66,7 +67,7 @@ export default function WorkspaceTab() {
               onChange={(e) => setName(e.target.value)}
               fullWidth
               sx={{ maxWidth: 420 }}
-              inputProps={{ 'aria-label': 'Workspace name' }}
+              inputProps={{ 'aria-label': 'Workspace name', maxLength: WORKSPACE_NAME_MAX }}
             />
             <Button
               variant="contained"

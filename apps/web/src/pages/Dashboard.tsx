@@ -32,6 +32,7 @@ import { useStats } from '../api/hooks';
 import { useShell } from '../layout/ShellContext';
 import SentimentCard from '../components/SentimentCard';
 import { downloadCsv, slug } from '../components/csv';
+import { capitalize, plural } from '../components/format';
 
 const RANGES = [
   { value: 30, label: '30d' },
@@ -226,6 +227,7 @@ export default function Dashboard() {
   }));
   const topics = (data?.topics ?? []).map((t) => ({
     ...t,
+    topic: capitalize(t.topic),
     complained: -t.negative,
     praised: t.positive,
   }));
@@ -354,7 +356,7 @@ export default function Dashboard() {
           </Grid>
 
           <Grid item xs={12} md={5}>
-            <ChartCard title="Rating breakdown" subtitle={`${data.kpis.totalReviews} reviews`}>
+            <ChartCard title="Rating breakdown" subtitle={plural(data.kpis.totalReviews, 'review')}>
               <Stack spacing={1.75} sx={{ pt: 1 }}>
                 {data.starDistribution.map((s) => (
                   <Stack key={s.stars} direction="row" spacing={1.5} alignItems="center">

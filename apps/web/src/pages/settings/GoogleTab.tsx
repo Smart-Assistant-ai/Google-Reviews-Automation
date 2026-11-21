@@ -22,7 +22,7 @@ import { useState } from 'react';
 import { api } from '../../api/client';
 import { useGoogleStatus, useRefreshWorkspaceData, useWorkspaceId, wsPath } from '../../api/hooks';
 import LocationPicker from '../../components/LocationPicker';
-import { timeAgo } from '../../components/format';
+import { plural, timeAgo } from '../../components/format';
 
 export default function GoogleTab() {
   const workspaceId = useWorkspaceId();
@@ -122,7 +122,7 @@ export default function GoogleTab() {
                       )}
                     </Stack>
                     <Typography variant="caption" color="text.secondary">
-                      {connection.locationCount} location{connection.locationCount === 1 ? '' : 's'}
+                      {plural(connection.locationCount, 'location')}
                     </Typography>
                   </Box>
                   {connection.status === 'needs_reconnect' && (
@@ -217,7 +217,7 @@ export default function GoogleTab() {
       {available.length > 0 && (
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            {available.length} more location{available.length === 1 ? '' : 's'} on Google
+            {plural(available.length, 'more location')} on Google
           </Typography>
           {picking ? (
             <LocationPicker

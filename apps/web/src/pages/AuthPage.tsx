@@ -1,4 +1,4 @@
-import type { InvitationPreview } from '@replypilot/shared';
+import { WORKSPACE_NAME_MAX, type InvitationPreview } from '@replypilot/shared';
 import {
   Alert,
   Box,
@@ -148,6 +148,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                   required
                   fullWidth
                   autoComplete="organization"
+                  inputProps={{ maxLength: WORKSPACE_NAME_MAX }}
                 />
               )}
               <TextField

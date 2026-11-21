@@ -1,3 +1,4 @@
+import { WORKSPACE_NAME_MAX } from '@replypilot/shared';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
@@ -45,6 +46,8 @@ export default function WorkspaceSwitcher() {
         onClick={(e) => setAnchor(e.currentTarget)}
         sx={{ px: 1, flexGrow: 0 }}
         aria-label="Switch workspace"
+        // A long name is cut short here, so hovering shows all of it.
+        title={workspace?.name}
       >
         <ListItemText
           primary={workspace?.name}
@@ -54,17 +57,24 @@ export default function WorkspaceSwitcher() {
         />
         <UnfoldMoreRoundedIcon fontSize="small" color="action" />
       </ListItemButton>
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
+      {/* A long business name wraps onto more lines instead of stretching the menu across the page. */}
+      <Menu
+        anchorEl={anchor}
+        open={!!anchor}
+        onClose={() => setAnchor(null)}
+        slotProps={{ paper: { sx: { maxWidth: 320 } } }}
+      >
         {session?.workspaces.map((w) => (
           <MenuItem
             key={w.id}
             selected={w.id === workspace?.id}
+            sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', alignItems: 'flex-start' }}
             onClick={() => {
               switchWorkspace(w.id);
               setAnchor(null);
             }}
           >
-            <ListItemIcon>
+            <ListItemIcon sx={{ mt: '2px' }}>
               {w.id === workspace?.id && <CheckRoundedIcon fontSize="small" />}
             </ListItemIcon>
             {w.name}
@@ -97,6 +107,7 @@ export default function WorkspaceSwitcher() {
             label="Business name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            inputProps={{ maxLength: WORKSPACE_NAME_MAX }}
             sx={{ mt: 1 }}
           />
         </DialogContent>
