@@ -3,7 +3,9 @@ import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
+import SearchOffRoundedIcon from '@mui/icons-material/SearchOffRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import {
   Badge,
   Box,
@@ -81,6 +83,50 @@ function readView(params: URLSearchParams) {
 interface SimulatedReview {
   stars?: number;
   text?: string;
+}
+
+// Why the inbox shows no reviews, said on the right where the open review would be.
+function emptyInbox(view: {
+  hasLocations: boolean;
+  filtered: boolean;
+  anyReviews: boolean;
+  tab: ReviewTab;
+}): { Icon: typeof InboxRoundedIcon; title: string; body: string } {
+  if (!view.hasLocations)
+    return {
+      Icon: InboxRoundedIcon,
+      title: 'No locations yet',
+      body: 'Ask an admin to give you access to a location, and its reviews will show up here.',
+    };
+  if (view.filtered)
+    return {
+      Icon: SearchOffRoundedIcon,
+      title: 'No reviews match',
+      body: 'Try another search or star rating.',
+    };
+  if (!view.anyReviews)
+    return {
+      Icon: InboxRoundedIcon,
+      title: 'No reviews yet',
+      body: 'New Google reviews show up here as soon as they arrive.',
+    };
+  if (view.tab === 'todo')
+    return {
+      Icon: TaskAltRoundedIcon,
+      title: 'All caught up',
+      body: 'Every review has a reply. New ones show up here as they arrive.',
+    };
+  if (view.tab === 'posted')
+    return {
+      Icon: InboxRoundedIcon,
+      title: 'No posted replies yet',
+      body: 'Replies you post to Google show up here.',
+    };
+  return {
+    Icon: InboxRoundedIcon,
+    title: 'No backlog',
+    body: 'Reviews older than 30 days that still need a reply show up here.',
+  };
 }
 
 export default function Inbox() {
@@ -542,6 +588,17 @@ export default function Inbox() {
     </Stack>
   );
 
+  // With no review to show, the right side says why, instead of asking to pick one.
+  const empty =
+    data && !isPlaceholderData && data.reviews.length === 0
+      ? emptyInbox({
+          hasLocations: managed.length > 0,
+          filtered: Boolean(q || stars),
+          anyReviews: data.counts.all > 0,
+          tab,
+        })
+      : null;
+
   const detailPane = detail ? (
     <ReviewDetail
       review={detail}
@@ -586,6 +643,21 @@ export default function Inbox() {
     </Stack>
   ) : selectedId ? (
     <ReviewDetailSkeleton />
+  ) : empty ? (
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      spacing={1}
+      sx={{ height: '100%', p: 4, color: 'text.secondary', textAlign: 'center' }}
+    >
+      <empty.Icon sx={{ fontSize: 40 }} />
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        {empty.title}
+      </Typography>
+      <Typography variant="body2" sx={{ maxWidth: 360 }}>
+        {empty.body}
+      </Typography>
+    </Stack>
   ) : (
     <Stack
       alignItems="center"
