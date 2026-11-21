@@ -1,3 +1,4 @@
+import { WORKSPACE_NAME_MAX } from '@replypilot/shared';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
@@ -106,6 +107,7 @@ export default function WorkspaceSwitcher() {
             label="Business name"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            inputProps={{ maxLength: WORKSPACE_NAME_MAX }}
             sx={{ mt: 1 }}
           />
         </DialogContent>

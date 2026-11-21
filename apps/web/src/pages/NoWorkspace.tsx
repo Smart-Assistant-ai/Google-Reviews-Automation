@@ -1,3 +1,4 @@
+import { WORKSPACE_NAME_MAX } from '@replypilot/shared';
 import { Alert, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
@@ -40,6 +41,7 @@ export default function NoWorkspace() {
               label="Business name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              inputProps={{ maxLength: WORKSPACE_NAME_MAX }}
               fullWidth
             />
             <Button
