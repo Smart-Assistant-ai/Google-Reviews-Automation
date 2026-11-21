@@ -548,6 +548,9 @@ export default function Inbox() {
       <Box ref={listRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {isLoading || !data ? (
           <ReviewListSkeleton />
+        ) : !desktop && emptyView ? (
+          // A phone has no right side, so the list itself says why it's empty.
+          emptyView
         ) : data.reviews.length === 0 ? (
           <Stack alignItems="center" spacing={1} sx={{ p: 6, color: 'text.secondary' }}>
             <InboxRoundedIcon sx={{ fontSize: 40 }} />
