@@ -100,8 +100,12 @@ export function analyze(review: { starRating: number; comment: string | null }):
 }
 
 // Topics read back from the AI's JSON, or from the database, can be anything. Only text is kept,
-// at most three.
+// without spaces around it and never blank, at most three.
 export function cleanTopics(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((topic): topic is string => typeof topic === 'string').slice(0, 3);
+  return raw
+    .filter((topic): topic is string => typeof topic === 'string')
+    .map((topic) => topic.trim())
+    .filter(Boolean)
+    .slice(0, 3);
 }
