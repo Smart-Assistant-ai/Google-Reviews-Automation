@@ -151,8 +151,8 @@ export default function Inbox() {
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
   const [shortcuts, setShortcuts] = useState(false);
-  // Which review to open once j or k has turned the page.
-  const [pageEdge, setPageEdge] = useState<'first' | 'last' | null>(null);
+  // Which review to open once j or k has turned the page, and the page that's for.
+  const [pageEdge, setPageEdge] = useState<{ edge: 'first' | 'last'; page: number } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -295,14 +295,14 @@ export default function Inbox() {
       // Past either end of the page, the next or previous page opens at the review next in line.
       if (index !== -1 && next >= data.reviews.length) {
         if (page < Math.ceil(data.total / PAGE_SIZE)) {
-          setPageEdge('first');
+          setPageEdge({ edge: 'first', page: page + 1 });
           setPage(page + 1);
         }
         return;
       }
       if (index !== -1 && next < 0) {
         if (page > 1) {
-          setPageEdge('last');
+          setPageEdge({ edge: 'last', page: page - 1 });
           setPage(page - 1);
         }
         return;
@@ -313,13 +313,20 @@ export default function Inbox() {
     return () => window.removeEventListener('keydown', onKey);
   }, [data, isPlaceholderData, selectedId, page]);
 
-  // Once the page j or k turned to has loaded, open its first or last review.
+  // Once the page j or k turned to has loaded, open its first or last review. If another page
+  // took its place first, for example from the page numbers, the turn is forgotten.
   useEffect(() => {
-    if (!pageEdge || !data || isPlaceholderData) return;
+    if (!pageEdge) return;
+    if (pageEdge.page !== page) {
+      setPageEdge(null);
+      return;
+    }
+    if (!data || isPlaceholderData) return;
     setPageEdge(null);
-    const review = pageEdge === 'first' ? data.reviews[0] : data.reviews[data.reviews.length - 1];
+    const review =
+      pageEdge.edge === 'first' ? data.reviews[0] : data.reviews[data.reviews.length - 1];
     if (review) setSelectedId(review.id);
-  }, [pageEdge, data, isPlaceholderData]);
+  }, [pageEdge, page, data, isPlaceholderData]);
 
   // The list scrolls on its own, so the page and the open review stay where they are.
   const listRef = useRef<HTMLDivElement>(null);
