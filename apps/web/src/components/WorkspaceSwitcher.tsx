@@ -45,6 +45,8 @@ export default function WorkspaceSwitcher() {
         onClick={(e) => setAnchor(e.currentTarget)}
         sx={{ px: 1, flexGrow: 0 }}
         aria-label="Switch workspace"
+        // A long name is cut short here, so hovering shows all of it.
+        title={workspace?.name}
       >
         <ListItemText
           primary={workspace?.name}
