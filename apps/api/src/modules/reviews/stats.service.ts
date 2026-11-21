@@ -5,6 +5,7 @@ import {
   assertLocationAccess,
   type MemberContext,
 } from '../workspaces/access';
+import { cleanTopics } from './analysis';
 
 const DAY = 86_400_000;
 
@@ -87,10 +88,10 @@ export async function overview(
   for (const review of reviews) {
     const mood = (review.sentiment ?? 'neutral') as keyof typeof sentiment;
     if (review.sentiment) sentiment[mood] += 1;
-    // The AI doesn't always write a topic the same way, so "Staff" and "staff" count as one.
-    for (const raw of (review.topics as string[]) ?? []) {
-      const topic = raw.trim().toLowerCase();
-      if (!topic) continue;
+    // The AI doesn't always write a topic the same way, so "Staff" and "staff" count as one. A
+    // review saved before topics were checked may hold something other than text, which is skipped.
+    for (const raw of cleanTopics(review.topics)) {
+      const topic = raw.toLowerCase();
       const row = topics.get(topic) ?? { topic, positive: 0, negative: 0, neutral: 0 };
       row[mood] += 1;
       topics.set(topic, row);

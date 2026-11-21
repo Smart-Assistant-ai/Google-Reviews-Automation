@@ -602,6 +602,22 @@ describe('dashboard', () => {
     expect(staff[0].positive + staff[0].neutral + staff[0].negative).toBe(reviews.length);
   });
 
+  it('skips saved topics that are not text instead of failing', async () => {
+    const user = await ownerWithReviews();
+    await prisma.review.updateMany({
+      where: { workspaceId: user.workspaceId },
+      data: { topics: [] },
+    });
+    const review = await firstReview(user);
+    await prisma.review.update({
+      where: { id: review.id },
+      data: { topics: [42, null, ' staff ', ''], createTime: new Date() },
+    });
+    const res = await req('GET', user, '/stats?days=365');
+    expect(res.statusCode).toBe(200);
+    expect(res.json().topics.map((t: { topic: string }) => t.topic)).toEqual(['staff']);
+  });
+
   it('is empty, not broken, with no locations', async () => {
     const user = await signup(app);
     const stats = (await req('GET', user, '/stats')).json();
