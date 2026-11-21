@@ -35,7 +35,7 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import Highlight from './Highlight';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
-import { LANGUAGE_NAMES, timeAgo } from './format';
+import { LANGUAGE_NAMES, capitalize, timeAgo } from './format';
 import { api } from '../api/client';
 import { useWorkspaceId, wsPath } from '../api/hooks';
 
@@ -217,7 +217,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
             />
           )}
           {review.topics.map((t) => (
-            <Chip key={t} size="small" label={t} />
+            <Chip key={t} size="small" label={capitalize(t)} />
           ))}
         </Stack>
       </Box>
