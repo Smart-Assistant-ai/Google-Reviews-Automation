@@ -562,6 +562,17 @@ describe('voice', () => {
   });
 });
 
+describe('saved topics', () => {
+  it('only sends topics that are text', async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    await prisma.review.update({ where: { id: review.id }, data: { topics: [42, null, 'staff'] } });
+    const res = await req('GET', user, `/reviews/${review.id}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().topics).toEqual(['staff']);
+  });
+});
+
 describe('dashboard', () => {
   it('adds up reviews across locations', async () => {
     const user = await ownerWithReviews('multi');
