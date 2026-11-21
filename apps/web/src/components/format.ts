@@ -15,3 +15,8 @@ export function timeAgo(date: string): string {
 }
 
 export const LANGUAGE_NAMES: Record<string, string> = { en: 'English', es: 'Spanish' };
+
+// "1 review", "2 reviews".
+export function plural(count: number, word: string, many = `${word}s`): string {
+  return `${count} ${count === 1 ? word : many}`;
+}
