@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { emailSchema, passwordSchema } from './common';
 import { memberRoleSchema } from './permissions';
+import { WORKSPACE_NAME_MAX } from './workspaces';
 
-const nameSchema = z.string().trim().min(1).max(120);
+const nameSchema = z.string().trim().min(1).max(WORKSPACE_NAME_MAX);
 
 export const signupBody = z.object({
   email: emailSchema,
