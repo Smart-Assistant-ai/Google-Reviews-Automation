@@ -576,6 +576,32 @@ describe('dashboard', () => {
     expect(stats.topics.length).toBeGreaterThan(0);
   });
 
+  it('counts a topic once whatever its case or spacing', async () => {
+    const user = await ownerWithReviews();
+    await prisma.review.updateMany({
+      where: { workspaceId: user.workspaceId },
+      data: { topics: [] },
+    });
+    const reviews = await prisma.review.findMany({
+      where: { workspaceId: user.workspaceId },
+      take: 3,
+    });
+    const spellings = ['Staff', 'staff', ' staff '];
+    for (const [i, review] of reviews.entries()) {
+      await prisma.review.update({
+        where: { id: review.id },
+        data: { topics: [spellings[i]!], createTime: new Date() },
+      });
+    }
+    const stats = (await req('GET', user, '/stats?days=365')).json();
+    const staff = stats.topics.filter(
+      (t: { topic: string }) => t.topic.trim().toLowerCase() === 'staff',
+    );
+    expect(staff).toHaveLength(1);
+    expect(staff[0].topic).toBe('staff');
+    expect(staff[0].positive + staff[0].neutral + staff[0].negative).toBe(reviews.length);
+  });
+
   it('is empty, not broken, with no locations', async () => {
     const user = await signup(app);
     const stats = (await req('GET', user, '/stats')).json();

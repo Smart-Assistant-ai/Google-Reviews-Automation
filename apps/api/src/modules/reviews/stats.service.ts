@@ -87,7 +87,10 @@ export async function overview(
   for (const review of reviews) {
     const mood = (review.sentiment ?? 'neutral') as keyof typeof sentiment;
     if (review.sentiment) sentiment[mood] += 1;
-    for (const topic of (review.topics as string[]) ?? []) {
+    // The AI doesn't always write a topic the same way, so "Staff" and "staff" count as one.
+    for (const raw of (review.topics as string[]) ?? []) {
+      const topic = raw.trim().toLowerCase();
+      if (!topic) continue;
       const row = topics.get(topic) ?? { topic, positive: 0, negative: 0, neutral: 0 };
       row[mood] += 1;
       topics.set(topic, row);
