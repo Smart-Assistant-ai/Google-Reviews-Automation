@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plural } from './format';
+import { capitalize, plural } from './format';
 
 describe('plural', () => {
   it('uses the single word only for exactly one', () => {
@@ -10,5 +10,14 @@ describe('plural', () => {
 
   it('takes an irregular plural', () => {
     expect(plural(3, 'reply', 'replies')).toBe('3 replies');
+  });
+});
+
+describe('capitalize', () => {
+  it('capitalises only the first letter', () => {
+    expect(capitalize('supportive trainers')).toBe('Supportive trainers');
+    expect(capitalize('price & billing')).toBe('Price & billing');
+    expect(capitalize('Wi-Fi')).toBe('Wi-Fi');
+    expect(capitalize('')).toBe('');
   });
 });
