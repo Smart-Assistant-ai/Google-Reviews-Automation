@@ -3,14 +3,12 @@ import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
-import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import {
   Badge,
   Box,
   Button,
   Chip,
-  IconButton,
   InputAdornment,
   List,
   ListItemButton,
@@ -22,7 +20,6 @@ import {
   Tab,
   Tabs,
   TextField,
-  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -308,18 +305,6 @@ export default function Inbox() {
           <Typography variant="h5" sx={{ flex: 1 }}>
             Inbox
           </Typography>
-          {desktop && (
-            <Tooltip title="Keyboard shortcuts (?)">
-              <IconButton
-                size="small"
-                onClick={() => setShortcuts(true)}
-                aria-label="Keyboard shortcuts"
-                sx={{ mr: sampleLocation ? 1 : 0 }}
-              >
-                <KeyboardRoundedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
           {sampleLocation && (
             <>
               <Button
