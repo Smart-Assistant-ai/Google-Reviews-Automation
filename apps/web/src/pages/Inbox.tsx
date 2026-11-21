@@ -234,10 +234,13 @@ export default function Inbox() {
         setShortcuts(true);
         return;
       }
-      if (!data?.reviews.length || !['j', 'k'].includes(e.key)) return;
+      // The physical key counts, so j and k work with Caps Lock or Shift on, and on keyboards
+      // whose letters aren't Latin. Autofill sends key events with no key at all.
+      const key = e.key?.toLowerCase();
+      const step = e.code === 'KeyJ' || key === 'j' ? 1 : e.code === 'KeyK' || key === 'k' ? -1 : 0;
+      if (!data?.reviews.length || !step) return;
       const index = data.reviews.findIndex((r) => r.id === selectedId);
-      const next =
-        e.key === 'j' ? Math.min(index + 1, data.reviews.length - 1) : Math.max(index - 1, 0);
+      const next = Math.min(Math.max(index + step, 0), data.reviews.length - 1);
       setSelectedId(data.reviews[next]?.id ?? null);
     };
     window.addEventListener('keydown', onKey);
