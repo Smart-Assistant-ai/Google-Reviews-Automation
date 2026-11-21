@@ -105,6 +105,8 @@ export default function Inbox() {
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
   const [shortcuts, setShortcuts] = useState(false);
+  // Which review to open once j or k has turned the page.
+  const [pageEdge, setPageEdge] = useState<'first' | 'last' | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -238,14 +240,38 @@ export default function Inbox() {
       // whose letters aren't Latin. Autofill sends key events with no key at all.
       const key = e.key?.toLowerCase();
       const step = e.code === 'KeyJ' || key === 'j' ? 1 : e.code === 'KeyK' || key === 'k' ? -1 : 0;
-      if (!data?.reviews.length || !step) return;
+      // While a page is still loading, the list on screen is the old one, so wait for it.
+      if (!data?.reviews.length || !step || isPlaceholderData) return;
       const index = data.reviews.findIndex((r) => r.id === selectedId);
-      const next = Math.min(Math.max(index + step, 0), data.reviews.length - 1);
-      setSelectedId(data.reviews[next]?.id ?? null);
+      const next = index + step;
+      // Past either end of the page, the next or previous page opens at the review next in line.
+      if (index !== -1 && next >= data.reviews.length) {
+        if (page < Math.ceil(data.total / PAGE_SIZE)) {
+          setPageEdge('first');
+          setPage(page + 1);
+        }
+        return;
+      }
+      if (index !== -1 && next < 0) {
+        if (page > 1) {
+          setPageEdge('last');
+          setPage(page - 1);
+        }
+        return;
+      }
+      setSelectedId(data.reviews[Math.max(next, 0)]?.id ?? null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [data, selectedId]);
+  }, [data, isPlaceholderData, selectedId, page]);
+
+  // Once the page j or k turned to has loaded, open its first or last review.
+  useEffect(() => {
+    if (!pageEdge || !data || isPlaceholderData) return;
+    setPageEdge(null);
+    const review = pageEdge === 'first' ? data.reviews[0] : data.reviews[data.reviews.length - 1];
+    if (review) setSelectedId(review.id);
+  }, [pageEdge, data, isPlaceholderData]);
 
   // The list scrolls on its own, so the page and the open review stay where they are.
   const listRef = useRef<HTMLDivElement>(null);
