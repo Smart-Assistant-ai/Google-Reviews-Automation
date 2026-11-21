@@ -379,6 +379,47 @@ export default function Inbox() {
   const firstShown = (page - 1) * PAGE_SIZE + 1;
   const lastShown = Math.min(page * PAGE_SIZE, data?.total ?? 0);
 
+  // With no review to show, the right side says why, instead of asking to pick one.
+  const empty =
+    data && !isPlaceholderData && data.reviews.length === 0
+      ? emptyInbox({
+          hasLocations: managed.length > 0,
+          filtered: Boolean(q || stars),
+          anyReviews: data.counts.all > 0,
+          tab,
+        })
+      : null;
+  const emptyView = empty && (
+    <Stack
+      alignItems="center"
+      justifyContent="center"
+      spacing={1}
+      sx={{ height: '100%', p: 4, color: 'text.secondary', textAlign: 'center' }}
+    >
+      <empty.Icon sx={{ fontSize: 40 }} />
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+        {empty.title}
+      </Typography>
+      <Typography variant="body2" sx={{ maxWidth: 360 }}>
+        {empty.body}
+      </Typography>
+      {(q || stars) && (
+        <Button
+          size="small"
+          variant="outlined"
+          sx={{ mt: 1 }}
+          onClick={() => {
+            setSearch('');
+            setQ('');
+            setStars('');
+          }}
+        >
+          Clear search and filters
+        </Button>
+      )}
+    </Stack>
+  );
+
   const list = (
     <Stack
       sx={{
@@ -602,17 +643,6 @@ export default function Inbox() {
     </Stack>
   );
 
-  // With no review to show, the right side says why, instead of asking to pick one.
-  const empty =
-    data && !isPlaceholderData && data.reviews.length === 0
-      ? emptyInbox({
-          hasLocations: managed.length > 0,
-          filtered: Boolean(q || stars),
-          anyReviews: data.counts.all > 0,
-          tab,
-        })
-      : null;
-
   const detailPane = detail ? (
     <ReviewDetail
       review={detail}
@@ -657,35 +687,8 @@ export default function Inbox() {
     </Stack>
   ) : selectedId ? (
     <ReviewDetailSkeleton />
-  ) : empty ? (
-    <Stack
-      alignItems="center"
-      justifyContent="center"
-      spacing={1}
-      sx={{ height: '100%', p: 4, color: 'text.secondary', textAlign: 'center' }}
-    >
-      <empty.Icon sx={{ fontSize: 40 }} />
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-        {empty.title}
-      </Typography>
-      <Typography variant="body2" sx={{ maxWidth: 360 }}>
-        {empty.body}
-      </Typography>
-      {(q || stars) && (
-        <Button
-          size="small"
-          variant="outlined"
-          sx={{ mt: 1 }}
-          onClick={() => {
-            setSearch('');
-            setQ('');
-            setStars('');
-          }}
-        >
-          Clear search and filters
-        </Button>
-      )}
-    </Stack>
+  ) : emptyView ? (
+    emptyView
   ) : (
     <Stack
       alignItems="center"
