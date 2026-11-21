@@ -151,8 +151,12 @@ export default function Inbox() {
   const [simMenu, setSimMenu] = useState<HTMLElement | null>(null);
   const [toast, setToast] = useState('');
   const [shortcuts, setShortcuts] = useState(false);
-  // Which review to open once j or k has turned the page, and the page that's for.
-  const [pageEdge, setPageEdge] = useState<{ edge: 'first' | 'last'; page: number } | null>(null);
+  // Which review to open once j or k has turned the page, and the page and filters that's for.
+  const [pageEdge, setPageEdge] = useState<{
+    edge: 'first' | 'last';
+    page: number;
+    view: string;
+  } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -295,14 +299,14 @@ export default function Inbox() {
       // Past either end of the page, the next or previous page opens at the review next in line.
       if (index !== -1 && next >= data.reviews.length) {
         if (page < Math.ceil(data.total / PAGE_SIZE)) {
-          setPageEdge({ edge: 'first', page: page + 1 });
+          setPageEdge({ edge: 'first', page: page + 1, view: filterKey });
           setPage(page + 1);
         }
         return;
       }
       if (index !== -1 && next < 0) {
         if (page > 1) {
-          setPageEdge({ edge: 'last', page: page - 1 });
+          setPageEdge({ edge: 'last', page: page - 1, view: filterKey });
           setPage(page - 1);
         }
         return;
@@ -311,13 +315,14 @@ export default function Inbox() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [data, isPlaceholderData, selectedId, page]);
+  }, [data, isPlaceholderData, selectedId, page, filterKey]);
 
-  // Once the page j or k turned to has loaded, open its first or last review. If another page
-  // took its place first, for example from the page numbers, the turn is forgotten.
+  // Once the page j or k turned to has loaded, open its first or last review. If another page or
+  // other filters took its place first, from the page numbers, a filter or the back button, the
+  // turn is forgotten.
   useEffect(() => {
     if (!pageEdge) return;
-    if (pageEdge.page !== page) {
+    if (pageEdge.page !== page || pageEdge.view !== filterKey) {
       setPageEdge(null);
       return;
     }
@@ -326,7 +331,7 @@ export default function Inbox() {
     const review =
       pageEdge.edge === 'first' ? data.reviews[0] : data.reviews[data.reviews.length - 1];
     if (review) setSelectedId(review.id);
-  }, [pageEdge, page, data, isPlaceholderData]);
+  }, [pageEdge, page, filterKey, data, isPlaceholderData]);
 
   // The list scrolls on its own, so the page and the open review stay where they are.
   const listRef = useRef<HTMLDivElement>(null);
