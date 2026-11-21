@@ -54,17 +54,24 @@ export default function WorkspaceSwitcher() {
         />
         <UnfoldMoreRoundedIcon fontSize="small" color="action" />
       </ListItemButton>
-      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
+      {/* A long business name wraps onto more lines instead of stretching the menu across the page. */}
+      <Menu
+        anchorEl={anchor}
+        open={!!anchor}
+        onClose={() => setAnchor(null)}
+        slotProps={{ paper: { sx: { maxWidth: 320 } } }}
+      >
         {session?.workspaces.map((w) => (
           <MenuItem
             key={w.id}
             selected={w.id === workspace?.id}
+            sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', alignItems: 'flex-start' }}
             onClick={() => {
               switchWorkspace(w.id);
               setAnchor(null);
             }}
           >
-            <ListItemIcon>
+            <ListItemIcon sx={{ mt: '2px' }}>
               {w.id === workspace?.id && <CheckRoundedIcon fontSize="small" />}
             </ListItemIcon>
             {w.name}
