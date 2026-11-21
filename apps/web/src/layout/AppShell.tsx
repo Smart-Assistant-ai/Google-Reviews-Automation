@@ -35,6 +35,7 @@ import { useAuthConfig, useGoogleStatus, useTodoCount } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
 import OutboxLink from '../components/OutboxLink';
+import { plural } from '../components/format';
 import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import { useColorMode } from '../theme/ColorModeContext';
 import { ShellContext, managedLocations } from './ShellContext';
@@ -79,7 +80,7 @@ function ConnectionWarnings() {
       )}
       {lost > 0 && (
         <Typography variant="caption" color="warning.main" component="div" sx={{ fontWeight: 600 }}>
-          {lost} location{lost > 1 ? 's' : ''} lost access
+          {plural(lost, 'location')} lost access
         </Typography>
       )}
       {waiting && (

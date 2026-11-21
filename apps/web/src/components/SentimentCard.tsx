@@ -2,6 +2,7 @@ import type { Stats } from '@replypilot/shared';
 import { Box, Card, CardContent, Stack, Tooltip, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { chartColors } from '../theme/chartColors';
+import { plural } from './format';
 
 const INK_DARK = '#16181D';
 
@@ -47,7 +48,7 @@ export default function SentimentCard({ sentiment }: { sentiment: Stats['sentime
             <Typography variant="subtitle2">How reviews feel</Typography>
             <Typography variant="caption" color="text.secondary">
               {total
-                ? `Sentiment of ${total} analysed review${total === 1 ? '' : 's'}`
+                ? `Sentiment of ${plural(total, 'analysed review')}`
                 : 'Sentiment of written reviews'}
             </Typography>
           </Box>
@@ -80,7 +81,7 @@ export default function SentimentCard({ sentiment }: { sentiment: Stats['sentime
               .map((p) => (
                 <Tooltip
                   key={p.key}
-                  title={`${p.label}: ${p.count} review${p.count === 1 ? '' : 's'} (${pct(p.share)})`}
+                  title={`${p.label}: ${plural(p.count, 'review')} (${pct(p.share)})`}
                   arrow
                 >
                   <Box
