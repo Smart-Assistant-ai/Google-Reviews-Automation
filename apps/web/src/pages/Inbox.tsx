@@ -657,6 +657,20 @@ export default function Inbox() {
       <Typography variant="body2" sx={{ maxWidth: 360 }}>
         {empty.body}
       </Typography>
+      {(q || stars) && (
+        <Button
+          size="small"
+          variant="outlined"
+          sx={{ mt: 1 }}
+          onClick={() => {
+            setSearch('');
+            setQ('');
+            setStars('');
+          }}
+        >
+          Clear search and filters
+        </Button>
+      )}
     </Stack>
   ) : (
     <Stack
