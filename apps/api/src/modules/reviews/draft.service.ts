@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/node';
 import OpenAI from 'openai';
 import { env } from '../../config';
 import { prisma } from '../../lib/prisma';
-import { analyze, type Analysis } from './analysis';
+import { analyze, cleanTopics, type Analysis } from './analysis';
 import { draftFromTemplate } from './template-drafter';
 import { effectiveVoice } from './voice.service';
 
@@ -41,7 +41,8 @@ function systemPrompt(voice: Voice): string {
 interface AiDraft {
   reply: string;
   sentiment?: Analysis['sentiment'];
-  topics?: string[];
+  // Whatever the AI wrote, until cleanTopics has checked it.
+  topics?: unknown;
   language?: string;
 }
 
@@ -118,10 +119,11 @@ export async function draftForReview(
         result = await aiDraft(review, voice, recentReplies, 'Make it noticeably shorter.');
       }
       text = result.reply;
+      const topics = cleanTopics(result.topics);
       analysis = {
         language: result.language ?? analysis.language,
         sentiment: result.sentiment ?? analysis.sentiment,
-        topics: result.topics?.length ? result.topics.slice(0, 3) : analysis.topics,
+        topics: topics.length ? topics : analysis.topics,
       };
     } catch (err) {
       // Reported, because a wrong model name or key would otherwise fail quietly on every draft.
