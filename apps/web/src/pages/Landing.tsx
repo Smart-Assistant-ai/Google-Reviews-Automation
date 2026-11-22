@@ -1,3 +1,4 @@
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
@@ -361,25 +362,60 @@ export default function Landing() {
           ))}
         </Grid>
 
-        <Reveal sx={{ mt: 6 }}>
-          <Card variant="outlined">
+        <Reveal sx={{ mt: { xs: 6, md: 8 } }}>
+          <Card
+            sx={(theme) => ({
+              borderRadius: '16px',
+              backgroundImage: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.1 : 0.06)}, transparent 55%)`,
+            })}
+          >
             <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <LockRoundedIcon color="primary" />
-                <Typography variant="h6" component="h2">
-                  What ReplyPilot does with your Google data
-                </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 2, sm: 3 }}>
+                <Box
+                  sx={(theme) => ({
+                    flexShrink: 0,
+                    width: 52,
+                    height: 52,
+                    borderRadius: '14px',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: 'primary.main',
+                    bgcolor: alpha(theme.palette.primary.main, 0.12),
+                  })}
+                >
+                  <LockRoundedIcon />
+                </Box>
+                <Box>
+                  {/* Google's verification reads this, so keep the wording exact. */}
+                  <Typography variant="h6" component="h2">
+                    What ReplyPilot does with your Google data
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1 }}>
+                    When you connect, Google asks you to let ReplyPilot manage your Business
+                    Profile. We use that permission only to list the profiles and locations you
+                    manage, read their reviews, and post, edit or delete the replies you approve. We
+                    don&apos;t sell your data, use it for advertising, or use it to train AI models.
+                    You can disconnect at any time in Settings or from your Google Account.
+                  </Typography>
+                  <Link
+                    component={RouterLink}
+                    to="/privacy"
+                    underline="hover"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mt: 1.5,
+                      fontWeight: 600,
+                      '& svg': { fontSize: 18, transition: `transform 200ms ${EASE_OUT}` },
+                      '&:hover svg': { transform: 'translateX(3px)' },
+                    }}
+                  >
+                    Read our privacy policy
+                    <ArrowForwardRoundedIcon />
+                  </Link>
+                </Box>
               </Stack>
-              <Typography color="text.secondary" sx={{ mt: 1.5 }}>
-                When you connect, Google asks you to let ReplyPilot manage your Business Profile. We
-                use that permission only to list the profiles and locations you manage, read their
-                reviews, and post, edit or delete the replies you approve. We don&apos;t sell your
-                data, use it for advertising, or use it to train AI models. You can disconnect at
-                any time in Settings or from your Google Account.
-              </Typography>
-              <Link component={RouterLink} to="/privacy" sx={{ display: 'inline-block', mt: 1.5 }}>
-                Read our privacy policy
-              </Link>
             </CardContent>
           </Card>
         </Reveal>
