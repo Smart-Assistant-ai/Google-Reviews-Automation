@@ -23,7 +23,8 @@ export default function SectionHeading({
       <Typography
         variant="h4"
         component="h2"
-        sx={{ mt: 0.5, fontSize: { xs: '1.75rem', md: '2.25rem' } }}
+        // Even line lengths, so a title never ends with one word on its own line.
+        sx={{ mt: 0.5, fontSize: { xs: '1.75rem', md: '2.25rem' }, textWrap: 'balance' }}
       >
         {title}
       </Typography>

@@ -141,6 +141,7 @@ export default function Landing() {
                   fontWeight: 700,
                   fontSize: { xs: '2.4rem', sm: '3rem', md: '3.6rem' },
                   lineHeight: 1.08,
+                  textWrap: 'balance',
                   letterSpacing: '-0.03em',
                   ...enter(80),
                 }}
