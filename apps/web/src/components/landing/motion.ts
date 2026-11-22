@@ -24,3 +24,8 @@ export const drift = keyframes`
   50% { transform: translate3d(40px, 24px, 0) scale(1.08); }
   100% { transform: translate3d(-24px, 12px, 0) scale(0.95); }
 `;
+
+// Slides a gradient along, for the coloured words in the headline.
+export const shimmer = keyframes`
+  to { background-position: 200% center; }
+`;

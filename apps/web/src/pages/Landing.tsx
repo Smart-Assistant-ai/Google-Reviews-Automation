@@ -17,10 +17,11 @@ import {
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
+import { brand } from '../theme';
 import PublicLayout from '../components/PublicLayout';
 import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
-import { enter } from '../components/landing/motion';
+import { enter, noMotion, shimmer } from '../components/landing/motion';
 import Stars from '../components/Stars';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
@@ -83,9 +84,38 @@ export default function Landing() {
               <Typography
                 variant="h3"
                 component="h1"
-                sx={{ fontWeight: 700, letterSpacing: '-0.02em', ...enter() }}
+                sx={{
+                  fontWeight: 700,
+                  fontSize: { xs: '2.4rem', sm: '3rem', md: '3.6rem' },
+                  lineHeight: 1.08,
+                  letterSpacing: '-0.03em',
+                  ...enter(),
+                }}
               >
-                Answer every Google review, in minutes
+                Answer{' '}
+                <Box
+                  component="span"
+                  sx={(theme) => {
+                    // Greens only: amber would be too faint against the light background.
+                    const stops =
+                      theme.palette.mode === 'dark'
+                        ? [brand.light, '#9BE7D2', brand.light]
+                        : [brand.dark, brand.main, '#1BA98C', brand.main, brand.dark];
+                    return {
+                      backgroundImage: `linear-gradient(90deg, ${stops.join(', ')})`,
+                      backgroundSize: '200% auto',
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      color: 'transparent',
+                      WebkitTextFillColor: 'transparent',
+                      animation: `${shimmer} 8s linear infinite`,
+                      [noMotion]: { animation: 'none' },
+                    };
+                  }}
+                >
+                  every Google review
+                </Box>
+                , in minutes
               </Typography>
               <Typography
                 variant="h6"
