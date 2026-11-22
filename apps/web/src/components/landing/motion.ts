@@ -34,3 +34,28 @@ export const shimmer = keyframes`
 export const ping = keyframes`
   75%, 100% { transform: scale(2.6); opacity: 0; }
 `;
+
+// Grows past full size and settles, for stars and the status that appear in the sample review.
+export const pop = keyframes`
+  0% { opacity: 0; transform: scale(0.4); }
+  70% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+`;
+
+// The typing cursor.
+export const blink = keyframes`
+  50% { opacity: 0; }
+`;
+
+// The three dots of "drafting".
+export const bounce = keyframes`
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-3px); opacity: 1; }
+`;
+
+// A button being pressed, near the end of the time it is shown.
+export const press = keyframes`
+  0%, 60% { transform: scale(1); }
+  72% { transform: scale(0.93); }
+  84%, 100% { transform: scale(1); }
+`;

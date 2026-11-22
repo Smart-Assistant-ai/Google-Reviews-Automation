@@ -21,10 +21,10 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
 import { brand } from '../theme';
 import PublicLayout from '../components/PublicLayout';
+import HeroDemo from '../components/landing/HeroDemo';
 import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
 import { enter, noMotion, ping, shimmer } from '../components/landing/motion';
-import Stars from '../components/Stars';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
 // plainly what ReplyPilot does with a connected Business Profile and links the privacy policy.
@@ -211,32 +211,9 @@ export default function Landing() {
               </Stack>
             </Grid>
             <Grid item xs={12} md={5}>
-              <Card sx={{ boxShadow: '0 12px 40px rgba(0,0,0,0.08)', ...enter(300) }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Stars value={5} />
-                  <Typography sx={{ mt: 1 }}>
-                    &ldquo;Quick service and friendly staff. Will be back.&rdquo;
-                  </Typography>
-                  <Box
-                    sx={{
-                      mt: 2,
-                      p: 2,
-                      borderRadius: 2,
-                      bgcolor: 'action.hover',
-                      borderLeft: 3,
-                      borderColor: 'primary.main',
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">
-                      Draft reply
-                    </Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      Thank you so much! We&apos;re glad the team looked after you, and we look
-                      forward to seeing you again soon.
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
+              <Box sx={enter(300)}>
+                <HeroDemo />
+              </Box>
             </Grid>
           </Grid>
         </Container>
