@@ -30,6 +30,7 @@ import HeroDemo from '../components/landing/HeroDemo';
 import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
 import SectionHeading from '../components/landing/SectionHeading';
+import SignUpButton from '../components/landing/SignUpButton';
 import Steps from '../components/landing/Steps';
 import {
   EASE_OUT,
@@ -203,9 +204,7 @@ export default function Landing() {
                 spacing={1.5}
                 sx={{ mt: 4, ...enter(240) }}
               >
-                <Button variant="contained" size="large" component={RouterLink} to="/signup">
-                  Create an account
-                </Button>
+                <SignUpButton />
                 {/* Log in stays in the header, which is always on screen. */}
                 <Button
                   variant="outlined"
