@@ -3,6 +3,8 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
+import RecordVoiceOverRoundedIcon from '@mui/icons-material/RecordVoiceOverRounded';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import {
   Box,
@@ -21,6 +23,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
 import { brand } from '../theme';
 import PublicLayout from '../components/PublicLayout';
+import FloatingNote from '../components/landing/FloatingNote';
 import HeroDemo from '../components/landing/HeroDemo';
 import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
@@ -211,8 +214,35 @@ export default function Landing() {
               </Stack>
             </Grid>
             <Grid item xs={12} md={5}>
-              <Box sx={enter(300)}>
-                <HeroDemo />
+              <Box sx={{ position: 'relative', ...enter(300) }}>
+                {/* A second card peeking out behind, so the sample reads as one of many. */}
+                <Box
+                  aria-hidden
+                  sx={{
+                    display: { xs: 'none', md: 'block' },
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '20px',
+                    border: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                    opacity: 0.6,
+                    transform: 'rotate(4deg) translate(14px, 10px)',
+                  }}
+                />
+                <Box sx={{ position: 'relative' }}>
+                  <HeroDemo />
+                </Box>
+                <FloatingNote icon={<RecordVoiceOverRoundedIcon />} sx={{ top: -24, left: -36 }}>
+                  Written in your voice
+                </FloatingNote>
+                <FloatingNote
+                  icon={<StorefrontRoundedIcon />}
+                  delay={-3}
+                  sx={{ bottom: -26, right: -16 }}
+                >
+                  One inbox for every location
+                </FloatingNote>
               </Box>
             </Grid>
           </Grid>

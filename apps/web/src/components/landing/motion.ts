@@ -59,3 +59,9 @@ export const press = keyframes`
   72% { transform: scale(0.93); }
   84%, 100% { transform: scale(1); }
 `;
+
+// A gentle bob up and down, for the notes beside the sample review.
+export const float = keyframes`
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+`;
