@@ -26,6 +26,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
 import { brand } from '../theme';
 import PublicLayout from '../components/PublicLayout';
+import ClosingCta from '../components/landing/ClosingCta';
 import FloatingNote from '../components/landing/FloatingNote';
 import HeroDemo from '../components/landing/HeroDemo';
 import HeroGlow from '../components/landing/HeroGlow';
@@ -420,6 +421,8 @@ export default function Landing() {
           </Card>
         </Reveal>
       </Container>
+
+      <ClosingCta />
     </PublicLayout>
   );
 }
