@@ -27,6 +27,8 @@ import FloatingNote from '../components/landing/FloatingNote';
 import HeroDemo from '../components/landing/HeroDemo';
 import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
+import SectionHeading from '../components/landing/SectionHeading';
+import Steps from '../components/landing/Steps';
 import { enter, noMotion, ping, shimmer } from '../components/landing/motion';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
@@ -249,30 +251,24 @@ export default function Landing() {
         </Container>
       </Box>
 
-      <Box sx={{ bgcolor: 'action.hover', py: { xs: 6, md: 8 } }}>
+      <Box
+        id="how-it-works"
+        component="section"
+        sx={(theme) => ({
+          py: { xs: 7, md: 10 },
+          borderBlock: 1,
+          borderColor: 'divider',
+          background: `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.02)}, ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.08 : 0.06)})`,
+        })}
+      >
         <Container maxWidth="lg">
           <Reveal>
-            <Typography variant="h4" component="h2">
-              How it works
-            </Typography>
+            <SectionHeading
+              eyebrow="How it works"
+              title="From new review to posted reply in three steps"
+            />
           </Reveal>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            {STEPS.map((step, i) => (
-              <Grid item xs={12} md={4} key={step.title}>
-                <Reveal delay={i * 120}>
-                  <Typography variant="overline" color="primary">
-                    Step {i + 1}
-                  </Typography>
-                  <Typography variant="h6" component="h3">
-                    {step.title}
-                  </Typography>
-                  <Typography color="text.secondary" sx={{ mt: 1 }}>
-                    {step.body}
-                  </Typography>
-                </Reveal>
-              </Grid>
-            ))}
-          </Grid>
+          <Steps steps={STEPS} />
         </Container>
       </Box>
 
