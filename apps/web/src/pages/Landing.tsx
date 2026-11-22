@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
 import PublicLayout from '../components/PublicLayout';
+import Reveal from '../components/landing/Reveal';
 import Stars from '../components/Stars';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
@@ -124,21 +125,25 @@ export default function Landing() {
 
       <Box sx={{ bgcolor: 'action.hover', py: { xs: 6, md: 8 } }}>
         <Container maxWidth="lg">
-          <Typography variant="h4" component="h2">
-            How it works
-          </Typography>
+          <Reveal>
+            <Typography variant="h4" component="h2">
+              How it works
+            </Typography>
+          </Reveal>
           <Grid container spacing={3} sx={{ mt: 1 }}>
             {STEPS.map((step, i) => (
               <Grid item xs={12} md={4} key={step.title}>
-                <Typography variant="overline" color="primary">
-                  Step {i + 1}
-                </Typography>
-                <Typography variant="h6" component="h3">
-                  {step.title}
-                </Typography>
-                <Typography color="text.secondary" sx={{ mt: 1 }}>
-                  {step.body}
-                </Typography>
+                <Reveal delay={i * 120}>
+                  <Typography variant="overline" color="primary">
+                    Step {i + 1}
+                  </Typography>
+                  <Typography variant="h6" component="h3">
+                    {step.title}
+                  </Typography>
+                  <Typography color="text.secondary" sx={{ mt: 1 }}>
+                    {step.body}
+                  </Typography>
+                </Reveal>
               </Grid>
             ))}
           </Grid>
@@ -147,39 +152,43 @@ export default function Landing() {
 
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
         <Grid container spacing={3}>
-          {features.map((feature) => (
+          {features.map((feature, i) => (
             <Grid item xs={12} sm={6} md={12 / features.length} key={feature.title}>
-              {feature.icon}
-              <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mt: 1 }}>
-                {feature.title}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {feature.body}
-              </Typography>
+              <Reveal delay={i * 100}>
+                {feature.icon}
+                <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mt: 1 }}>
+                  {feature.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {feature.body}
+                </Typography>
+              </Reveal>
             </Grid>
           ))}
         </Grid>
 
-        <Card variant="outlined" sx={{ mt: 6 }}>
-          <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <LockRoundedIcon color="primary" />
-              <Typography variant="h6" component="h2">
-                What ReplyPilot does with your Google data
+        <Reveal sx={{ mt: 6 }}>
+          <Card variant="outlined">
+            <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <LockRoundedIcon color="primary" />
+                <Typography variant="h6" component="h2">
+                  What ReplyPilot does with your Google data
+                </Typography>
+              </Stack>
+              <Typography color="text.secondary" sx={{ mt: 1.5 }}>
+                When you connect, Google asks you to let ReplyPilot manage your Business Profile. We
+                use that permission only to list the profiles and locations you manage, read their
+                reviews, and post, edit or delete the replies you approve. We don&apos;t sell your
+                data, use it for advertising, or use it to train AI models. You can disconnect at
+                any time in Settings or from your Google Account.
               </Typography>
-            </Stack>
-            <Typography color="text.secondary" sx={{ mt: 1.5 }}>
-              When you connect, Google asks you to let ReplyPilot manage your Business Profile. We
-              use that permission only to list the profiles and locations you manage, read their
-              reviews, and post, edit or delete the replies you approve. We don&apos;t sell your
-              data, use it for advertising, or use it to train AI models. You can disconnect at any
-              time in Settings or from your Google Account.
-            </Typography>
-            <Link component={RouterLink} to="/privacy" sx={{ display: 'inline-block', mt: 1.5 }}>
-              Read our privacy policy
-            </Link>
-          </CardContent>
-        </Card>
+              <Link component={RouterLink} to="/privacy" sx={{ display: 'inline-block', mt: 1.5 }}>
+                Read our privacy policy
+              </Link>
+            </CardContent>
+          </Card>
+        </Reveal>
       </Container>
     </PublicLayout>
   );
