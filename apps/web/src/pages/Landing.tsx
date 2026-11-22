@@ -19,6 +19,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
 import PublicLayout from '../components/PublicLayout';
 import Reveal from '../components/landing/Reveal';
+import { enter } from '../components/landing/motion';
 import Stars from '../components/Stars';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
@@ -74,16 +75,24 @@ export default function Landing() {
             <Typography
               variant="h3"
               component="h1"
-              sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}
+              sx={{ fontWeight: 700, letterSpacing: '-0.02em', ...enter() }}
             >
               Answer every Google review, in minutes
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ mt: 2, fontWeight: 400 }}>
+            <Typography
+              variant="h6"
+              color="text.secondary"
+              sx={{ mt: 2, fontWeight: 400, ...enter(100) }}
+            >
               ReplyPilot brings the reviews from your Google Business Profile into one inbox and
               drafts a reply to each one with AI. You check the draft and post it to Google. Nothing
               is posted without your approval.
             </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mt: 4 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              sx={{ mt: 4, ...enter(200) }}
+            >
               <Button variant="contained" size="large" component={RouterLink} to="/signup">
                 Create an account
               </Button>
@@ -93,7 +102,7 @@ export default function Landing() {
             </Stack>
           </Grid>
           <Grid item xs={12} md={5}>
-            <Card sx={{ boxShadow: '0 12px 40px rgba(0,0,0,0.08)' }}>
+            <Card sx={{ boxShadow: '0 12px 40px rgba(0,0,0,0.08)', ...enter(300) }}>
               <CardContent sx={{ p: 3 }}>
                 <Stars value={5} />
                 <Typography sx={{ mt: 1 }}>

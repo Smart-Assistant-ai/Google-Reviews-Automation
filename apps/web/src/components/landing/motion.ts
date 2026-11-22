@@ -11,3 +11,9 @@ export const fadeUp = keyframes`
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
 `;
+
+// Plays once as the page opens. `delay` staggers the parts of the hero so they arrive in order.
+export const enter = (delay = 0) => ({
+  animation: `${fadeUp} 700ms ${EASE_OUT} ${delay}ms both`,
+  [noMotion]: { animation: 'none' },
+});
