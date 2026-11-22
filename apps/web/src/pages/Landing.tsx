@@ -3,9 +3,10 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import RecordVoiceOverRoundedIcon from '@mui/icons-material/RecordVoiceOverRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
-import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import {
   Box,
   Button,
@@ -16,9 +17,10 @@ import {
   Link,
   Stack,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
 import { brand } from '../theme';
@@ -29,7 +31,14 @@ import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
 import SectionHeading from '../components/landing/SectionHeading';
 import Steps from '../components/landing/Steps';
-import { EASE_OUT, enter, noMotion, ping, shimmer } from '../components/landing/motion';
+import {
+  EASE_OUT,
+  enter,
+  noMotion,
+  ping,
+  REDUCED_MOTION,
+  shimmer,
+} from '../components/landing/motion';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
 // plainly what ReplyPilot does with a connected Business Profile and links the privacy policy.
@@ -83,6 +92,15 @@ const FEATURES: { icon: ReactNode; title: string; body: string; needsEmail?: boo
 export default function Landing() {
   const emails = useAuthConfig().data?.emails === true;
   const features = FEATURES.filter((feature) => emails || !feature.needsEmail);
+  const reduced = useMediaQuery(REDUCED_MOTION, { noSsr: true });
+  // Glides down to the steps rather than jumping, unless the visitor prefers less motion. The link
+  // still works as a plain jump if this never runs.
+  const showSteps = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    document
+      .getElementById('how-it-works')
+      ?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
+  };
   return (
     <PublicLayout>
       {/* The glow may spill up behind the header, but is cut off at the sides and the bottom so it
@@ -188,8 +206,19 @@ export default function Landing() {
                 <Button variant="contained" size="large" component={RouterLink} to="/signup">
                   Create an account
                 </Button>
-                <Button variant="outlined" size="large" component={RouterLink} to="/login">
-                  Log in
+                {/* Log in stays in the header, which is always on screen. */}
+                <Button
+                  variant="outlined"
+                  size="large"
+                  href="#how-it-works"
+                  onClick={showSteps}
+                  endIcon={<KeyboardArrowDownRoundedIcon />}
+                  sx={{
+                    '& .MuiButton-endIcon': { transition: `transform 200ms ${EASE_OUT}` },
+                    '&:hover .MuiButton-endIcon': { transform: 'translateY(3px)' },
+                  }}
+                >
+                  See how it works
                 </Button>
               </Stack>
               <Stack
@@ -256,6 +285,8 @@ export default function Landing() {
         id="how-it-works"
         component="section"
         sx={(theme) => ({
+          // Lands just below the header that stays at the top.
+          scrollMarginTop: 72,
           py: { xs: 7, md: 10 },
           borderBlock: 1,
           borderColor: 'divider',
