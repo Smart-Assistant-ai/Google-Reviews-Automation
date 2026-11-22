@@ -75,17 +75,30 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         component="footer"
         maxWidth="lg"
         sx={{
-          py: 3,
+          py: 4,
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 2,
+          gap: 3,
+          alignItems: 'flex-end',
           justifyContent: 'space-between',
         }}
       >
-        <Typography variant="body2" color="text.secondary">
-          © {new Date().getFullYear()} {COMPANY}. ReplyPilot is not made or endorsed by Google.
-        </Typography>
-        <Stack direction="row" spacing={2.5} useFlexGap flexWrap="wrap">
+        <Box>
+          <Logo size={22} />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            © {new Date().getFullYear()} {COMPANY}. ReplyPilot is not made or endorsed by Google.
+          </Typography>
+        </Box>
+        <Stack
+          direction="row"
+          spacing={2.5}
+          useFlexGap
+          flexWrap="wrap"
+          sx={{
+            '& a': { transition: 'color 150ms ease' },
+            '& a:hover': { color: 'primary.main' },
+          }}
+        >
           <Link component={RouterLink} to="/privacy" variant="body2" color="text.secondary">
             Privacy policy
           </Link>
