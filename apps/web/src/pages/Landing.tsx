@@ -29,7 +29,7 @@ import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
 import SectionHeading from '../components/landing/SectionHeading';
 import Steps from '../components/landing/Steps';
-import { enter, noMotion, ping, shimmer } from '../components/landing/motion';
+import { EASE_OUT, enter, noMotion, ping, shimmer } from '../components/landing/motion';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
 // plainly what ReplyPilot does with a connected Business Profile and links the privacy policy.
@@ -57,22 +57,22 @@ const PROMISES = [
 
 const FEATURES: { icon: ReactNode; title: string; body: string; needsEmail?: boolean }[] = [
   {
-    icon: <InboxRoundedIcon color="primary" />,
+    icon: <InboxRoundedIcon />,
     title: 'One inbox for every location',
     body: 'Every review in one place, filtered by what still needs a reply.',
   },
   {
-    icon: <AutoAwesomeRoundedIcon color="primary" />,
+    icon: <AutoAwesomeRoundedIcon />,
     title: 'Drafts you control',
     body: 'Set your tone and sign-off once. Nothing is posted until you approve it.',
   },
   {
-    icon: <InsightsRoundedIcon color="primary" />,
+    icon: <InsightsRoundedIcon />,
     title: 'See how you are rated',
     body: 'Average rating over time, weekly review volume and the topics customers mention.',
   },
   {
-    icon: <GroupsRoundedIcon color="primary" />,
+    icon: <GroupsRoundedIcon />,
     title: 'Work as a team',
     body: 'Invite colleagues, and choose which locations each person looks after.',
     // Invitations go out by email.
@@ -272,18 +272,59 @@ export default function Landing() {
         </Container>
       </Box>
 
-      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
-        <Grid container spacing={3}>
+      <Container maxWidth="lg" sx={{ py: { xs: 7, md: 10 } }}>
+        <Reveal>
+          <SectionHeading eyebrow="Features" title="Everything you need to keep up with reviews" />
+        </Reveal>
+        <Grid container spacing={3} sx={{ mt: { xs: 2, md: 4 } }}>
           {features.map((feature, i) => (
             <Grid item xs={12} sm={6} md={12 / features.length} key={feature.title}>
-              <Reveal delay={i * 100}>
-                {feature.icon}
-                <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mt: 1 }}>
-                  {feature.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {feature.body}
-                </Typography>
+              <Reveal delay={i * 100} sx={{ height: '100%' }}>
+                {/* Lifts on hover, and its icon fills with the brand colour. */}
+                <Card
+                  sx={(theme) => ({
+                    height: '100%',
+                    p: 3,
+                    borderRadius: '16px',
+                    transition: `transform 250ms ${EASE_OUT}, box-shadow 250ms ease, border-color 250ms ease`,
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      borderColor: alpha(theme.palette.primary.main, 0.4),
+                      boxShadow: `0 18px 40px ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)}`,
+                    },
+                    '&:hover .feature-icon': {
+                      transform: 'scale(1.08) rotate(-6deg)',
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
+                    },
+                    [noMotion]: {
+                      '&:hover': { transform: 'none' },
+                      '&:hover .feature-icon': { transform: 'none' },
+                    },
+                  })}
+                >
+                  <Box
+                    className="feature-icon"
+                    sx={(theme) => ({
+                      width: 48,
+                      height: 48,
+                      borderRadius: '12px',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: 'primary.main',
+                      bgcolor: alpha(theme.palette.primary.main, 0.1),
+                      transition: `transform 250ms ${EASE_OUT}, background-color 250ms ease, color 250ms ease`,
+                    })}
+                  >
+                    {feature.icon}
+                  </Box>
+                  <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mt: 2 }}>
+                    {feature.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {feature.body}
+                  </Typography>
+                </Card>
               </Reveal>
             </Grid>
           ))}
