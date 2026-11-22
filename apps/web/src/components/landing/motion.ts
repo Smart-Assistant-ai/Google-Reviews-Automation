@@ -17,3 +17,10 @@ export const enter = (delay = 0) => ({
   animation: `${fadeUp} 700ms ${EASE_OUT} ${delay}ms both`,
   [noMotion]: { animation: 'none' },
 });
+
+// A slow wander for the glow behind the hero.
+export const drift = keyframes`
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(40px, 24px, 0) scale(1.08); }
+  100% { transform: translate3d(-24px, 12px, 0) scale(0.95); }
+`;
