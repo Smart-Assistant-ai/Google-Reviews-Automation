@@ -29,3 +29,8 @@ export const drift = keyframes`
 export const shimmer = keyframes`
   to { background-position: 200% center; }
 `;
+
+// A ring that grows and fades from a dot, like a live indicator.
+export const ping = keyframes`
+  75%, 100% { transform: scale(2.6); opacity: 0; }
+`;

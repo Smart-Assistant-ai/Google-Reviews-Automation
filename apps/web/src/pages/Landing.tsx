@@ -1,4 +1,5 @@
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
@@ -14,6 +15,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuthConfig } from '../api/hooks';
@@ -21,7 +23,7 @@ import { brand } from '../theme';
 import PublicLayout from '../components/PublicLayout';
 import HeroGlow from '../components/landing/HeroGlow';
 import Reveal from '../components/landing/Reveal';
-import { enter, noMotion, shimmer } from '../components/landing/motion';
+import { enter, noMotion, ping, shimmer } from '../components/landing/motion';
 import Stars from '../components/Stars';
 
 // The public home page. Google's verification reads it to learn what the app does, so it says
@@ -39,6 +41,13 @@ const STEPS = [
     title: 'Approve and post',
     body: 'Edit the draft if you like, then post it to Google. ReplyPilot shows when Google publishes it, or why Google turned it down.',
   },
+];
+
+// Promises the rest of the page backs up, repeated under the hero buttons.
+const PROMISES = [
+  'You approve every reply',
+  "Replies in the reviewer's language",
+  'Disconnect any time',
 ];
 
 const FEATURES: { icon: ReactNode; title: string; body: string; needsEmail?: boolean }[] = [
@@ -81,6 +90,45 @@ export default function Landing() {
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1, py: { xs: 6, md: 10 } }}>
           <Grid container spacing={6} alignItems="center">
             <Grid item xs={12} md={7}>
+              <Box
+                sx={(theme) => ({
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 1.25,
+                  mb: 2.5,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 999,
+                  border: 1,
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  color: 'primary.main',
+                  typography: 'body2',
+                  fontWeight: 600,
+                  ...enter(),
+                })}
+              >
+                <Box
+                  aria-hidden
+                  sx={{
+                    position: 'relative',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: 'currentColor',
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '50%',
+                      bgcolor: 'currentColor',
+                      animation: `${ping} 2s cubic-bezier(0, 0, 0.2, 1) infinite`,
+                    },
+                    [noMotion]: { '&::after': { animation: 'none', opacity: 0 } },
+                  }}
+                />
+                AI reply drafts for Google reviews
+              </Box>
               <Typography
                 variant="h3"
                 component="h1"
@@ -89,7 +137,7 @@ export default function Landing() {
                   fontSize: { xs: '2.4rem', sm: '3rem', md: '3.6rem' },
                   lineHeight: 1.08,
                   letterSpacing: '-0.03em',
-                  ...enter(),
+                  ...enter(80),
                 }}
               >
                 Answer{' '}
@@ -120,7 +168,7 @@ export default function Landing() {
               <Typography
                 variant="h6"
                 color="text.secondary"
-                sx={{ mt: 2, fontWeight: 400, ...enter(100) }}
+                sx={{ mt: 2, fontWeight: 400, ...enter(160) }}
               >
                 ReplyPilot brings the reviews from your Google Business Profile into one inbox and
                 drafts a reply to each one with AI. You check the draft and post it to Google.
@@ -129,7 +177,7 @@ export default function Landing() {
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={1.5}
-                sx={{ mt: 4, ...enter(200) }}
+                sx={{ mt: 4, ...enter(240) }}
               >
                 <Button variant="contained" size="large" component={RouterLink} to="/signup">
                   Create an account
@@ -137,6 +185,29 @@ export default function Landing() {
                 <Button variant="outlined" size="large" component={RouterLink} to="/login">
                   Log in
                 </Button>
+              </Stack>
+              <Stack
+                component="ul"
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={{ xs: 1, sm: 2.5 }}
+                useFlexGap
+                flexWrap="wrap"
+                sx={{ listStyle: 'none', p: 0, m: 0, mt: 3, ...enter(320) }}
+              >
+                {PROMISES.map((promise) => (
+                  <Stack
+                    component="li"
+                    key={promise}
+                    direction="row"
+                    spacing={0.75}
+                    alignItems="center"
+                  >
+                    <CheckRoundedIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {promise}
+                    </Typography>
+                  </Stack>
+                ))}
               </Stack>
             </Grid>
             <Grid item xs={12} md={5}>
