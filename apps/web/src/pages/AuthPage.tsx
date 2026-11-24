@@ -17,6 +17,7 @@ import { api } from '../api/client';
 import { useAuthConfig } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
+import PasswordField from '../components/PasswordField';
 import Stars from '../components/Stars';
 
 const GOOGLE_ERRORS: Record<string, string> = {
@@ -161,9 +162,8 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                 autoComplete="email"
                 disabled={!!invitation}
               />
-              <TextField
+              <PasswordField
                 label="Password"
-                type="password"
                 value={form.password}
                 onChange={set('password')}
                 required
