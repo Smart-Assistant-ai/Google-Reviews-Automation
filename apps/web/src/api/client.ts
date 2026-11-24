@@ -39,8 +39,12 @@ export const http = axios.create({ baseURL: '/api/v1', withCredentials: true });
 // storage. The refresh token is in a cookie that JavaScript can't see at all.
 let accessToken: string | null = null;
 let onSessionLost: () => void = () => {};
+// Goes up each time the session here ends. A refresh that started before can't put its token back
+// afterwards, while a login after the end still sets its own.
+let sessionEnds = 0;
 
 export const setAccessToken = (token: string | null) => {
+  if (token === null) sessionEnds += 1;
   accessToken = token;
 };
 export const setSessionLostHandler = (handler: () => void) => {
@@ -56,10 +60,11 @@ let refreshing: Promise<SessionResponse> | null = null;
 
 // Requests that fail together share one refresh, because each refresh replaces the token.
 export function refreshSession(): Promise<SessionResponse> {
+  const endsBefore = sessionEnds;
   refreshing ??= http
     .post<SessionResponse>('/auth/refresh')
     .then((res) => {
-      accessToken = res.data.accessToken;
+      if (sessionEnds === endsBefore) accessToken = res.data.accessToken;
       return res.data;
     })
     .finally(() => {

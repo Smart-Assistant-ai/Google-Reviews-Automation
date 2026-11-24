@@ -86,8 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const endsBefore = sessionEnds.current;
       const res = await refreshSession();
       const me = { user: res.user, workspaces: res.workspaces };
+      // A token that came back after the session ended isn't kept either; the client sees to that.
       if (sessionEnds.current === endsBefore) setSession(me);
-      else setAccessToken(null);
       return me;
     } catch {
       setSession(null);
