@@ -346,6 +346,22 @@ describe('forgot and reset password', () => {
     expect(login.json().user.emailVerified).toBe(true);
   });
 
+  it('refuses the previous password, and the link still works for a new one', async () => {
+    const user = await signup(app);
+    await post('/forgot-password', { email: user.email });
+    const token = await vi.waitFor(() => tokenFromEmail(user.email, '/reset-password'));
+    const same = await post('/reset-password', { token, password: PASSWORD });
+    expect(same.statusCode).toBe(400);
+    expect(same.json().error).toMatchObject({
+      code: 'same_password',
+      message: 'Your new password must be different from your previous password.',
+    });
+    expect((await me(user.accessToken)).statusCode).toBe(200);
+    expect(
+      (await post('/reset-password', { token, password: 'a-brand-new-password' })).statusCode,
+    ).toBe(200);
+  });
+
   it('the reset link works once', async () => {
     const user = await signup(app);
     await post('/forgot-password', { email: user.email });

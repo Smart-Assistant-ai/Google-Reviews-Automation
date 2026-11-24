@@ -28,6 +28,18 @@ export async function issueToken(userId: string, purpose: OneTimeTokenPurpose): 
   return token;
 }
 
+// Whose link this is, without using it up, for checks that should leave the link working.
+export async function tokenOwner(
+  token: string,
+  purpose: OneTimeTokenPurpose,
+): Promise<string | null> {
+  const row = await prisma.oneTimeToken.findFirst({
+    where: { tokenHash: hashToken(token), purpose, usedAt: null, expiresAt: { gt: new Date() } },
+    select: { userId: true },
+  });
+  return row?.userId ?? null;
+}
+
 // One atomic update decides who gets it, so a link can't be used twice even at the same moment.
 export async function consumeToken(token: string, purpose: OneTimeTokenPurpose): Promise<string> {
   const tokenHash = hashToken(token);
