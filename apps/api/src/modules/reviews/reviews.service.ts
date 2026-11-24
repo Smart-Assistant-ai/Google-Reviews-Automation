@@ -8,7 +8,7 @@ import {
   assertLocationAccess,
   type MemberContext,
 } from '../workspaces/access';
-import { usesFakeData } from '../google/connection.service';
+import { needsReconnect, usesFakeData } from '../google/connection.service';
 import { cleanTopics } from './analysis';
 
 const BACKLOG_DAYS = 30;
@@ -19,7 +19,7 @@ type ReviewRow = Review & {
   location: {
     id: string;
     title: string;
-    connection: Pick<GoogleConnection, 'provider' | 'dataSource'>;
+    connection: Pick<GoogleConnection, 'provider' | 'dataSource' | 'status'>;
   };
 };
 
@@ -56,6 +56,7 @@ export function reviewDto(review: ReviewRow): ReviewDto {
     status: statusOf(review),
     purged: review.purgedAt !== null,
     postingOff: !usesFakeData(review.location.connection) && !env.GOOGLE_POSTING_ENABLED,
+    reconnectNeeded: needsReconnect(review.location.connection),
     reply: reply
       ? {
           id: reply.id,
@@ -138,7 +139,7 @@ export async function listReviews(
           select: {
             id: true,
             title: true,
-            connection: { select: { provider: true, dataSource: true } },
+            connection: { select: { provider: true, dataSource: true, status: true } },
           },
         },
       },

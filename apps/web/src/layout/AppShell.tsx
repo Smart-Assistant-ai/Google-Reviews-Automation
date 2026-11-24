@@ -28,6 +28,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import FullPageLoader from '../components/FullPageLoader';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
@@ -172,6 +173,9 @@ export default function AppShell() {
   if (!workspace) return <Navigate to="/no-workspace" replace />;
   const isAdmin = hasAtLeast(workspace.role, 'admin');
   const onSettings = location.pathname.startsWith('/settings');
+  // An admin with nothing connected yet goes to onboarding. Until that's known, the inbox or
+  // dashboard would show for a moment and then vanish, so nothing shows.
+  if (isAdmin && !onSettings && isLoading) return <FullPageLoader />;
   if (!isLoading && status && isAdmin && managed.length === 0 && !onSettings)
     return <Navigate to="/onboarding" replace />;
 

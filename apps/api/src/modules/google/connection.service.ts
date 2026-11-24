@@ -13,6 +13,12 @@ import {
 export const usesFakeData = (connection: Pick<GoogleConnection, 'provider' | 'dataSource'>) =>
   connection.provider === 'mock' || connection.dataSource === 'sample';
 
+// Google refused this account, for example because its owner removed ReplyPilot's access, so nothing
+// can be posted or deleted with it until an admin connects it again. Fake data never needs that.
+export const needsReconnect = (
+  connection: Pick<GoogleConnection, 'provider' | 'dataSource' | 'status'>,
+) => !usesFakeData(connection) && connection.status === 'needs_reconnect';
+
 export async function findConnection(
   workspaceId: string,
   connectionId: string,

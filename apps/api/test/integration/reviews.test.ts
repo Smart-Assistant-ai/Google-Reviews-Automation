@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
-import { syncLocation } from '../../src/modules/google/sync.service';
+import { reviewIdOf, syncLocation } from '../../src/modules/google/sync.service';
+import { stateAfterRefusal } from '../../src/modules/reviews/replies.service';
 import { runDraftQueue, checkPendingReplies } from '../../src/modules/reviews/jobs';
 import { purgeExpiredContent } from '../../src/modules/reviews/purge.service';
 import { sentEmails } from '../../src/providers/email/mock';
@@ -408,9 +409,123 @@ describe('replies', () => {
     const review = await firstReview(user);
     mockGbp.failReads(email, 401);
     const res = await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Hi' });
-    expect(res.statusCode).toBe(502);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('google_reconnect_needed');
+    expect(res.json().error.message).toMatch(/Reconnect it in Settings/);
     expect((await googleStatus(app, user)).connections[0]?.status).toBe('needs_reconnect');
-    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('failed');
+    // Nothing reached Google, so the reply keeps its text and waits as a draft.
+    const after = (await req('GET', user, `/reviews/${review.id}`)).json();
+    expect(after.status).toBe('draft');
+    expect(after.reply.text).toBe('Hi');
+  });
+
+  it('a refused re-post keeps the reply as it was, and a refused edit stays a draft', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('pending');
+    mockGbp.failReads(email, 401);
+
+    const same = await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    expect(same.statusCode).toBe(409);
+    // Still the reply Google has, not a draft.
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('pending');
+
+    const edited = await req('POST', user, `/reviews/${review.id}/reply/post`, {
+      text: 'Thanks a lot',
+    });
+    expect(edited.statusCode).toBe(409);
+    // The edit never reached Google, so it's kept as a draft rather than shown as posted.
+    const after = (await req('GET', user, `/reviews/${review.id}`)).json();
+    expect(after.status).toBe('draft');
+    expect(after.reply.text).toBe('Thanks a lot');
+  });
+
+  it('deleting after a refused edit still takes the reply off Google', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const review = await firstReview(user);
+    const location = await prisma.location.findUniqueOrThrow({
+      where: { id: review.locationId },
+      include: { connection: true },
+    });
+    const replyOnGoogle = async () => {
+      const { reviews } = await mockGbpProvider.listReviews(
+        { connection: location.connection, getAccessToken: async () => '' },
+        location.googleAccountName,
+        location.googleLocationName,
+      );
+      return reviews?.find((r) => reviewIdOf(r) === review.googleReviewId)?.reviewReply;
+    };
+
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    mockGbp.failReads(email, 401);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks a lot' });
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('draft');
+    mockGbp.failReads(email, null);
+    // Our copy is a draft now, but the first reply is still public on Google.
+    expect((await replyOnGoogle())?.comment).toBe('Thanks');
+
+    expect((await req('DELETE', user, `/reviews/${review.id}/reply`)).statusCode).toBe(200);
+    expect(await replyOnGoogle()).toBeUndefined();
+  });
+
+  it("never goes back to another request's unfinished post after a refusal", () => {
+    // Read while another request held the reply in posting: going back there would leave it
+    // stuck, with nobody left to finish it.
+    expect(stateAfterRefusal({ state: 'posting', text: 'Hi' }, 'Hi')).toBe('draft');
+    expect(stateAfterRefusal({ state: 'drafting', text: 'Hi' }, 'Hi')).toBe('draft');
+    expect(stateAfterRefusal({ state: 'live', text: 'Hi' }, 'Hi')).toBe('live');
+    expect(stateAfterRefusal({ state: 'live', text: 'Hi' }, 'Hi there')).toBe('draft');
+    expect(stateAfterRefusal(null, 'Hi')).toBe('draft');
+  });
+
+  it('asks for a reconnect without calling Google once a real account was refused', async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    const location = await prisma.location.findUniqueOrThrow({ where: { id: review.locationId } });
+    await prisma.googleConnection.update({
+      where: { id: location.connectionId },
+      data: { provider: 'live', status: 'needs_reconnect' },
+    });
+    const google = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', google);
+    const before = env.GOOGLE_POSTING_ENABLED;
+    env.GOOGLE_POSTING_ENABLED = true;
+    try {
+      const res = await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Hello' });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('google_reconnect_needed');
+      expect(google).not.toHaveBeenCalled();
+      // The review says so up front, so the screen can ask for a reconnect before anyone clicks Post.
+      expect((await req('GET', user, `/reviews/${review.id}`)).json().reconnectNeeded).toBe(true);
+      const listed = await req('GET', user, '/reviews?tab=all');
+      expect(
+        listed.json().reviews.every((r: { reconnectNeeded: boolean }) => r.reconnectNeeded),
+      ).toBe(true);
+    } finally {
+      env.GOOGLE_POSTING_ENABLED = before;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('asks for a reconnect when deleting a posted reply after access was refused', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    mockGbp.failReads(email, 401);
+    const res = await req('DELETE', user, `/reviews/${review.id}/reply`);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('google_reconnect_needed');
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().reply).not.toBeNull();
   });
 
   it('deletes a reply, from Google too', async () => {

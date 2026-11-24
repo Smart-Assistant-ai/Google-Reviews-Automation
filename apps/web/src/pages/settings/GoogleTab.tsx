@@ -72,6 +72,7 @@ export default function GoogleTab() {
 
   const available = status.locations.filter((l) => l.status === 'available');
   const managed = status.locations.filter((l) => l.status !== 'available');
+  const syncable = managed.some((l) => l.status === 'active');
 
   return (
     <Stack spacing={3}>
@@ -191,14 +192,17 @@ export default function GoogleTab() {
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
             Locations you manage
           </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            disabled={!!busy}
-            onClick={() => void run('sync', () => api.post(google('/sync')))}
-          >
-            {busy === 'sync' ? 'Syncing…' : 'Sync all now'}
-          </Button>
+          {/* Only active locations sync, so with none there's nothing for the button to do. */}
+          {syncable && (
+            <Button
+              size="small"
+              variant="outlined"
+              disabled={!!busy}
+              onClick={() => void run('sync', () => api.post(google('/sync')))}
+            >
+              {busy === 'sync' ? 'Syncing…' : 'Sync all now'}
+            </Button>
+          )}
         </Stack>
         <Stack spacing={1.5}>
           {managed.length === 0 && (
