@@ -288,7 +288,8 @@ export default function Dashboard() {
           </Grid>
           <Grid item xs={6} md={3}>
             <Kpi
-              label="New reviews"
+              // The label reads with the number under it, so one review is "New review".
+              label={data.kpis.totalReviews === 1 ? 'New review' : 'New reviews'}
               value={data.kpis.totalReviews}
               delta={data.kpis.totalReviews - data.kpis.previousTotal || null}
             />
