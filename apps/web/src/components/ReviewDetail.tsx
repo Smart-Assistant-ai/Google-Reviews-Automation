@@ -1,5 +1,11 @@
-import { GOOGLE_REPLY_MAX_BYTES as MAX_BYTES, byteLength, type Review } from '@replypilot/shared';
+import {
+  GOOGLE_REPLY_MAX_BYTES as MAX_BYTES,
+  byteLength,
+  hasAtLeast,
+  type Review,
+} from '@replypilot/shared';
 import { useEffect, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Alert,
   Avatar,
@@ -36,8 +42,9 @@ import Highlight from './Highlight';
 import Stars from './Stars';
 import StatusChip from './StatusChip';
 import { LANGUAGE_NAMES, capitalize, timeAgo } from './format';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import { useWorkspaceId, wsPath } from '../api/hooks';
+import { useAuth } from '../auth/AuthContext';
 
 const REWRITES = [
   { label: 'Regenerate', instructions: undefined },
@@ -81,6 +88,10 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
   const [editingPosted, setEditingPosted] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toast, setToast] = useState('');
+  // Google refused the account just now, before the review on screen could know it.
+  const [refused, setRefused] = useState(false);
+  const { workspace } = useAuth();
+  const isAdmin = !!workspace && hasAtLeast(workspace.role, 'admin');
 
   const reply = review.reply;
   const status = review.status;
@@ -90,6 +101,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
     setEditingPosted(false);
     setConfirmDelete(false);
   }, [review.id, reply?.text, reply?.state]);
+  useEffect(() => setRefused(false), [review.id]);
 
   // done says what happened, from the review the API sent back, or nothing when there's no news.
   const run = async (
@@ -105,7 +117,9 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
       const message = done?.(updated);
       if (message) setToast(message);
     } catch (err) {
-      setError((err as Error).message);
+      // The reconnect box below explains this one and shows where to fix it.
+      if (err instanceof ApiError && err.code === 'google_reconnect_needed') setRefused(true);
+      else setError((err as Error).message);
     } finally {
       setBusy('');
     }
@@ -153,7 +167,9 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
   const editable =
     ['draft', 'rejected', 'failed', 'needs_reply', 'backlog'].includes(status) || editingPosted;
   const dirty = text !== (reply?.text || '');
-  const { postingOff } = review;
+  const reconnect = review.reconnectNeeded || refused;
+  // Either way nothing can reach Google from here, though the reply can still be edited and saved.
+  const postingOff = review.postingOff || reconnect;
 
   return (
     <Stack sx={{ height: '100%', overflowY: 'auto' }}>
@@ -231,7 +247,32 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
           </Alert>
         )}
 
-        {postingOff && (editable || posted) && (
+        {reconnect && (editable || posted) && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              isAdmin && (
+                <Button
+                  color="inherit"
+                  size="small"
+                  component={RouterLink}
+                  to="/settings?tab=google"
+                >
+                  Reconnect
+                </Button>
+              )
+            }
+          >
+            Google no longer lets ReplyPilot use the Google account connected to{' '}
+            {review.location.title}, so replies can&apos;t be posted or deleted.{' '}
+            {isAdmin
+              ? 'Reconnect it, then try again. Your reply stays saved here.'
+              : 'Ask an admin of this workspace to reconnect it. Your reply stays saved here.'}
+          </Alert>
+        )}
+
+        {review.postingOff && (editable || posted) && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Posting to Google is switched off on this server, so replies can&apos;t be posted,
             updated or deleted here. You can still edit, save and copy them.
