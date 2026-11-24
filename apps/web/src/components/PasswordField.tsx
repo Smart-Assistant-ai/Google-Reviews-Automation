@@ -11,6 +11,9 @@ export default function PasswordField(props: Omit<TextFieldProps, 'type'>) {
     <TextField
       {...props}
       type={shown ? 'text' : 'password'}
+      // Password managers fill these in without telling the page, so the label stays above the
+      // box and never lands on top of the filled-in password.
+      InputLabelProps={{ shrink: true, ...props.InputLabelProps }}
       InputProps={{
         ...props.InputProps,
         endAdornment: (
