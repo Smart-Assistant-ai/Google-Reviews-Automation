@@ -1,18 +1,10 @@
-import {
-  Alert,
-  Button,
-  Card,
-  CardContent,
-  Link,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, Card, CardContent, Link, Stack, Typography } from '@mui/material';
 import { useState, type FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import AuthLayout from '../components/AuthLayout';
+import PasswordField from '../components/PasswordField';
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -59,9 +51,8 @@ export default function ResetPassword() {
             <form onSubmit={(e) => void submit(e)}>
               <Stack spacing={2}>
                 {error && <Alert severity="error">{error}</Alert>}
-                <TextField
+                <PasswordField
                   label="New password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

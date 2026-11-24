@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import PasswordField from '../../components/PasswordField';
 
 export default function AccountTab() {
   const { session, reload, clearLocal } = useAuth();
@@ -83,9 +84,8 @@ export default function AccountTab() {
               {hasPassword ? 'Change password' : 'Set a password'}
             </Typography>
             {hasPassword && (
-              <TextField
+              <PasswordField
                 label="Current password"
-                type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 fullWidth
@@ -93,9 +93,8 @@ export default function AccountTab() {
                 autoComplete="current-password"
               />
             )}
-            <TextField
+            <PasswordField
               label="New password"
-              type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               fullWidth
@@ -163,9 +162,8 @@ export default function AccountTab() {
             This can&apos;t be undone.
           </Typography>
           {hasPassword && (
-            <TextField
+            <PasswordField
               label="Your password"
-              type="password"
               fullWidth
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
