@@ -10,7 +10,7 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { useVoice, useWorkspaceId, wsPath } from '../../api/hooks';
 import { useAuth } from '../../auth/AuthContext';
@@ -32,10 +32,15 @@ export default function VoiceTab() {
   const [voice, setVoice] = useState<Voice | null>(null);
   const [saved, setSaved] = useState('');
   const [error, setError] = useState('');
+  // A failed save is explained beside the button and scrolled into view, where the person is looking.
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (data) setVoice(data.voice);
   }, [data]);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [error]);
 
   if (!data || !voice) return <CircularProgress />;
 
@@ -73,7 +78,6 @@ export default function VoiceTab() {
           : 'the built-in offline drafter, because no AI key is set'}
         . Changes apply to new drafts. Use “Rewrite” in the inbox to refresh existing ones.
       </Alert>
-      {error && <Alert severity="error">{error}</Alert>}
       {locations.length > 0 && (
         <TextField
           select
@@ -96,6 +100,11 @@ export default function VoiceTab() {
         </Alert>
       )}
       <VoiceForm value={voice} onChange={setVoice} disabled={!canEdit} />
+      {error && (
+        <Alert severity="error" ref={errorRef}>
+          {error}
+        </Alert>
+      )}
       {canEdit && (
         <Stack direction="row" spacing={1.5}>
           <Button variant="contained" onClick={() => void save()}>
