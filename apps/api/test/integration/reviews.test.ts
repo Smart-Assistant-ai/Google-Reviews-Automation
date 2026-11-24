@@ -435,6 +435,12 @@ describe('replies', () => {
       expect(res.statusCode).toBe(409);
       expect(res.json().error.code).toBe('google_reconnect_needed');
       expect(google).not.toHaveBeenCalled();
+      // The review says so up front, so the screen can ask for a reconnect before anyone clicks Post.
+      expect((await req('GET', user, `/reviews/${review.id}`)).json().reconnectNeeded).toBe(true);
+      const listed = await req('GET', user, '/reviews?tab=all');
+      expect(
+        listed.json().reviews.every((r: { reconnectNeeded: boolean }) => r.reconnectNeeded),
+      ).toBe(true);
     } finally {
       env.GOOGLE_POSTING_ENABLED = before;
       vi.unstubAllGlobals();
