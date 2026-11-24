@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { signOffFor, splitEnding, withSignOff } from '../../src/modules/reviews/sign-off';
+import {
+  earlierSignOffs,
+  signOffFor,
+  splitEnding,
+  withSignOff,
+} from '../../src/modules/reviews/sign-off';
 
 describe('signOffFor', () => {
   it("uses the voice's sign-off as typed, special characters included", () => {
@@ -59,5 +64,25 @@ describe('withSignOff', () => {
   });
   it('leaves the draft alone when there is no sign-off to add', () => {
     expect(withSignOff('Thanks, Ana!\n', '')).toBe('Thanks, Ana!');
+  });
+});
+
+describe('earlierSignOffs', () => {
+  it('keeps signatures and leaves out ordinary closing sentences', () => {
+    expect(
+      earlierSignOffs([
+        'Thanks, Ana!\n\n– Old team',
+        'Thanks, Ben!\n\nBest, Sam',
+        'Sorry, Chris.\n\nPlease contact us directly.',
+        'Thanks, Dee!\n\n— Sam.',
+        'One paragraph only.',
+      ]),
+    ).toEqual(['– Old team', 'Best, Sam', '— Sam.']);
+  });
+  it('lets a draft keep a closing sentence an earlier reply also ended with', () => {
+    const earlier = earlierSignOffs(['Sorry, Chris.\n\nPlease contact us directly.']);
+    expect(withSignOff('Sorry, Ana.\n\nPlease contact us directly.', '', earlier)).toBe(
+      'Sorry, Ana.\n\nPlease contact us directly.',
+    );
   });
 });

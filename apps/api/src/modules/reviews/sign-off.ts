@@ -28,6 +28,17 @@ export function splitEnding(reply: string): { body: string; ending: string | nul
   return { body: text.slice(0, at).trimEnd(), ending };
 }
 
+// The sign-offs earlier replies ended with. An ordinary closing sentence, such as "Please contact us
+// directly.", is part of the reply, not a sign-off, so it's left out: a sign-off is a name, often
+// after a dash, like "– The Team" or "Best, Sam", and a line ending like a sentence only counts when
+// it starts with a dash.
+export function earlierSignOffs(replies: string[]): string[] {
+  return replies
+    .map((reply) => splitEnding(reply).ending)
+    .filter((ending): ending is string => ending !== null)
+    .filter((ending) => /^[–—-]/.test(ending) || !/[.!?]$/.test(ending));
+}
+
 // Ends a draft with the sign-off exactly once. A last line that is the sign-off already goes first,
 // whether the AI put it after a blank line or a single line break. So does one copied from the
 // endings of earlier replies, such as a sign-off from before it was changed.

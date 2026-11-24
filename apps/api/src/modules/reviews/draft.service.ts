@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import { env } from '../../config';
 import { prisma } from '../../lib/prisma';
 import { analyze, cleanTopics, type Analysis } from './analysis';
-import { signOffFor, splitEnding, withSignOff } from './sign-off';
+import { earlierSignOffs, signOffFor, withSignOff } from './sign-off';
 import { draftFromTemplate } from './template-drafter';
 import { effectiveVoice } from './voice.service';
 
@@ -121,10 +121,7 @@ export async function draftForReview(
       }
       // The AI can leave the sign-off out, or copy an older one from the recent replies after it was
       // changed, so the code settles it: the draft ends with the current sign-off, once.
-      const earlierEndings = recentReplies
-        .map((recentReply) => splitEnding(recentReply).ending)
-        .filter((ending): ending is string => ending !== null);
-      text = withSignOff(result.reply, signOffFor(voice), earlierEndings);
+      text = withSignOff(result.reply, signOffFor(voice), earlierSignOffs(recentReplies));
       const topics = cleanTopics(result.topics);
       analysis = {
         language: result.language ?? analysis.language,
