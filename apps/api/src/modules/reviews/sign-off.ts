@@ -14,15 +14,24 @@ export function signOffFor(voice: SignOffVoice): string {
   return owner ? `– ${owner}` : '';
 }
 
-// A sign-off is a short last line in a paragraph of its own.
+// A sign-off is a short last paragraph of its own, on a line or a few, like "Best," then "Sam".
 const MAX_ENDING = 200;
+const MAX_ENDING_LINES = 3;
 
-// Splits a reply into its body and the short line it ends with, if it ends with one.
+// Splits a reply into its body and the short paragraph it ends with, if it ends with one. The
+// ending's lines come back trimmed, one per line.
 export function splitEnding(reply: string): { body: string; ending: string | null } {
   const text = reply.trimEnd();
   const at = text.lastIndexOf('\n\n');
-  const ending = at === -1 ? '' : text.slice(at + 2).trim();
-  if (!ending || ending.includes('\n') || ending.length > MAX_ENDING) {
+  const lines =
+    at === -1
+      ? []
+      : text
+          .slice(at + 2)
+          .split('\n')
+          .map((line) => line.trim());
+  const ending = lines.join('\n');
+  if (!lines.length || lines.length > MAX_ENDING_LINES || ending.length > MAX_ENDING) {
     return { body: text, ending: null };
   }
   return { body: text.slice(0, at).trimEnd(), ending };

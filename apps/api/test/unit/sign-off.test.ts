@@ -25,6 +25,12 @@ describe('splitEnding', () => {
       ending: '– The Team',
     });
   });
+  it('finds a sign-off on a few lines', () => {
+    expect(splitEnding('Thanks, Ana!\n\nBest,\n  Sam')).toEqual({
+      body: 'Thanks, Ana!',
+      ending: 'Best,\nSam',
+    });
+  });
   it('finds nothing in a reply of one paragraph', () => {
     expect(splitEnding('Thanks, Ana! See you soon.')).toEqual({
       body: 'Thanks, Ana! See you soon.',
@@ -101,6 +107,15 @@ describe('earlierSignOffs', () => {
     const earlier = earlierSignOffs(replies);
     expect(earlier).toEqual([]);
     expect(withSignOff(replies[0]!, '– Sam', earlier)).toBe(`${replies[0]}\n\n– Sam`);
+  });
+  it('swaps an old sign-off on several lines that a draft copied from earlier replies', () => {
+    const recentReplies = ['Thanks, Ana!\n\nBest,\nSam'];
+    expect(
+      withSignOff('Thanks, Ben!\n\nBest,\nSam', '– New name', earlierSignOffs(recentReplies)),
+    ).toBe('Thanks, Ben!\n\n– New name');
+  });
+  it('leaves out a closing paragraph of sentences on several lines', () => {
+    expect(earlierSignOffs(['Hi, Ana.\n\nWe loved having you.\nSee you soon!'])).toEqual([]);
   });
   it('lets a draft keep a closing sentence an earlier reply also ended with', () => {
     const earlier = earlierSignOffs(['Sorry, Chris.\n\nPlease contact us directly.']);
