@@ -98,6 +98,14 @@ export async function revokeByToken(refreshToken: string | undefined): Promise<v
     await prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } });
 }
 
+// Ends one session of one user, whatever refresh token it has handed out since.
+export async function revokeSession(sessionId: string, userId: string): Promise<void> {
+  await prisma.session.updateMany({
+    where: { id: sessionId, userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}
+
 export async function revokeAllSessions(userId: string, exceptSessionId?: string): Promise<void> {
   await prisma.session.updateMany({
     where: {

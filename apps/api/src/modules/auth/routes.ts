@@ -28,7 +28,13 @@ import { googleIdentity, googleSignInEnabled } from '../../providers/google-iden
 import { registerGoogleCallbackFlow } from './google-callback';
 import { signInWithGoogle } from './google';
 import * as auth from './service';
-import { createSession, revokeAllSessions, revokeByToken, rotateSession } from './sessions';
+import {
+  createSession,
+  revokeAllSessions,
+  revokeByToken,
+  revokeSession,
+  rotateSession,
+} from './sessions';
 
 const REFRESH_COOKIE = 'rp_refresh';
 const REFRESH_PATH = '/api/v1/auth';
@@ -131,6 +137,16 @@ export async function authRoutes(instance: FastifyInstance): Promise<void> {
     async (request, reply) => {
       assertSameOrigin(request);
       await revokeByToken(request.cookies[REFRESH_COOKIE]);
+      // Refreshes still running can swap the cookie more than once while this request travels, so
+      // the cookie it carries may no longer match. The access token names the same session, and our
+      // signature on it proves this browser was given it, so that session ends too. A token past its
+      // 15 minutes still counts: a refresh is usually running precisely because it ran out.
+      if (request.headers.authorization) {
+        const named = await request
+          .jwtVerify<{ sub: string; sid: string }>({ ignoreExpiration: true })
+          .catch(() => null);
+        if (named) await revokeSession(named.sid, named.sub);
+      }
       reply.clearCookie(REFRESH_COOKIE, { path: REFRESH_PATH });
       return { ok: true as const };
     },

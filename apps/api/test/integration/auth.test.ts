@@ -271,6 +271,36 @@ describe('sessions', () => {
     expect((await refreshWith(user.refreshToken)).statusCode).toBe(401);
   });
 
+  it('logout ends the session even when refreshes swapped the cookie twice meanwhile', async () => {
+    const user = await signup(app);
+    const second = refreshCookie(await refreshWith(user.refreshToken))!;
+    const third = refreshCookie(await refreshWith(second))!;
+    // Sent before those refreshes answered, so it carries the first cookie, which no longer matches.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      cookies: { rp_refresh: user.refreshToken },
+      headers: user.headers,
+    });
+    expect(res.statusCode).toBe(200);
+    expect((await refreshWith(third)).statusCode).toBe(401);
+    expect((await me(user.accessToken)).statusCode).toBe(401);
+  });
+
+  it("a token for someone else's session can't end it", async () => {
+    const user = await signup(app);
+    const other = await signup(app);
+    // Signed by us, but naming the other person's session with this user's id.
+    const otherSession = other.refreshToken.split('.')[0]!;
+    const forged = app.jwt.sign({ sub: user.id, sid: otherSession });
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      headers: { authorization: `Bearer ${forged}` },
+    });
+    expect((await me(other.accessToken)).statusCode).toBe(200);
+  });
+
   it('logout from everywhere ends every device', async () => {
     const user = await signup(app);
     const other = await post('/login', { email: user.email, password: PASSWORD });
