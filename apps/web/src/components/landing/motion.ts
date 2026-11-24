@@ -13,9 +13,12 @@ export const fadeUp = keyframes`
 `;
 
 // Plays once as the page opens. `delay` staggers the parts of the hero so they arrive in order.
+// A page that arrived already rendered has played it before the app took over (see main.tsx),
+// so the app shows it in place rather than fading it in a second time.
 export const enter = (delay = 0) => ({
   animation: `${fadeUp} 700ms ${EASE_OUT} ${delay}ms both`,
   [noMotion]: { animation: 'none' },
+  'html[data-prerendered] &': { animation: 'none' },
 });
 
 // A slow wander for the glow behind the hero.

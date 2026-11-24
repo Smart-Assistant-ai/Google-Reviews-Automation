@@ -46,10 +46,11 @@ function PublicOnly({
 }
 
 // The home page explains ReplyPilot to visitors, and Google's verification reads it too. Someone
-// already logged in goes straight to their inbox.
+// already logged in goes straight to their inbox. It shows while the session loads as well,
+// since the page built ahead of time is already on screen by then, rather than swapping it for a
+// spinner.
 function Home() {
-  const { session, loading } = useAuth();
-  if (loading) return <FullPageLoader />;
+  const { session } = useAuth();
   if (session) return <Navigate to="/inbox" replace />;
   return <Landing />;
 }
