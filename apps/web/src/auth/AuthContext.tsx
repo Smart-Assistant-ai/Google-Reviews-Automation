@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -48,8 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [workspaceId, setWorkspaceId] = useState<string | null>(storedWorkspace);
   const queryClient = useQueryClient();
+  // Counts how often the session has ended here. A request that started before a logout, in this
+  // tab or another, mustn't bring the session back when its answer arrives.
+  const sessionEnds = useRef(0);
 
   const clearLocal = useCallback(() => {
+    sessionEnds.current += 1;
     setAccessToken(null);
     setSession(null);
     queryClient.clear();
@@ -75,9 +80,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // A page load has no access token, so ask for one using the cookie.
   const restore = useCallback(async () => {
     try {
+      const endsBefore = sessionEnds.current;
       const res = await refreshSession();
       const me = { user: res.user, workspaces: res.workspaces };
-      setSession(me);
+      if (sessionEnds.current === endsBefore) setSession(me);
+      else setAccessToken(null);
       return me;
     } catch {
       setSession(null);
@@ -99,8 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reload = useCallback(async () => {
+    const endsBefore = sessionEnds.current;
     const me = await api.get<Me>('/auth/me');
-    setSession(me);
+    if (sessionEnds.current === endsBefore) setSession(me);
     return me;
   }, []);
 
