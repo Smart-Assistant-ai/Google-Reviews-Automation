@@ -13,9 +13,19 @@ export class ApiError extends Error {
   }
 }
 
+// The browser knows when it has no connection, which is the usual reason a request never arrives.
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
 function toApiError(error: AxiosError<ApiErrorBody>): ApiError {
   const body = error.response?.data?.error;
   if (body) return new ApiError(body.message, error.response!.status, body.code, body.fields);
+  if (!error.response && isOffline()) {
+    return new ApiError(
+      "You're offline. Please check your internet connection and try again.",
+      0,
+      'offline',
+    );
+  }
   return new ApiError(
     'Could not reach the server. Please try again.',
     error.response?.status ?? 0,
