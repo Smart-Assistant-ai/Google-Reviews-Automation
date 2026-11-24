@@ -46,6 +46,19 @@ describe('withSignOff', () => {
     expect(withSignOff('Thanks, Ana!\n– Sam', '– Sam')).toBe('Thanks, Ana!\n\n– Sam');
     expect(withSignOff('Thanks, Ana!\n  – Sam  \n', '– Sam')).toBe('Thanks, Ana!\n\n– Sam');
   });
+  it('never doubles a sign-off on several lines', () => {
+    expect(withSignOff('Thanks, Ana!\n\nBest,\nSam', 'Best,\nSam')).toBe(
+      'Thanks, Ana!\n\nBest,\nSam',
+    );
+    expect(withSignOff('Thanks, Ana!\nBest,\n  Sam\n', 'Best,\nSam')).toBe(
+      'Thanks, Ana!\n\nBest,\nSam',
+    );
+  });
+  it('swaps an earlier sign-off that comes after a single line break', () => {
+    expect(withSignOff('Thanks, Ana!\n– Old name', '– New name', ['– Old name'])).toBe(
+      'Thanks, Ana!\n\n– New name',
+    );
+  });
   it('keeps a sign-off that is the whole draft as it is', () => {
     expect(withSignOff('– Sam', '– Sam')).toBe('– Sam');
   });

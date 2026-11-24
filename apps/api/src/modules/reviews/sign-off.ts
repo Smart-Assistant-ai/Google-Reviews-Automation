@@ -42,18 +42,37 @@ export function earlierSignOffs(replies: string[]): string[] {
     .filter((ending) => /^[–—-]/.test(ending) || !SENTENCE_END.test(ending));
 }
 
-// Ends a draft with the sign-off exactly once. A last line that is the sign-off already goes first,
-// whether the AI put it after a blank line or a single line break. So does one copied from the
+const linesOf = (text: string) =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+// The text without its last lines when they are exactly the ending's lines, such as "Best," then
+// "Sam", wherever the line breaks fall before it. Null when the text doesn't end that way. Whole
+// lines only, so a sign-off of "Sam" never cuts the end off "Ask for Sam".
+function withoutEnding(text: string, ending: string): string | null {
+  const want = linesOf(ending);
+  const lines = text.split('\n');
+  const kept = [...lines];
+  for (let i = want.length - 1; i >= 0; i -= 1) {
+    while (kept.length && !kept.at(-1)!.trim()) kept.pop();
+    if (kept.pop()?.trim() !== want[i]) return null;
+  }
+  return want.length ? kept.join('\n').trimEnd() : null;
+}
+
+// Ends a draft with the sign-off exactly once. A sign-off the draft already ends with goes first,
+// after a blank line or a single line break, on one line or several. So does one copied from the
 // endings of earlier replies, such as a sign-off from before it was changed.
 export function withSignOff(draft: string, signOff: string, earlierEndings: string[] = []): string {
-  const trimmed = draft.trimEnd();
-  const lastBreak = trimmed.lastIndexOf('\n');
-  let text: string;
-  if (signOff && trimmed.slice(lastBreak + 1).trim() === signOff) {
-    text = trimmed.slice(0, Math.max(lastBreak, 0)).trimEnd();
-  } else {
-    const { body, ending } = splitEnding(trimmed);
-    text = ending !== null && earlierEndings.includes(ending) ? body : trimmed;
+  let text = draft.trimEnd();
+  for (const ending of [signOff, ...earlierEndings]) {
+    const cut = ending ? withoutEnding(text, ending) : null;
+    if (cut !== null) {
+      text = cut;
+      break;
+    }
   }
   if (!signOff) return text;
   return text ? `${text}\n\n${signOff}` : signOff;
