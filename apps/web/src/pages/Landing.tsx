@@ -396,7 +396,8 @@ export default function Landing() {
                     Profile. We use that permission only to list the profiles and locations you
                     manage, read their reviews, and post, edit or delete the replies you approve. We
                     don&apos;t sell your data, use it for advertising, or use it to train AI models.
-                    You can disconnect at any time in Settings or from your Google Account.
+                    The AI in ReplyPilot only writes the text of replies. It never creates or edits
+                    images. You can disconnect at any time in Settings or from your Google Account.
                   </Typography>
                   <Link
                     component={RouterLink}
