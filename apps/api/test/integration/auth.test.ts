@@ -273,8 +273,16 @@ describe('sessions', () => {
 
   it('logout ends the session even when refreshes swapped the cookie twice meanwhile', async () => {
     const user = await signup(app);
-    const second = refreshCookie(await refreshWith(user.refreshToken))!;
-    const third = refreshCookie(await refreshWith(second))!;
+    // Two refreshes that each really swapped the cookie, so the first is two swaps behind.
+    const firstRefresh = await refreshWith(user.refreshToken);
+    expect(firstRefresh.statusCode).toBe(200);
+    const second = refreshCookie(firstRefresh);
+    expect(second).toBeDefined();
+    const secondRefresh = await refreshWith(second!);
+    expect(secondRefresh.statusCode).toBe(200);
+    const third = refreshCookie(secondRefresh);
+    expect(third).toBeDefined();
+    expect(new Set([user.refreshToken, second, third]).size).toBe(3);
     // Sent before those refreshes answered, so it carries the first cookie, which no longer matches.
     const res = await app.inject({
       method: 'POST',
@@ -283,7 +291,7 @@ describe('sessions', () => {
       headers: user.headers,
     });
     expect(res.statusCode).toBe(200);
-    expect((await refreshWith(third)).statusCode).toBe(401);
+    expect((await refreshWith(third!)).statusCode).toBe(401);
     expect((await me(user.accessToken)).statusCode).toBe(401);
   });
 
