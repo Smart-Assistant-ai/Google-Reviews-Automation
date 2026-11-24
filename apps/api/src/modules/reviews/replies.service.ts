@@ -1,5 +1,5 @@
 import { GOOGLE_REPLY_MAX_BYTES, byteLength } from '@replypilot/shared';
-import type { Reply } from '@prisma/client';
+import type { Reply, ReplyState } from '@prisma/client';
 import { env } from '../../config';
 import { recordAudit } from '../../lib/audit';
 import { HttpError } from '../../lib/errors';
@@ -40,6 +40,22 @@ const reconnectFirst = () =>
   );
 
 const isAuthFailure = (err: unknown) => (err as { statusCode?: number }).statusCode === 401;
+
+// The settled states a post can start from. Posting and drafting belong to work still running.
+const POSTABLE: ReplyState[] = ['draft', 'failed', 'rejected', 'live', 'pending_google'];
+
+// Where a reply goes after Google refused the account mid-post, which means nothing reached Google.
+// Sent unchanged, it goes back to the state it had, such as live. A new or edited one stays a draft,
+// so the edit is kept. So does one whose earlier state was another request's unfinished post, which
+// would otherwise be left posting with nobody to finish it.
+export function stateAfterRefusal(
+  before: Pick<Reply, 'state' | 'text'> | null,
+  sentText: string,
+): ReplyState {
+  return before && before.text === sentText && POSTABLE.includes(before.state)
+    ? before.state
+    : 'draft';
+}
 
 // A reply that ever reached Google may still be there even when our copy is now a draft, for
 // example an edit Google refused, so deleting it has to go through Google too.
@@ -160,10 +176,7 @@ export async function postReply(
 
   // One atomic update decides who posts, so a double click can't post twice.
   const claimed = await prisma.reply.updateMany({
-    where: {
-      id: reply.id,
-      state: { in: ['draft', 'failed', 'rejected', 'live', 'pending_google'] },
-    },
+    where: { id: reply.id, state: { in: POSTABLE } },
     data: { state: 'posting' },
   });
   if (claimed.count === 0) throw inProgress();
@@ -200,13 +213,10 @@ export async function postReply(
     });
   } catch (err) {
     if (isAuthFailure(err)) {
-      // Nothing reached Google. A reply sent unchanged goes back to the state it had, such as live.
-      // A new or edited one stays a draft, so the edit is kept and nothing claims it's on Google.
       await markNeedsReconnect(location.connectionId);
-      const unchanged = before !== null && before.text === reply.text;
       await prisma.reply.update({
         where: { id: reply.id },
-        data: { state: unchanged ? before.state : 'draft' },
+        data: { state: stateAfterRefusal(before, reply.text) },
       });
       throw reconnectFirst();
     }

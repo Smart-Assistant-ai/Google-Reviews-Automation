@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
 import { reviewIdOf, syncLocation } from '../../src/modules/google/sync.service';
+import { stateAfterRefusal } from '../../src/modules/reviews/replies.service';
 import { runDraftQueue, checkPendingReplies } from '../../src/modules/reviews/jobs';
 import { purgeExpiredContent } from '../../src/modules/reviews/purge.service';
 import { sentEmails } from '../../src/providers/email/mock';
@@ -472,6 +473,16 @@ describe('replies', () => {
 
     expect((await req('DELETE', user, `/reviews/${review.id}/reply`)).statusCode).toBe(200);
     expect(await replyOnGoogle()).toBeUndefined();
+  });
+
+  it("never goes back to another request's unfinished post after a refusal", () => {
+    // Read while another request held the reply in posting: going back there would leave it
+    // stuck, with nobody left to finish it.
+    expect(stateAfterRefusal({ state: 'posting', text: 'Hi' }, 'Hi')).toBe('draft');
+    expect(stateAfterRefusal({ state: 'drafting', text: 'Hi' }, 'Hi')).toBe('draft');
+    expect(stateAfterRefusal({ state: 'live', text: 'Hi' }, 'Hi')).toBe('live');
+    expect(stateAfterRefusal({ state: 'live', text: 'Hi' }, 'Hi there')).toBe('draft');
+    expect(stateAfterRefusal(null, 'Hi')).toBe('draft');
   });
 
   it('asks for a reconnect without calling Google once a real account was refused', async () => {
