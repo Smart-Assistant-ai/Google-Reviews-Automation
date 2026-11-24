@@ -1,4 +1,5 @@
 import type { Me, SessionResponse, WorkspaceSummary } from '@replypilot/shared';
+import { Snackbar } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   createContext,
@@ -52,6 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Counts how often the session has ended here. A request that started before a logout, in this
   // tab or another, mustn't bring the session back when its answer arrives.
   const sessionEnds = useRef(0);
+  // Shown wherever "Log out" was clicked, since the app has several of those buttons.
+  const [logoutError, setLogoutError] = useState('');
 
   const clearLocal = useCallback(() => {
     sessionEnds.current += 1;
@@ -139,14 +142,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: async (body) => accept(await api.post<SessionResponse>('/auth/login', body)),
       signup: async (body) => accept(await api.post<SessionResponse>('/auth/signup', body)),
       logout: async () => {
-        await api.post('/auth/logout').catch(() => {});
+        setLogoutError('');
+        try {
+          await api.post('/auth/logout');
+        } catch (err) {
+          // The server still has the session, so a reload would bring it back. This tab stays
+          // logged in and says why, and other tabs are left alone.
+          setLogoutError(`Couldn't log out. ${(err as Error).message}`);
+          return;
+        }
         endSession();
       },
     }),
     [session, loading, workspace, switchWorkspace, reload, restore, clearLocal, endSession, accept],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <Snackbar
+        open={!!logoutError}
+        autoHideDuration={6000}
+        onClose={() => setLogoutError('')}
+        message={logoutError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthValue {
