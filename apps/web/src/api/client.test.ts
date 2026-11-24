@@ -1,5 +1,5 @@
 import { AxiosError, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api, http, setAccessToken, setSessionLostHandler } from './client';
 
 type Handler = (config: InternalAxiosRequestConfig) => { status: number; data: unknown };
@@ -102,6 +102,31 @@ describe('api client', () => {
       status: 400,
       code: 'validation_error',
       fields: [{ path: 'email', message: 'Enter a valid email' }],
+    });
+  });
+
+  describe('when a request never gets an answer', () => {
+    beforeEach(() => {
+      http.defaults.adapter = async (config) => {
+        throw new AxiosError('Network Error', 'ERR_NETWORK', config);
+      };
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('says the browser is offline when it is', async () => {
+      vi.stubGlobal('navigator', { onLine: false });
+      await expect(api.post('/x', {})).rejects.toMatchObject({
+        code: 'offline',
+        message: "You're offline. Please check your internet connection and try again.",
+      });
+    });
+
+    it('blames reaching the server when the browser is online', async () => {
+      vi.stubGlobal('navigator', { onLine: true });
+      await expect(api.post('/x', {})).rejects.toMatchObject({
+        code: 'network_error',
+        message: 'Could not reach the server. Please try again.',
+      });
     });
   });
 });

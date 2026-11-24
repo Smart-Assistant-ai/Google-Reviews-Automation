@@ -42,6 +42,9 @@ export const reviewSchema = z.object({
   purged: z.boolean(),
   // Real Google data on a server with posting switched off: replies can't be posted or deleted here.
   postingOff: z.boolean(),
+  // Google refused this location's account, so replies can't be posted or deleted until an admin
+  // reconnects it.
+  reconnectNeeded: z.boolean(),
   reply: replySchema.nullable(),
 });
 export type Review = z.infer<typeof reviewSchema>;

@@ -3,7 +3,7 @@ import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { float, noMotion } from './motion';
 
-// A small label that bobs beside the sample review. Wide screens only: on a phone there is no room
+// A small label that bobs beside the sample review. Wide screens only: on a phone there is no space
 // beside the card. `delay` (seconds, negative) keeps two notes from bobbing in step.
 export default function FloatingNote({
   icon,

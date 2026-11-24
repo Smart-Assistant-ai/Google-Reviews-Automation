@@ -1,7 +1,7 @@
-import { Box, CircularProgress } from '@mui/material';
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
+import FullPageLoader from './components/FullPageLoader';
 import AppShell from './layout/AppShell';
 import AcceptInvite from './pages/AcceptInvite';
 import AuthCallback from './pages/AuthCallback';
@@ -19,14 +19,6 @@ import ResetPassword from './pages/ResetPassword';
 import Settings from './pages/Settings';
 import Terms from './pages/Terms';
 import VerifyEmail from './pages/VerifyEmail';
-
-function FullPageLoader() {
-  return (
-    <Box sx={{ height: '100vh', display: 'grid', placeItems: 'center' }}>
-      <CircularProgress />
-    </Box>
-  );
-}
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
