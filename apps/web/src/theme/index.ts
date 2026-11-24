@@ -45,6 +45,9 @@ export function buildTheme(mode: PaletteMode) {
       // Titles often hold a name someone typed, such as a workspace or an email, which can be one
       // long word. It breaks onto the next line instead of running out of the popup.
       MuiDialogTitle: { styleOverrides: { root: { overflowWrap: 'anywhere' } } },
+      // The same for the text under the title, such as a reviewer's name or the locations a
+      // disconnect would remove.
+      MuiDialogContent: { styleOverrides: { root: { overflowWrap: 'anywhere' } } },
       MuiListItemButton: {
         styleOverrides: {
           root: ({ theme }) => ({
