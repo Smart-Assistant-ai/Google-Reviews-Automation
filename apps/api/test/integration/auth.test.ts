@@ -385,6 +385,23 @@ describe('account', () => {
     expect((await me(other.json().accessToken)).statusCode).toBe(401);
   });
 
+  it('refuses a new password that is the same as the current one', async () => {
+    const user = await signup(app);
+    const other = await post('/login', { email: user.email, password: PASSWORD });
+    const same = await post(
+      '/change-password',
+      { currentPassword: PASSWORD, newPassword: PASSWORD },
+      user.headers,
+    );
+    expect(same.statusCode).toBe(400);
+    expect(same.json().error).toMatchObject({
+      code: 'same_password',
+      message: 'Your new password must be different from your current password.',
+    });
+    // Nothing changed, so other devices stay logged in.
+    expect((await me(other.json().accessToken)).statusCode).toBe(200);
+  });
+
   it('updates the name', async () => {
     const user = await signup(app);
     const res = await app.inject({

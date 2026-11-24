@@ -229,6 +229,13 @@ export async function changePassword(
   ) {
     throw new HttpError(401, 'Your current password is not right', 'invalid_credentials');
   }
+  if (identity?.passwordHash && (await bcrypt.compare(newPassword, identity.passwordHash))) {
+    throw new HttpError(
+      400,
+      'Your new password must be different from your current password.',
+      'same_password',
+    );
+  }
   await setPassword(userId, newPassword);
   await revokeAllSessions(userId, sessionId);
   await recordAudit({ action: 'auth.password_changed', actorUserId: userId, ip });
