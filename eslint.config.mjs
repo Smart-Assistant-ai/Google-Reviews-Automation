@@ -7,6 +7,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/dist-ssr/**',
       '**/node_modules/**',
       'backend/**',
       'frontend/**',
@@ -25,7 +26,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/**/*.ts', 'packages/shared/**/*.ts', '*.config.*', 'apps/*/*.config.*'],
+    files: [
+      'apps/api/**/*.ts',
+      'packages/shared/**/*.ts',
+      '*.config.*',
+      'apps/*/*.config.*',
+      'apps/*/scripts/**',
+    ],
     languageOptions: { globals: globals.node },
   },
   {

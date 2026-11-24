@@ -92,7 +92,8 @@ export default function Privacy() {
           To draft a reply, we send the review (its text, rating and the reviewer&apos;s name), your
           reply voice settings and a few of your recent replies to our AI provider, OpenAI. OpenAI
           processes this only to return the draft, under terms that don&apos;t allow it to train its
-          models on that data. Drafts are suggestions: please read each one before you post it.
+          models on that data. The AI writes reply text only, and never creates or edits images.
+          Drafts are suggestions: please read each one before you post it.
         </Typography>
       </Section>
 
