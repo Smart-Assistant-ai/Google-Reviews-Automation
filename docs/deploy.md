@@ -78,10 +78,24 @@ Keep a copy of `ENCRYPTION_KEY` somewhere safe, such as a password manager. With
 
 ## 4. Nginx and HTTPS
 
-Copy `deploy/nginx-site.conf`, replace `app.example.com` with your domain, and turn it on:
+Copy `deploy/nginx-site.conf` into place:
 
 ```bash
 sudo cp deploy/nginx-site.conf /etc/nginx/sites-available/replypilot
+```
+
+Edit the copy before turning it on. Replace `app.example.com` with your domain. Then, in its `location /` block, replace `try_files $uri /index.html;` with these two lines:
+
+```nginx
+rewrite ^/$ /home.html last;
+try_files $uri $uri.html /index.html;
+```
+
+The build writes the home page, privacy policy and terms as their own HTML files (`dist/home.html`, `privacy.html`, `terms.html`) with the page already in them, because Google's branding verification reads them without running JavaScript. These lines send those files for `/`, `/privacy` and `/terms`, and the app's `index.html` for every other path. Without them the site still works, but every path gets the empty `index.html`, and Google's verification finds no home page or privacy policy.
+
+Then turn the site on, check the config and reload:
+
+```bash
 sudo ln -s /etc/nginx/sites-available/replypilot /etc/nginx/sites-enabled/replypilot
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
@@ -89,14 +103,11 @@ sudo systemctl reload nginx
 sudo certbot --nginx -d app.your-domain.com
 ```
 
-The build writes the home page, privacy policy and terms as their own HTML files (`dist/home.html`, `privacy.html`, `terms.html`) with the page already in them, because Google's branding verification reads them without running JavaScript. The `location /` block must send those files for `/`, `/privacy` and `/terms`, and the app's `index.html` for every other path:
+On a server that is already running, make the same `location /` edit in its existing site file, then check and reload:
 
-```nginx
-rewrite ^/$ /home.html last;
-try_files $uri $uri.html /index.html;
+```bash
+sudo nginx -t && sudo systemctl reload nginx
 ```
-
-Without these two lines the site still works, but every path gets the empty `index.html`, and Google's verification finds no home page or privacy policy.
 
 ## 5. Google Console
 
