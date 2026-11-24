@@ -376,13 +376,17 @@ export default function Inbox() {
   const checkGoogle = async () => {
     setChecking(true);
     try {
-      const { created } = await api.post<{ created: number }>(wsPath(workspaceId, '/google/sync'), {
-        locationId,
-      });
+      const { created, failed } = await api.post<{ created: number; failed: number }>(
+        wsPath(workspaceId, '/google/sync'),
+        { locationId },
+      );
+      // "No new reviews" is only said when Google actually answered.
       setToast(
-        created > 0
-          ? `${plural(created, 'new review')} from Google`
-          : 'No new reviews on Google yet. Google can take a while to show a new review.',
+        failed > 0
+          ? `Couldn't read Google for ${plural(failed, 'location')}, so new reviews may be missing. An admin can see why in Settings → Google & locations.`
+          : created > 0
+            ? `${plural(created, 'new review')} from Google`
+            : 'No new reviews on Google yet. Google can take a while to show a new review.',
       );
       await refresh();
     } catch (err) {
