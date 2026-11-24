@@ -37,6 +37,16 @@ describe('withSignOff', () => {
       'Thanks, Ana!\n\n– The Team',
     );
   });
+  it('never doubles a sign-off the draft has after a single line break', () => {
+    expect(withSignOff('Thanks, Ana!\n– Sam', '– Sam')).toBe('Thanks, Ana!\n\n– Sam');
+    expect(withSignOff('Thanks, Ana!\n  – Sam  \n', '– Sam')).toBe('Thanks, Ana!\n\n– Sam');
+  });
+  it('keeps a sign-off that is the whole draft as it is', () => {
+    expect(withSignOff('– Sam', '– Sam')).toBe('– Sam');
+  });
+  it('leaves a sign-off inside the last sentence alone', () => {
+    expect(withSignOff('Ask for Sam', 'Sam')).toBe('Ask for Sam\n\nSam');
+  });
   it('swaps a sign-off copied from earlier replies for the current one', () => {
     expect(withSignOff('Thanks, Ana!\n\n– Old name', '– New name', ['– Old name'])).toBe(
       'Thanks, Ana!\n\n– New name',

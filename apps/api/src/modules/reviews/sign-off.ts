@@ -28,12 +28,19 @@ export function splitEnding(reply: string): { body: string; ending: string | nul
   return { body: text.slice(0, at).trimEnd(), ending };
 }
 
-// Ends a draft with the sign-off exactly once. A last line that is the sign-off already, or one
-// copied from the endings of earlier replies, such as a sign-off from before it was changed, goes
-// first.
+// Ends a draft with the sign-off exactly once. A last line that is the sign-off already goes first,
+// whether the AI put it after a blank line or a single line break. So does one copied from the
+// endings of earlier replies, such as a sign-off from before it was changed.
 export function withSignOff(draft: string, signOff: string, earlierEndings: string[] = []): string {
-  const { body, ending } = splitEnding(draft);
-  const stale = ending !== null && (ending === signOff || earlierEndings.includes(ending));
-  const text = stale ? body : draft.trimEnd();
-  return signOff ? `${text}\n\n${signOff}` : text;
+  const trimmed = draft.trimEnd();
+  const lastBreak = trimmed.lastIndexOf('\n');
+  let text: string;
+  if (signOff && trimmed.slice(lastBreak + 1).trim() === signOff) {
+    text = trimmed.slice(0, Math.max(lastBreak, 0)).trimEnd();
+  } else {
+    const { body, ending } = splitEnding(trimmed);
+    text = ending !== null && earlierEndings.includes(ending) ? body : trimmed;
+  }
+  if (!signOff) return text;
+  return text ? `${text}\n\n${signOff}` : signOff;
 }
