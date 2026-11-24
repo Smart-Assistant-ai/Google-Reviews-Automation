@@ -1,4 +1,4 @@
-import type { Connection, DisconnectPreview, Location } from '@replypilot/shared';
+import type { Connection, DisconnectPreview, GoogleStatus, Location } from '@replypilot/shared';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   DialogTitle,
   Divider,
   MenuItem,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -30,6 +31,8 @@ export default function GoogleTab() {
   const { data: status, isLoading } = useGoogleStatus();
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  // What a check just found, even when the screen looks the same as before.
+  const [notice, setNotice] = useState('');
   const [picking, setPicking] = useState(false);
   const [disconnecting, setDisconnecting] = useState<{
     connection: Connection;
@@ -134,9 +137,18 @@ export default function GoogleTab() {
                     variant="outlined"
                     disabled={!!busy}
                     onClick={() =>
-                      void run(`rescan-${connection.id}`, () =>
-                        api.post(google(`/connections/${connection.id}/rescan`)),
-                      )
+                      void run(`rescan-${connection.id}`, async () => {
+                        const checked = (
+                          await api.post<GoogleStatus>(
+                            google(`/connections/${connection.id}/rescan`),
+                          )
+                        ).connections.find((c) => c.id === connection.id);
+                        setNotice(
+                          checked?.apiError
+                            ? `Checked Google. ${checked.apiError}`
+                            : `Checked Google: ${plural(checked?.locationCount ?? 0, 'location')} found for ${connection.email}.`,
+                        );
+                      })
                     }
                   >
                     {busy === `rescan-${connection.id}` ? 'Checking…' : 'Check Google'}
@@ -273,6 +285,13 @@ export default function GoogleTab() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={!!notice}
+        autoHideDuration={5000}
+        onClose={() => setNotice('')}
+        message={notice}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Stack>
   );
 }
