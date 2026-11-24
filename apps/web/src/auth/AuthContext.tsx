@@ -22,12 +22,18 @@ interface AuthValue {
   reload: () => Promise<Me | null>;
   restore: () => Promise<Me | null>;
   clearLocal: () => void;
+  // Ends the session here and in every other tab of the app open on this device.
+  endSession: () => void;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
 
 // Only remembers which workspace was open. It's a convenience, so losing it is harmless.
 const WORKSPACE_KEY = 'rp_workspace';
+
+// Tabs keep the session in memory, so a tab only finds out about a logout elsewhere on its next
+// request. This channel tells every tab on the device straight away.
+const LOGOUT_CHANNEL = 'replypilot-logout';
 
 function storedWorkspace(): string | null {
   try {
@@ -48,6 +54,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     queryClient.clear();
   }, [queryClient]);
+
+  const [channel] = useState(() =>
+    typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(LOGOUT_CHANNEL),
+  );
+  useEffect(() => {
+    if (!channel) return;
+    channel.onmessage = () => clearLocal();
+    return () => {
+      channel.onmessage = null;
+    };
+  }, [channel, clearLocal]);
+  // Only a deliberate logout is shared. A refresh that fails, maybe on a bad connection, stays in
+  // its own tab.
+  const endSession = useCallback(() => {
+    clearLocal();
+    channel?.postMessage('logged-out');
+  }, [channel, clearLocal]);
 
   // A page load has no access token, so ask for one using the cookie.
   const restore = useCallback(async () => {
@@ -104,14 +127,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       reload,
       restore,
       clearLocal,
+      endSession,
       login: async (body) => accept(await api.post<SessionResponse>('/auth/login', body)),
       signup: async (body) => accept(await api.post<SessionResponse>('/auth/signup', body)),
       logout: async () => {
         await api.post('/auth/logout').catch(() => {});
-        clearLocal();
+        endSession();
       },
     }),
-    [session, loading, workspace, switchWorkspace, reload, restore, clearLocal, accept],
+    [session, loading, workspace, switchWorkspace, reload, restore, clearLocal, endSession, accept],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
