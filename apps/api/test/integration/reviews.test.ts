@@ -408,9 +408,51 @@ describe('replies', () => {
     const review = await firstReview(user);
     mockGbp.failReads(email, 401);
     const res = await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Hi' });
-    expect(res.statusCode).toBe(502);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('google_reconnect_needed');
+    expect(res.json().error.message).toMatch(/Reconnect it in Settings/);
     expect((await googleStatus(app, user)).connections[0]?.status).toBe('needs_reconnect');
-    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('failed');
+    // Nothing reached Google, so the reply keeps its text and waits as a draft.
+    const after = (await req('GET', user, `/reviews/${review.id}`)).json();
+    expect(after.status).toBe('draft');
+    expect(after.reply.text).toBe('Hi');
+  });
+
+  it('asks for a reconnect without calling Google once a real account was refused', async () => {
+    const user = await ownerWithReviews();
+    const review = await firstReview(user);
+    const location = await prisma.location.findUniqueOrThrow({ where: { id: review.locationId } });
+    await prisma.googleConnection.update({
+      where: { id: location.connectionId },
+      data: { provider: 'live', status: 'needs_reconnect' },
+    });
+    const google = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', google);
+    const before = env.GOOGLE_POSTING_ENABLED;
+    env.GOOGLE_POSTING_ENABLED = true;
+    try {
+      const res = await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Hello' });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error.code).toBe('google_reconnect_needed');
+      expect(google).not.toHaveBeenCalled();
+    } finally {
+      env.GOOGLE_POSTING_ENABLED = before;
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('asks for a reconnect when deleting a posted reply after access was refused', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    mockGbp.failReads(email, 401);
+    const res = await req('DELETE', user, `/reviews/${review.id}/reply`);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('google_reconnect_needed');
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().reply).not.toBeNull();
   });
 
   it('deletes a reply, from Google too', async () => {

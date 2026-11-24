@@ -4,7 +4,12 @@ import { recordAudit } from '../../lib/audit';
 import { HttpError } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
 import { replyEdits } from '../../providers/gbp/limits';
-import { getContext, markNeedsReconnect, usesFakeData } from '../google/connection.service';
+import {
+  getContext,
+  markNeedsReconnect,
+  needsReconnect,
+  usesFakeData,
+} from '../google/connection.service';
 import { reviewResourceName } from '../google/sync.service';
 import type { MemberContext } from '../workspaces/access';
 import { draftForReview } from './draft.service';
@@ -24,10 +29,23 @@ function validateText(text: string): void {
 const inProgress = () =>
   new HttpError(409, 'This reply is being posted right now', 'reply_in_progress');
 
+// Said in place of Google's own wording, such as "Request had invalid authentication credentials",
+// which tells the owner nothing about what to do.
+const reconnectFirst = () =>
+  new HttpError(
+    409,
+    'Google no longer lets ReplyPilot use the Google account connected to this location, so nothing was sent. Reconnect it in Settings → Google & locations, then try again.',
+    'google_reconnect_needed',
+  );
+
+const isAuthFailure = (err: unknown) => (err as { statusCode?: number }).statusCode === 401;
+
 // Only production talks to the real Google by default, so nobody posts publicly while testing.
+// An account Google already refused isn't tried again until it's reconnected.
 function assertRealActionAllowed(connection: {
   provider: 'mock' | 'live';
   dataSource: 'google' | 'sample';
+  status: 'healthy' | 'needs_reconnect';
 }): void {
   if (!usesFakeData(connection) && !env.GOOGLE_POSTING_ENABLED) {
     throw new HttpError(
@@ -36,6 +54,7 @@ function assertRealActionAllowed(connection: {
       'real_posting_disabled',
     );
   }
+  if (needsReconnect(connection)) throw reconnectFirst();
 }
 
 export async function saveDraft(
@@ -172,13 +191,17 @@ export async function postReply(
       ip,
     });
   } catch (err) {
+    if (isAuthFailure(err)) {
+      // Nothing reached Google, so the reply goes back to how it was and waits for the reconnect.
+      await markNeedsReconnect(location.connectionId);
+      await prisma.reply.update({ where: { id: reply.id }, data: { state: reply.state } });
+      throw reconnectFirst();
+    }
     const message = (err as Error).message;
     await prisma.reply.update({
       where: { id: reply.id },
       data: { state: 'failed', error: message },
     });
-    if ((err as { statusCode?: number }).statusCode === 401)
-      await markNeedsReconnect(location.connectionId);
     throw new HttpError(502, `Google refused the reply: ${message}`, 'google_refused');
   }
 }
@@ -205,9 +228,12 @@ export async function deleteReply(
       await provider.deleteReply(ctx, reviewResourceName(location, review.googleReviewId));
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
+      if (isAuthFailure(err)) {
+        await markNeedsReconnect(location.connectionId);
+        throw reconnectFirst();
+      }
       // Already gone from Google is what we wanted. Anything else keeps our copy and says so.
       if (status !== 404) {
-        if (status === 401) await markNeedsReconnect(location.connectionId);
         throw new HttpError(
           502,
           `Google refused the request: ${(err as Error).message}`,
