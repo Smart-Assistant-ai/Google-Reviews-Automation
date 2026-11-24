@@ -1,4 +1,5 @@
 import { GOOGLE_REPLY_MAX_BYTES, byteLength } from '@replypilot/shared';
+import type { Reply } from '@prisma/client';
 import { env } from '../../config';
 import { recordAudit } from '../../lib/audit';
 import { HttpError } from '../../lib/errors';
@@ -39,6 +40,11 @@ const reconnectFirst = () =>
   );
 
 const isAuthFailure = (err: unknown) => (err as { statusCode?: number }).statusCode === 401;
+
+// A reply that ever reached Google may still be there even when our copy is now a draft, for
+// example an edit Google refused, so deleting it has to go through Google too.
+const mayBeOnGoogle = (reply: Pick<Reply, 'state' | 'postedAt'>) =>
+  ['pending_google', 'live', 'rejected'].includes(reply.state) || reply.postedAt !== null;
 
 // Only production talks to the real Google by default, so nobody posts publicly while testing.
 // An account Google already refused isn't tried again until it's reconnected.
@@ -221,7 +227,7 @@ export async function deleteReply(
   const review = await loadReview(member, reviewId);
   const { reply, location } = review;
   if (reply?.state === 'posting') throw inProgress();
-  if (reply && ['pending_google', 'live', 'rejected'].includes(reply.state)) {
+  if (reply && mayBeOnGoogle(reply)) {
     assertRealActionAllowed(location.connection);
     if (!replyEdits.tryTake(location.id)) {
       throw new HttpError(

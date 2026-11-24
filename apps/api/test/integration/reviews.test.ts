@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
-import { syncLocation } from '../../src/modules/google/sync.service';
+import { reviewIdOf, syncLocation } from '../../src/modules/google/sync.service';
 import { runDraftQueue, checkPendingReplies } from '../../src/modules/reviews/jobs';
 import { purgeExpiredContent } from '../../src/modules/reviews/purge.service';
 import { sentEmails } from '../../src/providers/email/mock';
@@ -441,6 +441,37 @@ describe('replies', () => {
     const after = (await req('GET', user, `/reviews/${review.id}`)).json();
     expect(after.status).toBe('draft');
     expect(after.reply.text).toBe('Thanks a lot');
+  });
+
+  it('deleting after a refused edit still takes the reply off Google', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const review = await firstReview(user);
+    const location = await prisma.location.findUniqueOrThrow({
+      where: { id: review.locationId },
+      include: { connection: true },
+    });
+    const replyOnGoogle = async () => {
+      const { reviews } = await mockGbpProvider.listReviews(
+        { connection: location.connection, getAccessToken: async () => '' },
+        location.googleAccountName,
+        location.googleLocationName,
+      );
+      return reviews?.find((r) => reviewIdOf(r) === review.googleReviewId)?.reviewReply;
+    };
+
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    mockGbp.failReads(email, 401);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks a lot' });
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('draft');
+    mockGbp.failReads(email, null);
+    // Our copy is a draft now, but the first reply is still public on Google.
+    expect((await replyOnGoogle())?.comment).toBe('Thanks');
+
+    expect((await req('DELETE', user, `/reviews/${review.id}/reply`)).statusCode).toBe(200);
+    expect(await replyOnGoogle()).toBeUndefined();
   });
 
   it('asks for a reconnect without calling Google once a real account was refused', async () => {
