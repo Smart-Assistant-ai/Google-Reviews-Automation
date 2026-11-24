@@ -9,7 +9,7 @@ import PasswordField from '../components/PasswordField';
 export default function ResetPassword() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
-  const { clearLocal } = useAuth();
+  const { endSession } = useAuth();
   const [password, setPassword] = useState('');
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +22,7 @@ export default function ResetPassword() {
     try {
       await api.post('/auth/reset-password', { token, password });
       // Every session just ended, including one in this browser.
-      clearLocal();
+      endSession();
       setDone(true);
     } catch (err) {
       setError((err as Error).message);

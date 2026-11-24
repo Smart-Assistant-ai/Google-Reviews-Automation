@@ -17,7 +17,7 @@ import { useAuth } from '../../auth/AuthContext';
 import PasswordField from '../../components/PasswordField';
 
 export default function AccountTab() {
-  const { session, reload, clearLocal } = useAuth();
+  const { session, reload, endSession } = useAuth();
   const [name, setName] = useState(session?.user.name ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -139,7 +139,9 @@ export default function AccountTab() {
             </Typography>
             <Button
               variant="outlined"
-              onClick={() => void api.post('/auth/logout-all').then(clearLocal)}
+              onClick={() =>
+                void run(() => api.post('/auth/logout-all'), '').then((ok) => ok && endSession())
+              }
             >
               Log out on all devices
             </Button>
@@ -189,7 +191,7 @@ export default function AccountTab() {
                 '',
               ).then((ok) => {
                 setDeleting(false);
-                if (ok) clearLocal();
+                if (ok) endSession();
               })
             }
           >
