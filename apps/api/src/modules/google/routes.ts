@@ -209,12 +209,14 @@ export async function googleRoutes(instance: FastifyInstance): Promise<void> {
       });
       let fetched = 0;
       let created = 0;
+      let failed = 0;
       for (const location of active) {
         const result = await syncLocation(location.id);
         fetched += result.fetched;
         created += result.created;
+        if (result.failed) failed += 1;
       }
-      return { synced: active.length, fetched, created };
+      return { synced: active.length, fetched, created, failed };
     },
   );
 }

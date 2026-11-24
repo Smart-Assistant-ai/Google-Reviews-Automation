@@ -83,6 +83,8 @@ export async function applyModerationResult(
 export interface SyncResult {
   fetched: number;
   created: number;
+  // Google couldn't be read. The reason is saved on the location or its connection.
+  failed: boolean;
 }
 
 async function importReview(
@@ -146,7 +148,7 @@ async function importReview(
 // One location's failure stays with that location or its connection, never the rest of the workspace.
 export async function syncLocation(locationId: string): Promise<SyncResult> {
   const location = await prisma.location.findUnique({ where: { id: locationId } });
-  if (!location || location.status !== 'active') return { fetched: 0, created: 0 };
+  if (!location || location.status !== 'active') return { fetched: 0, created: 0, failed: false };
 
   await prisma.location.update({
     where: { id: locationId },
@@ -154,6 +156,7 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
   });
   let fetched = 0;
   let created = 0;
+  let failed = false;
   try {
     const { provider, ctx } = await getContext(location.connectionId);
     const cutoff = Date.now() - AUTO_DRAFT_WINDOW_DAYS * 86_400_000;
@@ -180,6 +183,7 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
       data: { apiError: null },
     });
   } catch (err) {
+    failed = true;
     const message = err instanceof Error ? err.message : 'Sync failed';
     const failure = classifyGoogleFailure(err);
     if (failure === 'reconnect') {
@@ -199,5 +203,5 @@ export async function syncLocation(locationId: string): Promise<SyncResult> {
       await prisma.location.update({ where: { id: locationId }, data: { lastSyncError: message } });
     }
   }
-  return { fetched, created };
+  return { fetched, created, failed };
 }
