@@ -12,4 +12,8 @@ export default defineConfig({
     strictPort: true,
     proxy: { '/api': { target: process.env.API_TARGET ?? 'http://127.0.0.1:4000' } },
   },
+  // The build renders the public pages in Node (src/prerender.tsx). Bundling every package into
+  // that render, rather than loading them from node_modules, gets the same builds the browser
+  // uses, so icon and style packages load the same way in both.
+  ssr: { noExternal: true },
 });

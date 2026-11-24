@@ -89,6 +89,15 @@ sudo systemctl reload nginx
 sudo certbot --nginx -d app.your-domain.com
 ```
 
+The build writes the home page, privacy policy and terms as their own HTML files (`dist/home.html`, `privacy.html`, `terms.html`) with the page already in them, because Google's branding verification reads them without running JavaScript. The `location /` block must send those files for `/`, `/privacy` and `/terms`, and the app's `index.html` for every other path:
+
+```nginx
+rewrite ^/$ /home.html last;
+try_files $uri $uri.html /index.html;
+```
+
+Without these two lines the site still works, but every path gets the empty `index.html`, and Google's verification finds no home page or privacy policy.
+
 ## 5. Google Console
 
 Use the project Google approved for the Business Profile API. Before approval every Business Profile API has a quota of 0, and the app shows that Google is limiting its requests.
