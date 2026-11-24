@@ -90,6 +90,13 @@ describe('workspaces', () => {
     ).toBe('New Name');
   });
 
+  it('refuses a workspace name with no letter or number', async () => {
+    const owner = await signup(app);
+    const res = await api('PATCH', `/workspaces/${owner.workspaceId}`, owner, { name: '***' });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toBe('The workspace name needs at least one letter or number');
+  });
+
   it('only the owner can delete a workspace, after which it is gone for everyone', async () => {
     const owner = await signup(app);
     const admin = await addMember(owner, { role: 'admin' });

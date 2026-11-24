@@ -60,6 +60,34 @@ describe('signup', () => {
     expect(body.accessToken).toBeTruthy();
   });
 
+  it('refuses a name or business name with no letter or number, and says which', async () => {
+    const symbolsOnly = await post('/signup', {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      name: '@#$%',
+      businessName: 'Corner Shop',
+    });
+    expect(symbolsOnly.statusCode).toBe(400);
+    expect(symbolsOnly.json().error.message).toBe('Your name needs at least one letter or number');
+    const business = await post('/signup', {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      name: 'Sam',
+      businessName: '!!!',
+    });
+    expect(business.statusCode).toBe(400);
+    expect(business.json().error.message).toBe(
+      'The business name needs at least one letter or number',
+    );
+    const punctuated = await post('/signup', {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      name: "Sam O'Brien",
+      businessName: 'Smith & Sons Ltd.',
+    });
+    expect(punctuated.statusCode).toBe(200);
+  });
+
   it('puts the refresh token in a cookie JavaScript cannot read', async () => {
     const res = await post('/signup', { email: uniqueEmail(), password: PASSWORD });
     const cookie = res.cookies.find((c) => c.name === 'rp_refresh')!;
