@@ -120,6 +120,8 @@ export async function postReply(
 ): Promise<void> {
   const review = await loadReview(member, reviewId);
   const { location } = review;
+  // The reply as it was before this attempt, to put back if Google refuses the account.
+  const before = review.reply;
   assertRealActionAllowed(location.connection);
 
   if (text !== undefined) {
@@ -192,9 +194,14 @@ export async function postReply(
     });
   } catch (err) {
     if (isAuthFailure(err)) {
-      // Nothing reached Google, so the reply goes back to how it was and waits for the reconnect.
+      // Nothing reached Google. A reply sent unchanged goes back to the state it had, such as live.
+      // A new or edited one stays a draft, so the edit is kept and nothing claims it's on Google.
       await markNeedsReconnect(location.connectionId);
-      await prisma.reply.update({ where: { id: reply.id }, data: { state: reply.state } });
+      const unchanged = before !== null && before.text === reply.text;
+      await prisma.reply.update({
+        where: { id: reply.id },
+        data: { state: unchanged ? before.state : 'draft' },
+      });
       throw reconnectFirst();
     }
     const message = (err as Error).message;

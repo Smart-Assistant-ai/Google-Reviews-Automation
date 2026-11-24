@@ -418,6 +418,31 @@ describe('replies', () => {
     expect(after.reply.text).toBe('Hi');
   });
 
+  it('a refused re-post keeps the reply as it was, and a refused edit stays a draft', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const review = await firstReview(user);
+    await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('pending');
+    mockGbp.failReads(email, 401);
+
+    const same = await req('POST', user, `/reviews/${review.id}/reply/post`, { text: 'Thanks' });
+    expect(same.statusCode).toBe(409);
+    // Still the reply Google has, not a draft.
+    expect((await req('GET', user, `/reviews/${review.id}`)).json().status).toBe('pending');
+
+    const edited = await req('POST', user, `/reviews/${review.id}/reply/post`, {
+      text: 'Thanks a lot',
+    });
+    expect(edited.statusCode).toBe(409);
+    // The edit never reached Google, so it's kept as a draft rather than shown as posted.
+    const after = (await req('GET', user, `/reviews/${review.id}`)).json();
+    expect(after.status).toBe('draft');
+    expect(after.reply.text).toBe('Thanks a lot');
+  });
+
   it('asks for a reconnect without calling Google once a real account was refused', async () => {
     const user = await ownerWithReviews();
     const review = await firstReview(user);
