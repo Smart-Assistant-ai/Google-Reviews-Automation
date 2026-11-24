@@ -63,8 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, [queryClient]);
 
+  // Browsers only. Node has BroadcastChannel too, and an open one would keep the build, which
+  // renders the public pages in Node, from ever finishing.
   const [channel] = useState(() =>
-    typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(LOGOUT_CHANNEL),
+    typeof window === 'undefined' || typeof BroadcastChannel === 'undefined'
+      ? null
+      : new BroadcastChannel(LOGOUT_CHANNEL),
   );
   useEffect(() => {
     if (!channel) return;
