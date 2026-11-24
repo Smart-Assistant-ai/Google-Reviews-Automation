@@ -1,6 +1,6 @@
 import type { Connection } from '@replypilot/shared';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import { Alert, Box, Button, Card, CardContent, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Snackbar, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 import { api } from '../api/client';
 import { useRefreshWorkspaceData, useWorkspaceId, wsPath } from '../api/hooks';
@@ -19,6 +19,8 @@ export default function GoogleEmptyState({
   const refresh = useRefreshWorkspaceData();
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  // When a check finds nothing new the screen stays the same, so this says it did run.
+  const [checked, setChecked] = useState(false);
 
   const run = (key: string, path: string) => async () => {
     setBusy(key);
@@ -26,6 +28,7 @@ export default function GoogleEmptyState({
     try {
       await api.post(wsPath(workspaceId, `/google/connections/${connection.id}${path}`));
       await refresh();
+      if (key === 'rescan') setChecked(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -93,6 +96,13 @@ export default function GoogleEmptyState({
       <Typography variant="caption" color="text.secondary">
         Sample data is a fictional business. Replies you post to it never reach Google.
       </Typography>
+      <Snackbar
+        open={checked}
+        autoHideDuration={4000}
+        onClose={() => setChecked(false)}
+        message="Checked Google just now. Nothing new to show yet."
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Stack>
   );
   if (bare) return body;

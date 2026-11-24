@@ -1,23 +1,15 @@
-import {
-  Alert,
-  Button,
-  Card,
-  CardContent,
-  Link,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Button, Card, CardContent, Link, Stack, Typography } from '@mui/material';
 import { useState, type FormEvent } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import AuthLayout from '../components/AuthLayout';
+import PasswordField from '../components/PasswordField';
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
-  const { clearLocal } = useAuth();
+  const { endSession } = useAuth();
   const [password, setPassword] = useState('');
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +22,7 @@ export default function ResetPassword() {
     try {
       await api.post('/auth/reset-password', { token, password });
       // Every session just ended, including one in this browser.
-      clearLocal();
+      endSession();
       setDone(true);
     } catch (err) {
       setError((err as Error).message);
@@ -59,9 +51,8 @@ export default function ResetPassword() {
             <form onSubmit={(e) => void submit(e)}>
               <Stack spacing={2}>
                 {error && <Alert severity="error">{error}</Alert>}
-                <TextField
+                <PasswordField
                   label="New password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

@@ -60,6 +60,34 @@ describe('signup', () => {
     expect(body.accessToken).toBeTruthy();
   });
 
+  it('refuses a name or business name with no letter or number, and says which', async () => {
+    const symbolsOnly = await post('/signup', {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      name: '@#$%',
+      businessName: 'Corner Shop',
+    });
+    expect(symbolsOnly.statusCode).toBe(400);
+    expect(symbolsOnly.json().error.message).toBe('Your name needs at least one letter or number');
+    const business = await post('/signup', {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      name: 'Sam',
+      businessName: '!!!',
+    });
+    expect(business.statusCode).toBe(400);
+    expect(business.json().error.message).toBe(
+      'The business name needs at least one letter or number',
+    );
+    const punctuated = await post('/signup', {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      name: "Sam O'Brien",
+      businessName: 'Smith & Sons Ltd.',
+    });
+    expect(punctuated.statusCode).toBe(200);
+  });
+
   it('puts the refresh token in a cookie JavaScript cannot read', async () => {
     const res = await post('/signup', { email: uniqueEmail(), password: PASSWORD });
     const cookie = res.cookies.find((c) => c.name === 'rp_refresh')!;
@@ -243,6 +271,44 @@ describe('sessions', () => {
     expect((await refreshWith(user.refreshToken)).statusCode).toBe(401);
   });
 
+  it('logout ends the session even when refreshes swapped the cookie twice meanwhile', async () => {
+    const user = await signup(app);
+    // Two refreshes that each really swapped the cookie, so the first is two swaps behind.
+    const firstRefresh = await refreshWith(user.refreshToken);
+    expect(firstRefresh.statusCode).toBe(200);
+    const second = refreshCookie(firstRefresh);
+    expect(second).toBeDefined();
+    const secondRefresh = await refreshWith(second!);
+    expect(secondRefresh.statusCode).toBe(200);
+    const third = refreshCookie(secondRefresh);
+    expect(third).toBeDefined();
+    expect(new Set([user.refreshToken, second, third]).size).toBe(3);
+    // Sent before those refreshes answered, so it carries the first cookie, which no longer matches.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      cookies: { rp_refresh: user.refreshToken },
+      headers: user.headers,
+    });
+    expect(res.statusCode).toBe(200);
+    expect((await refreshWith(third!)).statusCode).toBe(401);
+    expect((await me(user.accessToken)).statusCode).toBe(401);
+  });
+
+  it("a token for someone else's session can't end it", async () => {
+    const user = await signup(app);
+    const other = await signup(app);
+    // Signed by us, but naming the other person's session with this user's id.
+    const otherSession = other.refreshToken.split('.')[0]!;
+    const forged = app.jwt.sign({ sub: user.id, sid: otherSession });
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/logout',
+      headers: { authorization: `Bearer ${forged}` },
+    });
+    expect((await me(other.accessToken)).statusCode).toBe(200);
+  });
+
   it('logout from everywhere ends every device', async () => {
     const user = await signup(app);
     const other = await post('/login', { email: user.email, password: PASSWORD });
@@ -318,6 +384,22 @@ describe('forgot and reset password', () => {
     expect(login.json().user.emailVerified).toBe(true);
   });
 
+  it('refuses the previous password, and the link still works for a new one', async () => {
+    const user = await signup(app);
+    await post('/forgot-password', { email: user.email });
+    const token = await vi.waitFor(() => tokenFromEmail(user.email, '/reset-password'));
+    const same = await post('/reset-password', { token, password: PASSWORD });
+    expect(same.statusCode).toBe(400);
+    expect(same.json().error).toMatchObject({
+      code: 'same_password',
+      message: 'Your new password must be different from your previous password.',
+    });
+    expect((await me(user.accessToken)).statusCode).toBe(200);
+    expect(
+      (await post('/reset-password', { token, password: 'a-brand-new-password' })).statusCode,
+    ).toBe(200);
+  });
+
   it('the reset link works once', async () => {
     const user = await signup(app);
     await post('/forgot-password', { email: user.email });
@@ -355,6 +437,23 @@ describe('account', () => {
     expect(res.statusCode).toBe(200);
     expect((await me(user.accessToken)).statusCode).toBe(200);
     expect((await me(other.json().accessToken)).statusCode).toBe(401);
+  });
+
+  it('refuses a new password that is the same as the current one', async () => {
+    const user = await signup(app);
+    const other = await post('/login', { email: user.email, password: PASSWORD });
+    const same = await post(
+      '/change-password',
+      { currentPassword: PASSWORD, newPassword: PASSWORD },
+      user.headers,
+    );
+    expect(same.statusCode).toBe(400);
+    expect(same.json().error).toMatchObject({
+      code: 'same_password',
+      message: 'Your new password must be different from your current password.',
+    });
+    // Nothing changed, so other devices stay logged in.
+    expect((await me(other.json().accessToken)).statusCode).toBe(200);
   });
 
   it('updates the name', async () => {

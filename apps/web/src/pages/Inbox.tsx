@@ -3,6 +3,7 @@ import AddCommentRoundedIcon from '@mui/icons-material/AddCommentRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import InboxRoundedIcon from '@mui/icons-material/InboxRounded';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SearchOffRoundedIcon from '@mui/icons-material/SearchOffRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
@@ -11,6 +12,8 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
+  IconButton,
   InputAdornment,
   List,
   ListItemButton,
@@ -22,6 +25,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -43,7 +47,7 @@ import { ReviewDetailSkeleton, ReviewListSkeleton } from '../components/ReviewSk
 import ShortcutsDialog, { Kbd } from '../components/ShortcutsDialog';
 import Stars from '../components/Stars';
 import StatusChip from '../components/StatusChip';
-import { timeAgo } from '../components/format';
+import { plural, timeAgo } from '../components/format';
 import { useAuth } from '../auth/AuthContext';
 import { managedLocations, useShell } from '../layout/ShellContext';
 import { hasAtLeast } from '@replypilot/shared';
@@ -359,6 +363,39 @@ export default function Inbox() {
     await refresh();
   };
 
+  // Google is read every 15 minutes. Someone who knows a review just arrived can ask now instead,
+  // because reloading the page only reloads what ReplyPilot already has.
+  const [checking, setChecking] = useState(false);
+  const syncable = managed.filter(
+    (l) => l.status === 'active' && (!locationId || l.id === locationId),
+  );
+  const lastChecked = syncable
+    .map((l) => l.lastSyncedAt)
+    .filter((at): at is string => !!at)
+    .sort()[0];
+  const checkGoogle = async () => {
+    setChecking(true);
+    try {
+      const { created, failed } = await api.post<{ created: number; failed: number }>(
+        wsPath(workspaceId, '/google/sync'),
+        { locationId },
+      );
+      // "No new reviews" is only said when Google actually answered.
+      setToast(
+        failed > 0
+          ? `Couldn't read Google for ${plural(failed, 'location')}, so new reviews may be missing. An admin can see why in Settings → Google & locations.`
+          : created > 0
+            ? `${plural(created, 'new review')} from Google`
+            : 'No new reviews on Google yet. Google can take a while to show a new review.',
+      );
+      await refresh();
+    } catch (err) {
+      setToast((err as Error).message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const showLocation = managed.length > 1 && !locationId;
 
   // Connected, but Google is refusing to send reviews, so there's nothing to read. Admins get the
@@ -435,6 +472,28 @@ export default function Inbox() {
           <Typography variant="h5" sx={{ flex: 1 }}>
             Inbox
           </Typography>
+          {syncable.length > 0 && (
+            <Tooltip
+              title={`Check Google for new reviews${lastChecked ? ` · last checked ${timeAgo(lastChecked)}` : ''}`}
+            >
+              {/* A span, because a tooltip can't listen to a disabled button. */}
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => void checkGoogle()}
+                  disabled={checking}
+                  aria-label="Check Google for new reviews"
+                  sx={{ mr: sampleLocation ? 1 : 0 }}
+                >
+                  {checking ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <RefreshRoundedIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           {sampleLocation && (
             <>
               <Button

@@ -39,8 +39,12 @@ export const http = axios.create({ baseURL: '/api/v1', withCredentials: true });
 // storage. The refresh token is in a cookie that JavaScript can't see at all.
 let accessToken: string | null = null;
 let onSessionLost: () => void = () => {};
+// Goes up each time the session here ends. A refresh that started before can't put its token back
+// afterwards, while a login after the end still sets its own.
+let sessionEnds = 0;
 
 export const setAccessToken = (token: string | null) => {
+  if (token === null) sessionEnds += 1;
   accessToken = token;
 };
 export const setSessionLostHandler = (handler: () => void) => {
@@ -49,17 +53,22 @@ export const setSessionLostHandler = (handler: () => void) => {
 
 http.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  // Which session sent it, so a retry never goes out under a session that started later.
+  (config as RetriableConfig).sessionEnds = sessionEnds;
   return config;
 });
+
+type RetriableConfig = InternalAxiosRequestConfig & { retried?: boolean; sessionEnds?: number };
 
 let refreshing: Promise<SessionResponse> | null = null;
 
 // Requests that fail together share one refresh, because each refresh replaces the token.
 export function refreshSession(): Promise<SessionResponse> {
+  const endsBefore = sessionEnds;
   refreshing ??= http
     .post<SessionResponse>('/auth/refresh')
     .then((res) => {
-      accessToken = res.data.accessToken;
+      if (sessionEnds === endsBefore) accessToken = res.data.accessToken;
       return res.data;
     })
     .finally(() => {
@@ -71,8 +80,6 @@ export function refreshSession(): Promise<SessionResponse> {
 // A 401 from these means something else, such as a wrong password, so refreshing wouldn't help.
 const NEVER_REFRESH =
   /\/auth\/(refresh|login|signup|logout|forgot-password|reset-password|verify-email)$/;
-
-type RetriableConfig = InternalAxiosRequestConfig & { retried?: boolean };
 
 http.interceptors.response.use(undefined, async (error: AxiosError<ApiErrorBody>) => {
   const config = error.config as RetriableConfig | undefined;
@@ -90,6 +97,9 @@ http.interceptors.response.use(undefined, async (error: AxiosError<ApiErrorBody>
       onSessionLost();
       throw toApiError(error);
     }
+    // The session that sent it ended while the refresh ran, maybe with someone else logged in since.
+    // Sent again now, it would act for the wrong session, so it fails instead.
+    if (config.sessionEnds !== sessionEnds) throw toApiError(error);
     return http.request(config);
   }
   // A refresh failure reaches here too, already converted on the way out of the retry above.

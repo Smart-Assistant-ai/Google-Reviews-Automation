@@ -1,6 +1,13 @@
 import { AxiosError, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, api, http, setAccessToken, setSessionLostHandler } from './client';
+import {
+  ApiError,
+  api,
+  http,
+  refreshSession,
+  setAccessToken,
+  setSessionLostHandler,
+} from './client';
 
 type Handler = (config: InternalAxiosRequestConfig) => { status: number; data: unknown };
 
@@ -103,6 +110,67 @@ describe('api client', () => {
       code: 'validation_error',
       fields: [{ path: 'email', message: 'Enter a valid email' }],
     });
+  });
+
+  describe('a refresh that answers after the session ended', () => {
+    // Holds the refresh until the test lets it answer, so things can happen in between.
+    function slowRefresh() {
+      let answer = () => {};
+      const waiting = new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+      http.defaults.adapter = async (config) => {
+        if (config.url === '/auth/refresh') await waiting;
+        return { data: session('from-refresh'), status: 200, statusText: '', headers: {}, config };
+      };
+      return { pending: refreshSession(), answer: () => answer() };
+    }
+
+    it("doesn't put its token back", async () => {
+      const { pending, answer } = slowRefresh();
+      setAccessToken(null);
+      answer();
+      await pending;
+      const calls = useServer(() => ({ status: 200, data: {} }));
+      await api.get('/thing');
+      expect(calls[0]?.headers.Authorization).toBeUndefined();
+    });
+
+    it("doesn't replace the token of a login that came after", async () => {
+      const { pending, answer } = slowRefresh();
+      setAccessToken(null);
+      setAccessToken('from-login');
+      answer();
+      await pending;
+      const calls = useServer(() => ({ status: 200, data: {} }));
+      await api.get('/thing');
+      expect(calls[0]?.headers.Authorization).toBe('Bearer from-login');
+    });
+  });
+
+  it("doesn't send a request again under a login that came after its session ended", async () => {
+    let answer = () => {};
+    const waiting = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    const calls: InternalAxiosRequestConfig[] = [];
+    http.defaults.adapter = async (config) => {
+      calls.push(config);
+      if (config.url === '/auth/refresh') {
+        await waiting;
+        return { data: session('from-refresh'), status: 200, statusText: '', headers: {}, config };
+      }
+      const response = { data: {}, status: 401, statusText: '', headers: {}, config };
+      throw new AxiosError('failed', undefined, config, undefined, response);
+    };
+    const write = api.post('/thing', { value: 1 });
+    // The write got a 401 and its refresh is waiting. Meanwhile the session ends and B logs in.
+    await vi.waitFor(() => expect(calls.map((c) => c.url)).toEqual(['/thing', '/auth/refresh']));
+    setAccessToken(null);
+    setAccessToken('from-login-b');
+    answer();
+    await expect(write).rejects.toBeInstanceOf(ApiError);
+    expect(calls.map((c) => c.url)).toEqual(['/thing', '/auth/refresh']);
   });
 
   describe('when a request never gets an answer', () => {

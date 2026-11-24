@@ -36,7 +36,8 @@ export function ColorModeProvider({ children }: { children: ReactNode }) {
   return (
     <ColorModeContext.Provider value={{ mode, toggle }}>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
+        {/* Tells the browser which mode is on, so its own parts, such as scrollbars, follow it. */}
+        <CssBaseline enableColorScheme />
         {children}
       </ThemeProvider>
     </ColorModeContext.Provider>

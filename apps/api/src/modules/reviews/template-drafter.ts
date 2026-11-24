@@ -1,4 +1,5 @@
 import type { Analysis } from './analysis';
+import { signOffFor, withSignOff } from './sign-off';
 
 // Offline drafter, used with no AI key, so everything works without one. Several variants
 // per case stop consecutive replies from reading as templated.
@@ -116,6 +117,5 @@ export function draftFromTemplate({
       candidates[Math.floor(Math.random() * candidates.length)]!;
   }
 
-  const signOff = voice.signOff ?? (voice.ownerName ? `– ${voice.ownerName}` : '');
-  return signOff ? `${body}\n\n${signOff}` : body;
+  return withSignOff(body, signOffFor(voice));
 }

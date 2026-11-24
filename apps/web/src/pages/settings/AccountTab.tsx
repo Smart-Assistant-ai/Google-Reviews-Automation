@@ -14,9 +14,10 @@ import {
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import PasswordField from '../../components/PasswordField';
 
 export default function AccountTab() {
-  const { session, reload, clearLocal } = useAuth();
+  const { session, reload, endSession } = useAuth();
   const [name, setName] = useState(session?.user.name ?? '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -27,6 +28,8 @@ export default function AccountTab() {
 
   useEffect(() => setName(session?.user.name ?? ''), [session?.user.name]);
   const hasPassword = session?.user.hasPassword;
+  // Said under the box as they type, rather than only after saving at the top of the page.
+  const samePassword = !!hasPassword && !!newPassword && newPassword === currentPassword;
 
   const run = async (action: () => Promise<unknown>, message: string) => {
     setError('');
@@ -83,9 +86,8 @@ export default function AccountTab() {
               {hasPassword ? 'Change password' : 'Set a password'}
             </Typography>
             {hasPassword && (
-              <TextField
+              <PasswordField
                 label="Current password"
-                type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 fullWidth
@@ -93,19 +95,23 @@ export default function AccountTab() {
                 autoComplete="current-password"
               />
             )}
-            <TextField
+            <PasswordField
               label="New password"
-              type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               fullWidth
               sx={{ maxWidth: 420 }}
-              helperText="At least 8 characters"
+              error={samePassword}
+              helperText={
+                samePassword
+                  ? 'Your new password must be different from your current password.'
+                  : 'At least 8 characters'
+              }
               autoComplete="new-password"
             />
             <Button
               variant="contained"
-              disabled={!newPassword}
+              disabled={!newPassword || samePassword}
               onClick={() =>
                 void run(async () => {
                   await api.post('/auth/change-password', {
@@ -133,7 +139,9 @@ export default function AccountTab() {
             </Typography>
             <Button
               variant="outlined"
-              onClick={() => void api.post('/auth/logout-all').then(clearLocal)}
+              onClick={() =>
+                void run(() => api.post('/auth/logout-all'), '').then((ok) => ok && endSession())
+              }
             >
               Log out on all devices
             </Button>
@@ -163,9 +171,8 @@ export default function AccountTab() {
             This can&apos;t be undone.
           </Typography>
           {hasPassword && (
-            <TextField
+            <PasswordField
               label="Your password"
-              type="password"
               fullWidth
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
@@ -184,7 +191,7 @@ export default function AccountTab() {
                 '',
               ).then((ok) => {
                 setDeleting(false);
-                if (ok) clearLocal();
+                if (ok) endSession();
               })
             }
           >

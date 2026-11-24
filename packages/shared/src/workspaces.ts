@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { emailSchema, uuidSchema } from './common';
+import { emailSchema, nameText, uuidSchema } from './common';
 import { memberRoleSchema } from './permissions';
 
 // Forms stop typing here too, so nobody writes a name only to have it refused.
 export const WORKSPACE_NAME_MAX = 120;
-const workspaceName = z.string().trim().min(1).max(WORKSPACE_NAME_MAX);
+const workspaceName = nameText(WORKSPACE_NAME_MAX, 'The workspace name');
 
 export const createWorkspaceBody = z.object({ name: workspaceName });
 export const updateWorkspaceBody = z.object({ name: workspaceName });

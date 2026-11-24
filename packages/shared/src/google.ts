@@ -47,6 +47,8 @@ export const syncResponse = z.object({
   synced: z.number(),
   fetched: z.number(),
   created: z.number(),
+  // Locations Google couldn't be read for, so "no new reviews" isn't claimed for them.
+  failed: z.number(),
 });
 
 export const disconnectPreviewResponse = z.object({

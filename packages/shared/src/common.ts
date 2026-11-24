@@ -21,6 +21,16 @@ export const passwordSchema = z
   .min(8, 'Use at least 8 characters')
   .refine((value) => byteLength(value) <= 72, 'Use 72 characters or fewer');
 
+// A person's or a business's name. Apostrophes, accents, "&", dots and dashes are all real in names,
+// so they're allowed. Only a name with no letter or number at all, such as "@#$%", is refused.
+export const nameText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, `Enter ${label.toLowerCase()}`)
+    .max(max, `Use ${max} characters or fewer`)
+    .refine((value) => /[\p{L}\p{N}]/u.test(value), `${label} needs at least one letter or number`);
+
 export const okResponse = z.object({ ok: z.literal(true) });
 
 export const GOOGLE_REPLY_MAX_BYTES = 4096;

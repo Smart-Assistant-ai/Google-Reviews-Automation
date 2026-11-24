@@ -84,6 +84,8 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
   const [text, setText] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  // "Write my own" opens an empty box, so its hint shows until the owner starts typing.
+  const [writing, setWriting] = useState(false);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editingPosted, setEditingPosted] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -100,6 +102,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
     setError('');
     setEditingPosted(false);
     setConfirmDelete(false);
+    setWriting(false);
   }, [review.id, reply?.text, reply?.state]);
   useEffect(() => setRefused(false), [review.id]);
 
@@ -383,7 +386,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
           </Box>
         ) : !reply && !text && !editable ? null : (
           <>
-            {!reply && (status === 'needs_reply' || status === 'backlog') && !text ? (
+            {!reply && (status === 'needs_reply' || status === 'backlog') && !text && !writing ? (
               <Stack direction="row" spacing={1.5}>
                 <Button
                   variant="contained"
@@ -393,7 +396,7 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
                 >
                   Draft reply with AI
                 </Button>
-                <Button onClick={() => setText(' ')}>Write my own</Button>
+                <Button onClick={() => setWriting(true)}>Write my own</Button>
               </Stack>
             ) : (
               <>
@@ -404,7 +407,8 @@ export default function ReviewDetail({ review, highlight, onUpdated, onBack }: P
                   minRows={5}
                   fullWidth
                   disabled={!editable}
-                  placeholder="Write a reply…"
+                  placeholder={`Write your reply to ${review.reviewerName ?? 'this reviewer'} here…`}
+                  autoFocus={writing}
                 />
                 <Stack
                   direction="row"

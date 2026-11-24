@@ -444,6 +444,18 @@ describe('replies', () => {
     expect(after.reply.text).toBe('Thanks a lot');
   });
 
+  it('a manual sync says when Google could not be read, instead of finding nothing', async () => {
+    const user = await signup(app);
+    await verifyEmail(app, user);
+    const email = `${user.id}@sample.test`;
+    await connectGoogle(app, user, { email });
+    const ok = (await req('POST', user, '/google/sync', {})).json();
+    expect(ok).toMatchObject({ synced: 1, failed: 0 });
+    mockGbp.failReads(email, 401);
+    const refused = (await req('POST', user, '/google/sync', {})).json();
+    expect(refused).toMatchObject({ synced: 1, created: 0, failed: 1 });
+  });
+
   it('deleting after a refused edit still takes the reply off Google', async () => {
     const user = await signup(app);
     await verifyEmail(app, user);

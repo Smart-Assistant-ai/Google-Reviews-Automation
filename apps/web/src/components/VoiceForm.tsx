@@ -1,4 +1,4 @@
-import type { Voice } from '@replypilot/shared';
+import { VOICE_LIMITS, type Voice } from '@replypilot/shared';
 import {
   Box,
   Grid,
@@ -27,6 +27,16 @@ export default function VoiceForm({
 }) {
   const set = (key: keyof Voice) => (e: ChangeEvent<HTMLInputElement>) =>
     onChange({ ...value, [key]: e.target.value });
+  // Typing stops at the same length the server allows, and a count appears near the end, so a
+  // save never fails on length.
+  const limit = (key: keyof typeof VOICE_LIMITS) => {
+    const max = VOICE_LIMITS[key];
+    const length = (value[key] ?? '').length;
+    return {
+      inputProps: { maxLength: max },
+      helperText: length >= max * 0.8 ? `${length} / ${max} characters` : undefined,
+    };
+  };
   // The Box keeps the grid's own edge spacing. A parent Stack would reset it and push
   // the form out of line with the rest of the page.
   return (
@@ -65,6 +75,7 @@ export default function VoiceForm({
             label="Business name"
             value={value.businessName ?? ''}
             onChange={set('businessName')}
+            {...limit('businessName')}
             fullWidth
             disabled={disabled}
           />
@@ -74,6 +85,7 @@ export default function VoiceForm({
             label="Owner / manager name"
             value={value.ownerName ?? ''}
             onChange={set('ownerName')}
+            {...limit('ownerName')}
             fullWidth
             disabled={disabled}
           />
@@ -84,6 +96,7 @@ export default function VoiceForm({
             placeholder="– The team at your business"
             value={value.signOff ?? ''}
             onChange={set('signOff')}
+            {...limit('signOff')}
             fullWidth
             disabled={disabled}
           />
@@ -107,6 +120,7 @@ export default function VoiceForm({
             placeholder="Free parking behind the building, open on Sundays"
             value={value.alwaysSay ?? ''}
             onChange={set('alwaysSay')}
+            {...limit('alwaysSay')}
             fullWidth
             multiline
             minRows={2}
@@ -119,6 +133,7 @@ export default function VoiceForm({
             placeholder="Competitors, prices"
             value={value.neverSay ?? ''}
             onChange={set('neverSay')}
+            {...limit('neverSay')}
             fullWidth
             multiline
             minRows={2}

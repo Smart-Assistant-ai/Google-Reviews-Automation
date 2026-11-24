@@ -10,7 +10,7 @@ import { createWorkspaceWithOwner } from '../workspaces/create';
 import { findUsableInvitation, joinFromInvitation } from '../workspaces/invitations-core';
 import { runWorkspaceCleanups } from '../workspaces/lifecycle';
 import { resetPasswordMessage, verifyEmailMessage } from './emails';
-import { consumeToken, issueToken } from './one-time-tokens';
+import { consumeToken, issueToken, tokenOwner } from './one-time-tokens';
 import { revokeAllSessions } from './sessions';
 
 // A low cost in tests only, because the suite creates hundreds of accounts.
@@ -205,6 +205,20 @@ async function setPassword(userId: string, password: string): Promise<void> {
 // The link proves the person owns the inbox, so this also verifies the email and removes any
 // access left by someone who signed up with this address first.
 export async function resetPassword(token: string, password: string, ip?: string): Promise<void> {
+  // Checked before the link is used up, so they can choose another password with the same link.
+  const owner = await tokenOwner(token, 'reset_password');
+  const identity = owner
+    ? await prisma.authIdentity.findUnique({
+        where: { userId_provider: { userId: owner, provider: 'password' } },
+      })
+    : null;
+  if (identity?.passwordHash && (await bcrypt.compare(password, identity.passwordHash))) {
+    throw new HttpError(
+      400,
+      'Your new password must be different from your previous password.',
+      'same_password',
+    );
+  }
   const userId = await consumeToken(token, 'reset_password');
   await setPassword(userId, password);
   await prisma.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
@@ -228,6 +242,13 @@ export async function changePassword(
     !(await bcrypt.compare(currentPassword ?? '', identity.passwordHash))
   ) {
     throw new HttpError(401, 'Your current password is not right', 'invalid_credentials');
+  }
+  if (identity?.passwordHash && (await bcrypt.compare(newPassword, identity.passwordHash))) {
+    throw new HttpError(
+      400,
+      'Your new password must be different from your current password.',
+      'same_password',
+    );
   }
   await setPassword(userId, newPassword);
   await revokeAllSessions(userId, sessionId);

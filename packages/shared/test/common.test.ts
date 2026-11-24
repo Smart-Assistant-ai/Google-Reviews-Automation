@@ -4,6 +4,7 @@ import {
   byteLength,
   emailSchema,
   hasAtLeast,
+  nameText,
   passwordSchema,
 } from '../src';
 
@@ -25,6 +26,23 @@ describe('passwordSchema', () => {
     expect(passwordSchema.safeParse('a'.repeat(72)).success).toBe(true);
     expect(passwordSchema.safeParse('a'.repeat(73)).success).toBe(false);
     expect(passwordSchema.safeParse('é'.repeat(37)).success).toBe(false);
+  });
+});
+
+describe('nameText', () => {
+  const name = nameText(120, 'Your name');
+  it('keeps the punctuation real names use', () => {
+    for (const value of ["O'Brien", 'José-María', 'Smith & Sons Ltd.', '7-Eleven', '李小龍'])
+      expect(name.safeParse(value).success).toBe(true);
+  });
+  it('refuses a name made only of symbols, and says why', () => {
+    const result = name.safeParse('@#$%');
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe('Your name needs at least one letter or number');
+  });
+  it('refuses a blank name and trims spaces', () => {
+    expect(name.safeParse('   ').error?.issues[0]?.message).toBe('Enter your name');
+    expect(name.parse('  Sam  ')).toBe('Sam');
   });
 });
 

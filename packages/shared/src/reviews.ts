@@ -95,15 +95,25 @@ export const simulateReviewBody = z.object({
   name: z.string().max(120).optional(),
 });
 
-const optionalText = z.string().trim().max(2000).nullable().optional();
+// The longest each voice field can be. The form stops typing at these, so a save never fails on
+// length.
+export const VOICE_LIMITS = {
+  businessName: 120,
+  ownerName: 120,
+  signOff: 200,
+  alwaysSay: 2000,
+  neverSay: 2000,
+} as const;
+
+const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
 export const voiceBody = z.object({
-  businessName: z.string().trim().max(120).nullable().optional(),
+  businessName: optionalText(VOICE_LIMITS.businessName),
   tone: z.enum(['warm', 'professional', 'playful']).optional(),
-  signOff: z.string().trim().max(200).nullable().optional(),
-  ownerName: z.string().trim().max(120).nullable().optional(),
-  alwaysSay: optionalText,
-  neverSay: optionalText,
+  signOff: optionalText(VOICE_LIMITS.signOff),
+  ownerName: optionalText(VOICE_LIMITS.ownerName),
+  alwaysSay: optionalText(VOICE_LIMITS.alwaysSay),
+  neverSay: optionalText(VOICE_LIMITS.neverSay),
   languageMode: z.enum(['match', 'english']).optional(),
 });
 
