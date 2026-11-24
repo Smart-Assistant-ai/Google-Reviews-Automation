@@ -28,6 +28,8 @@ export default function AccountTab() {
 
   useEffect(() => setName(session?.user.name ?? ''), [session?.user.name]);
   const hasPassword = session?.user.hasPassword;
+  // Said under the box as they type, rather than only after saving at the top of the page.
+  const samePassword = !!hasPassword && !!newPassword && newPassword === currentPassword;
 
   const run = async (action: () => Promise<unknown>, message: string) => {
     setError('');
@@ -99,12 +101,17 @@ export default function AccountTab() {
               onChange={(e) => setNewPassword(e.target.value)}
               fullWidth
               sx={{ maxWidth: 420 }}
-              helperText="At least 8 characters"
+              error={samePassword}
+              helperText={
+                samePassword
+                  ? 'Your new password must be different from your current password.'
+                  : 'At least 8 characters'
+              }
               autoComplete="new-password"
             />
             <Button
               variant="contained"
-              disabled={!newPassword}
+              disabled={!newPassword || samePassword}
               onClick={() =>
                 void run(async () => {
                   await api.post('/auth/change-password', {
