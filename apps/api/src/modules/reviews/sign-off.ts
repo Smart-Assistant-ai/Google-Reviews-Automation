@@ -28,6 +28,9 @@ export function splitEnding(reply: string): { body: string; ending: string | nul
   return { body: text.slice(0, at).trimEnd(), ending };
 }
 
+// Ends like a sentence, in any language the AI replies in: "." and "!" as well as "。", "؟" or "।".
+const SENTENCE_END = /[\p{Sentence_Terminal}…]$/u;
+
 // The sign-offs earlier replies ended with. An ordinary closing sentence, such as "Please contact us
 // directly.", is part of the reply, not a sign-off, so it's left out: a sign-off is a name, often
 // after a dash, like "– The Team" or "Best, Sam", and a line ending like a sentence only counts when
@@ -36,7 +39,7 @@ export function earlierSignOffs(replies: string[]): string[] {
   return replies
     .map((reply) => splitEnding(reply).ending)
     .filter((ending): ending is string => ending !== null)
-    .filter((ending) => /^[–—-]/.test(ending) || !/[.!?]$/.test(ending));
+    .filter((ending) => /^[–—-]/.test(ending) || !SENTENCE_END.test(ending));
 }
 
 // Ends a draft with the sign-off exactly once. A last line that is the sign-off already goes first,

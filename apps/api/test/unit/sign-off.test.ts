@@ -79,6 +79,16 @@ describe('earlierSignOffs', () => {
       ]),
     ).toEqual(['– Old team', 'Best, Sam', '— Sam.']);
   });
+  it('leaves out closing sentences in other languages too', () => {
+    const replies = [
+      'ありがとうございました。\n\nまたのお越しをお待ちしております。',
+      '¡Gracias, Ana!\n\n¡Te esperamos pronto!',
+      'شكرا لك\n\nهل ستعود قريبا؟',
+    ];
+    const earlier = earlierSignOffs(replies);
+    expect(earlier).toEqual([]);
+    expect(withSignOff(replies[0]!, '– Sam', earlier)).toBe(`${replies[0]}\n\n– Sam`);
+  });
   it('lets a draft keep a closing sentence an earlier reply also ended with', () => {
     const earlier = earlierSignOffs(['Sorry, Chris.\n\nPlease contact us directly.']);
     expect(withSignOff('Sorry, Ana.\n\nPlease contact us directly.', '', earlier)).toBe(
