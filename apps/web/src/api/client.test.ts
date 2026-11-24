@@ -148,6 +148,31 @@ describe('api client', () => {
     });
   });
 
+  it("doesn't send a request again under a login that came after its session ended", async () => {
+    let answer = () => {};
+    const waiting = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    const calls: InternalAxiosRequestConfig[] = [];
+    http.defaults.adapter = async (config) => {
+      calls.push(config);
+      if (config.url === '/auth/refresh') {
+        await waiting;
+        return { data: session('from-refresh'), status: 200, statusText: '', headers: {}, config };
+      }
+      const response = { data: {}, status: 401, statusText: '', headers: {}, config };
+      throw new AxiosError('failed', undefined, config, undefined, response);
+    };
+    const write = api.post('/thing', { value: 1 });
+    // The write got a 401 and its refresh is waiting. Meanwhile the session ends and B logs in.
+    await vi.waitFor(() => expect(calls.map((c) => c.url)).toEqual(['/thing', '/auth/refresh']));
+    setAccessToken(null);
+    setAccessToken('from-login-b');
+    answer();
+    await expect(write).rejects.toBeInstanceOf(ApiError);
+    expect(calls.map((c) => c.url)).toEqual(['/thing', '/auth/refresh']);
+  });
+
   describe('when a request never gets an answer', () => {
     beforeEach(() => {
       http.defaults.adapter = async (config) => {

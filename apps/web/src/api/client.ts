@@ -53,8 +53,12 @@ export const setSessionLostHandler = (handler: () => void) => {
 
 http.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  // Which session sent it, so a retry never goes out under a session that started later.
+  (config as RetriableConfig).sessionEnds = sessionEnds;
   return config;
 });
+
+type RetriableConfig = InternalAxiosRequestConfig & { retried?: boolean; sessionEnds?: number };
 
 let refreshing: Promise<SessionResponse> | null = null;
 
@@ -77,8 +81,6 @@ export function refreshSession(): Promise<SessionResponse> {
 const NEVER_REFRESH =
   /\/auth\/(refresh|login|signup|logout|forgot-password|reset-password|verify-email)$/;
 
-type RetriableConfig = InternalAxiosRequestConfig & { retried?: boolean };
-
 http.interceptors.response.use(undefined, async (error: AxiosError<ApiErrorBody>) => {
   const config = error.config as RetriableConfig | undefined;
   if (
@@ -95,6 +97,9 @@ http.interceptors.response.use(undefined, async (error: AxiosError<ApiErrorBody>
       onSessionLost();
       throw toApiError(error);
     }
+    // The session that sent it ended while the refresh ran, maybe with someone else logged in since.
+    // Sent again now, it would act for the wrong session, so it fails instead.
+    if (config.sessionEnds !== sessionEnds) throw toApiError(error);
     return http.request(config);
   }
   // A refresh failure reaches here too, already converted on the way out of the retry above.
