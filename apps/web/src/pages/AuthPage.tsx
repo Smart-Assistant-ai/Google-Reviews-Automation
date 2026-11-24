@@ -20,6 +20,10 @@ import Logo from '../components/Logo';
 import PasswordField from '../components/PasswordField';
 import Stars from '../components/Stars';
 
+// Browsers fill these boxes in from saved details without telling the page, so a label inside the
+// box could end up on top of the filled-in text. Kept above the box, it never can.
+const LABEL_ABOVE = { shrink: true };
+
 const GOOGLE_ERRORS: Record<string, string> = {
   google_state: 'That sign-in link expired. Please try again.',
   google_failed: 'Google sign-in failed. Please try again.',
@@ -139,6 +143,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                   required
                   fullWidth
                   autoComplete="name"
+                  InputLabelProps={LABEL_ABOVE}
                 />
               )}
               {signup && !invite && (
@@ -149,6 +154,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                   required
                   fullWidth
                   autoComplete="organization"
+                  InputLabelProps={LABEL_ABOVE}
                   inputProps={{ maxLength: WORKSPACE_NAME_MAX }}
                 />
               )}
@@ -160,6 +166,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                 required
                 fullWidth
                 autoComplete="email"
+                InputLabelProps={LABEL_ABOVE}
                 disabled={!!invitation}
               />
               <PasswordField
@@ -170,6 +177,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                 fullWidth
                 helperText={signup ? 'At least 8 characters' : ' '}
                 autoComplete={signup ? 'new-password' : 'current-password'}
+                InputLabelProps={LABEL_ABOVE}
               />
               <Button type="submit" variant="contained" size="large" disabled={busy}>
                 {signup ? 'Create account' : 'Log in'}
