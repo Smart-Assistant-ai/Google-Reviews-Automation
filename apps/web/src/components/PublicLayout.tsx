@@ -1,4 +1,14 @@
-import { Box, Button, Container, Divider, Link, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Container,
+  Divider,
+  Link,
+  Stack,
+  Typography,
+  useScrollTrigger,
+} from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -8,9 +18,24 @@ import Logo from './Logo';
 // The pages anyone can read without an account: the home page, the privacy policy and the terms.
 export default function PublicLayout({ children }: { children: ReactNode }) {
   const { session } = useAuth();
+  const scrolled = useScrollTrigger({ disableHysteresis: true, threshold: 8 });
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Box component="header" sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      {/* Stays at the top. Clear while the page is at the top, then frosted with a line under it
+          once something scrolls beneath. */}
+      <Box
+        component="header"
+        sx={(theme) => ({
+          position: 'sticky',
+          top: 0,
+          zIndex: theme.zIndex.appBar,
+          borderBottom: 1,
+          borderColor: scrolled ? 'divider' : 'transparent',
+          bgcolor: scrolled ? alpha(theme.palette.background.default, 0.72) : 'transparent',
+          backdropFilter: scrolled ? 'saturate(180%) blur(14px)' : 'none',
+          transition: 'background-color 200ms ease, border-color 200ms ease',
+        })}
+      >
         <Container
           maxWidth="lg"
           sx={{ py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
@@ -50,17 +75,30 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         component="footer"
         maxWidth="lg"
         sx={{
-          py: 3,
+          py: 4,
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 2,
+          gap: 3,
+          alignItems: 'flex-end',
           justifyContent: 'space-between',
         }}
       >
-        <Typography variant="body2" color="text.secondary">
-          © {new Date().getFullYear()} {COMPANY}. ReplyPilot is not made or endorsed by Google.
-        </Typography>
-        <Stack direction="row" spacing={2.5} useFlexGap flexWrap="wrap">
+        <Box>
+          <Logo size={22} />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            © {new Date().getFullYear()} {COMPANY}. ReplyPilot is not made or endorsed by Google.
+          </Typography>
+        </Box>
+        <Stack
+          direction="row"
+          spacing={2.5}
+          useFlexGap
+          flexWrap="wrap"
+          sx={{
+            '& a': { transition: 'color 150ms ease' },
+            '& a:hover': { color: 'primary.main' },
+          }}
+        >
           <Link component={RouterLink} to="/privacy" variant="body2" color="text.secondary">
             Privacy policy
           </Link>
