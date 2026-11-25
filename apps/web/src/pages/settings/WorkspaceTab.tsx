@@ -24,8 +24,10 @@ export default function WorkspaceTab() {
   const { workspace, reload } = useAuth();
   const workspaceId = useWorkspaceId();
   const { data: billing } = useBilling();
-  // A paid plan ends with the workspace, so the owner knows the card stops being charged.
+  // A paid plan ends with the workspace, so the owner knows the card stops being charged. While
+  // the plan is unknown, for example because it couldn't be loaded, the warning says so anyway.
   const paying = ['active', 'trialing', 'past_due'].includes(billing?.plan?.status ?? '');
+  const plan = paying ? 'Your plan' : billing ? null : 'Any plan this workspace has';
   const navigate = useNavigate();
   const [name, setName] = useState(workspace?.name ?? '');
   const [saved, setSaved] = useState(false);
@@ -90,7 +92,7 @@ export default function WorkspaceTab() {
               <Typography variant="body2" color="text.secondary">
                 Disconnects Google and deletes all stored reviews and replies, for everyone. Replies
                 already on Google stay there.
-                {paying && " Your plan is cancelled too, so the card isn't charged again."}
+                {plan && ` ${plan} is cancelled too, so the card isn't charged again.`}
               </Typography>
               <Button color="error" variant="outlined" onClick={() => setDeleting(true)}>
                 Delete workspace
@@ -104,9 +106,8 @@ export default function WorkspaceTab() {
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             This can&apos;t be undone.
-            {paying &&
-              ' Your plan is cancelled at once, with no refund for time already paid.'}{' '}
-            Type the workspace name to confirm.
+            {plan && ` ${plan} is cancelled at once, with no refund for time already paid.`} Type
+            the workspace name to confirm.
           </Typography>
           <TextField
             fullWidth
