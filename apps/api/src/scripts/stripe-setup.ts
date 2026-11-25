@@ -148,6 +148,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (!env.STRIPE_SECRET_KEY) {
+    console.log('No Stripe key found. Add this line to apps/api/.env, then run this again:');
+    console.log('  STRIPE_SECRET_KEY=sk_test_...   (Stripe dashboard, Developers, API keys)');
+    process.exitCode = 1;
+    return;
+  }
   const client = stripe();
   const mode = env.STRIPE_SECRET_KEY?.includes('_live_') ? 'LIVE' : 'test';
   console.log(`Setting up ReplyPilot in Stripe (${mode} mode).`);
