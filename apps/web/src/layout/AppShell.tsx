@@ -167,8 +167,9 @@ function BillingBanner() {
   if (billing.state === 'trial' && left <= 3) {
     return (
       <Alert severity="info" sx={{ borderRadius: 0 }} action={action}>
+        {/* Less than a day can still run into tomorrow, so it isn't called "today". */}
         {left <= 1
-          ? 'Your free trial ends today.'
+          ? 'Your free trial ends within a day.'
           : `${plural(left, 'day')} left in your free trial.`}{' '}
         Choose a plan to keep drafting and posting replies.{ask}
       </Alert>
