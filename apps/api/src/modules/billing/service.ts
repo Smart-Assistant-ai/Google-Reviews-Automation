@@ -223,10 +223,21 @@ export async function portalUrl(workspaceId: string): Promise<string> {
   const configuration = await portalConfiguration();
   const session = await stripe().billingPortal.sessions.create({
     customer: row.stripeCustomerId,
-    return_url: `${env.APP_URL}/settings?tab=billing`,
+    return_url: `${env.APP_URL}/settings?tab=billing&from=portal`,
     ...(configuration ? { configuration } : {}),
   });
   return session.url;
+}
+
+// The owner is back from Stripe's portal. Reads the plan straight from Stripe, so a switch to
+// yearly or a cancellation shows at once rather than whenever the webhook lands.
+export async function refreshPlan(workspaceId: string): Promise<void> {
+  if (!billingOn()) return;
+  const row = await prisma.subscription.findUnique({
+    where: { workspaceId },
+    select: { stripeSubscriptionId: true },
+  });
+  if (row?.stripeSubscriptionId) await syncSubscription(row.stripeSubscriptionId);
 }
 
 // Reads a subscription fresh from Stripe rather than trusting an event's copy, so events that

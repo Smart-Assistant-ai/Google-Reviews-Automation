@@ -125,21 +125,26 @@ export default function BillingTab() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-  // Back from Stripe's checkout: read the result now rather than waiting for Stripe's webhook.
+  // Back from Stripe's checkout or portal: read the result now rather than waiting for Stripe's
+  // webhook, so a new plan, a switch to yearly or a cancellation shows straight away.
   const sessionId = params.get('checkout');
+  const fromPortal = params.get('from') === 'portal';
+  const returning = sessionId ?? (fromPortal ? 'portal' : null);
   const confirmed = useRef<string | null>(null);
   useEffect(() => {
-    if (!sessionId || !workspaceId || confirmed.current === sessionId) return;
-    confirmed.current = sessionId;
-    api
-      .post<BillingStatus>(wsPath(workspaceId, '/billing/checkout/confirm'), { sessionId })
+    if (!returning || !workspaceId || confirmed.current === returning) return;
+    confirmed.current = returning;
+    const request = sessionId
+      ? api.post<BillingStatus>(wsPath(workspaceId, '/billing/checkout/confirm'), { sessionId })
+      : api.post<BillingStatus>(wsPath(workspaceId, '/billing/refresh'));
+    request
       .then((status) => {
         queryClient.setQueryData(['billing', workspaceId], status);
-        setDone(true);
+        if (sessionId) setDone(true);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setParams({ tab: 'billing' }, { replace: true }));
-  }, [sessionId, workspaceId, queryClient, setParams]);
+  }, [returning, sessionId, workspaceId, queryClient, setParams]);
 
   // Both go to Stripe's own pages, so card details never touch ReplyPilot.
   const go = async (path: string, body?: object) => {
@@ -154,7 +159,7 @@ export default function BillingTab() {
     }
   };
 
-  if (isLoading || !billing || sessionId) {
+  if (isLoading || !billing || returning) {
     return (
       <Box sx={{ py: 6, textAlign: 'center' }}>
         <CircularProgress size={28} />

@@ -12,7 +12,14 @@ import { z } from 'zod';
 import { env } from '../../config';
 import { HttpError, notFound } from '../../lib/errors';
 import { currentMember } from '../../plugins/access';
-import { billingStatus, confirmCheckout, handleEvent, portalUrl, startCheckout } from './service';
+import {
+  billingStatus,
+  confirmCheckout,
+  handleEvent,
+  portalUrl,
+  refreshPlan,
+  startCheckout,
+} from './service';
 import { stripe, stripeAvailable } from './stripe';
 
 const workspaceParams = z.object({ workspaceId: uuidSchema });
@@ -72,6 +79,19 @@ export async function billingRoutes(instance: FastifyInstance): Promise<void> {
       schema: { params: workspaceParams, response: { 200: billingRedirectSchema } },
     },
     async (request) => ({ url: await portalUrl(currentMember(request).workspaceId) }),
+  );
+
+  app.post(
+    '/refresh',
+    {
+      config: { access: 'owner', rateLimit: { max: 10, timeWindow: '1 minute' } },
+      schema: { params: workspaceParams, response: { 200: billingStatusSchema } },
+    },
+    async (request) => {
+      const { workspaceId } = currentMember(request);
+      await refreshPlan(workspaceId);
+      return billingStatus(workspaceId);
+    },
   );
 }
 

@@ -436,7 +436,43 @@ describe('choosing a plan', () => {
     expect(createPortal.mock.calls[0]![0]).toMatchObject({
       customer: 'cus_1',
       configuration: 'bpc_replypilot',
+      return_url: `${env.APP_URL}/settings?tab=billing&from=portal`,
     });
+  });
+
+  it("shows a change made on Stripe's portal as soon as the owner is back", async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: {
+        workspaceId: owner.workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_1',
+        status: 'trialing',
+        interval: 'month',
+        quantity: 1,
+      },
+    });
+    // Switched to yearly and cancelled on Stripe's page; the webhook hasn't arrived yet.
+    const switched = { ...subscription({ interval: 'year' }), cancel_at_period_end: true };
+    const retrieve = vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(switched as never);
+
+    const res = await call('POST', `/workspaces/${owner.workspaceId}/billing/refresh`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(retrieve).toHaveBeenCalledWith('sub_1');
+    expect(res.json().plan).toMatchObject({
+      interval: 'year',
+      status: 'active',
+      cancelAtPeriodEnd: true,
+    });
+  });
+
+  it('has nothing to read back for a workspace that never chose a plan', async () => {
+    const owner = await signup(app);
+    const retrieve = vi.spyOn(fake.subscriptions, 'retrieve');
+    const res = await call('POST', `/workspaces/${owner.workspaceId}/billing/refresh`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().plan).toBeNull();
+    expect(retrieve).not.toHaveBeenCalled();
   });
 });
 
