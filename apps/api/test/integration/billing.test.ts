@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
-import { syncBillingQuantities } from '../../src/modules/billing/jobs';
+import { purgeStripeEvents, syncBillingQuantities } from '../../src/modules/billing/jobs';
 import { startTrials } from '../../src/modules/billing/service';
 import { setStripeClient } from '../../src/modules/billing/stripe';
 import { runDraftQueue } from '../../src/modules/reviews/jobs';
@@ -437,6 +437,20 @@ describe('choosing a plan', () => {
       customer: 'cus_1',
       configuration: 'bpc_replypilot',
     });
+  });
+});
+
+describe('handled Stripe events', () => {
+  it('are forgotten after 30 days, long after Stripe stops retrying', async () => {
+    await prisma.stripeEvent.createMany({
+      data: [
+        { id: 'evt_old', type: 'invoice.paid', receivedAt: new Date(Date.now() - 31 * DAY) },
+        { id: 'evt_recent', type: 'invoice.paid', receivedAt: new Date(Date.now() - 2 * DAY) },
+      ],
+    });
+    expect(await purgeStripeEvents()).toBe(1);
+    const left = await prisma.stripeEvent.findMany({ select: { id: true } });
+    expect(left).toEqual([{ id: 'evt_recent' }]);
   });
 });
 

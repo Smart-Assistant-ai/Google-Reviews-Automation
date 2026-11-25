@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { billingOn, LIVE_STATUSES, startTrials, syncQuantity } from './service';
 
 const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 
 // Locations are switched on and off in several places: choosing them, Google losing access,
 // disconnecting an account. Rather than each remembering to tell Stripe, this brings every paying
@@ -30,7 +31,23 @@ export async function syncBillingQuantities(): Promise<void> {
   }
 }
 
+// Stripe retries an event for at most 3 days, so an id older than that can't come back. The ids
+// are cleared after 30 days so the table doesn't grow forever with every event the account sees.
+export async function purgeStripeEvents(now = new Date()): Promise<number> {
+  const { count } = await prisma.stripeEvent.deleteMany({
+    where: { receivedAt: { lt: new Date(now.getTime() - 30 * DAY) } },
+  });
+  return count;
+}
+
 export const billingJobs: JobDefinition[] = [
   { name: 'start-trials', everyMs: MINUTE, run: () => startTrials() },
   { name: 'sync-billing-quantities', everyMs: 10 * MINUTE, run: syncBillingQuantities },
+  {
+    name: 'purge-stripe-events',
+    everyMs: DAY,
+    run: async () => {
+      await purgeStripeEvents();
+    },
+  },
 ];
