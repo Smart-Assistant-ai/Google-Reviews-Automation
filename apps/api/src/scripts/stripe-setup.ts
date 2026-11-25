@@ -1,5 +1,5 @@
 import { PRICING, type BillingInterval } from '@replypilot/shared';
-import type Stripe from 'stripe';
+import Stripe from 'stripe';
 import { env } from '../config';
 import { APP_TAG, PRICE_LOOKUP_KEYS, stripe } from '../modules/billing/stripe';
 
@@ -114,11 +114,20 @@ async function ensureWebhook(client: Stripe, url: string): Promise<void> {
     if (endpoint.url === url) {
       console.log(`Webhook for ${url} already exists (${endpoint.id}).`);
       console.log('Its signing secret is in the Stripe dashboard, under Developers, Webhooks.');
+      if (endpoint.api_version !== Stripe.API_VERSION) {
+        console.log(
+          `It sends events in Stripe API version ${endpoint.api_version ?? 'the account default'}, ` +
+            `but ReplyPilot reads ${Stripe.API_VERSION}. Delete it in the dashboard and run this again.`,
+        );
+      }
       return;
     }
   }
+  // Events arrive in the endpoint's API version. Pinning it to the SDK's version means they match
+  // the fields the app reads, whatever version the Stripe account itself defaults to.
   const endpoint = await client.webhookEndpoints.create({
     url,
+    api_version: Stripe.API_VERSION,
     enabled_events: WEBHOOK_EVENTS,
     description: 'ReplyPilot subscriptions',
     metadata: { app: APP_TAG },
