@@ -12,15 +12,8 @@ import { z } from 'zod';
 import { env } from '../../config';
 import { HttpError, notFound } from '../../lib/errors';
 import { currentMember } from '../../plugins/access';
-import {
-  billingOn,
-  billingStatus,
-  confirmCheckout,
-  handleEvent,
-  portalUrl,
-  startCheckout,
-} from './service';
-import { stripe } from './stripe';
+import { billingStatus, confirmCheckout, handleEvent, portalUrl, startCheckout } from './service';
+import { stripe, stripeAvailable } from './stripe';
 
 const workspaceParams = z.object({ workspaceId: uuidSchema });
 
@@ -90,8 +83,11 @@ export async function billingWebhookRoutes(app: FastifyInstance): Promise<void> 
     done(null, body),
   );
 
+  // Events are handled even while BILLING_PROVIDER is off: Stripe keeps renewing and cancelling
+  // subscriptions meanwhile, and answering with errors would make it give up on the endpoint and
+  // leave stale plans for when billing is switched back on.
   app.post('/webhook', { config: { access: 'public' } }, async (request) => {
-    if (!billingOn() || !env.STRIPE_WEBHOOK_SECRET) throw notFound();
+    if (!env.STRIPE_WEBHOOK_SECRET || !stripeAvailable()) throw notFound();
     const signature = request.headers['stripe-signature'];
     let event: Stripe.Event;
     try {

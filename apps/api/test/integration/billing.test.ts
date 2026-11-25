@@ -441,6 +441,27 @@ describe('choosing a plan', () => {
 });
 
 describe("Stripe's webhook", () => {
+  it('keeps up with Stripe while billing is switched off', async () => {
+    env.BILLING_PROVIDER = 'off';
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1', status: 'active' },
+    });
+    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(
+      subscription({ status: 'canceled' }) as never,
+    );
+    const { payload, header } = signedEvent({
+      id: 'evt_while_off',
+      type: 'customer.subscription.deleted',
+      object: subscription({ status: 'canceled' }),
+    });
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row.status).toBe('canceled');
+  });
+
   it('refuses an event without a valid signature', async () => {
     const { payload } = signedEvent({
       id: 'evt_1',

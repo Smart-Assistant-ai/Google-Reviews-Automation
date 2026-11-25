@@ -199,13 +199,13 @@ To see or remove entries, use `pnpm allow-signup --list` and `pnpm allow-signup 
 
 ## Day-to-day
 
-| Task                                       | Command                                                                                                                    |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Release                                    | `bash deploy/deploy.sh`                                                                                                    |
-| See logs                                   | `pm2 logs replypilot-api`                                                                                                  |
-| See job health                             | `psql "$(grep ^DATABASE_URL= apps/api/.env \| cut -d= -f2-)" -c "select name, last_finished_at, last_error from job_runs"` |
-| Stop all posting to Google in an emergency | Set `GOOGLE_POSTING_ENABLED=false` in `.env`, then `pm2 restart replypilot-api`                                            |
-| Make everything free again                 | Set `BILLING_PROVIDER=off` in `.env`, then `pm2 restart replypilot-api`. Subscriptions keep running in Stripe              |
+| Task                                       | Command                                                                                                                                                     |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release                                    | `bash deploy/deploy.sh`                                                                                                                                     |
+| See logs                                   | `pm2 logs replypilot-api`                                                                                                                                   |
+| See job health                             | `psql "$(grep ^DATABASE_URL= apps/api/.env \| cut -d= -f2-)" -c "select name, last_finished_at, last_error from job_runs"`                                  |
+| Stop all posting to Google in an emergency | Set `GOOGLE_POSTING_ENABLED=false` in `.env`, then `pm2 restart replypilot-api`                                                                             |
+| Make everything free again                 | Set `BILLING_PROVIDER=off` in `.env`, then `pm2 restart replypilot-api`. Subscriptions keep running in Stripe, and the webhook keeps their state up to date |
 
 ## Limits to know about
 
