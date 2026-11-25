@@ -23,6 +23,7 @@ import { assertEmailVerified, currentMember } from '../../plugins/access';
 import { mockGbp } from '../../providers/gbp/mock';
 import { usesFakeData } from '../google/connection.service';
 import { syncLocation } from '../google/sync.service';
+import { assertCanWrite } from '../billing/service';
 import { assertLocationAccess } from '../workspaces/access';
 import { deleteReply, postReply, regenerate, saveDraft } from './replies.service';
 import { getReview, listReviews } from './reviews.service';
@@ -71,6 +72,7 @@ export async function reviewRoutes(instance: FastifyInstance): Promise<void> {
     },
     async (request) => {
       const member = currentMember(request);
+      await assertCanWrite(member.workspaceId);
       await saveDraft(member, request.params.reviewId, request.body.text, request.ip);
       return getReview(member, request.params.reviewId);
     },
@@ -84,6 +86,7 @@ export async function reviewRoutes(instance: FastifyInstance): Promise<void> {
     },
     async (request) => {
       const member = currentMember(request);
+      await assertCanWrite(member.workspaceId);
       await regenerate(member, request.params.reviewId, request.body.instructions, request.ip);
       return getReview(member, request.params.reviewId);
     },
@@ -98,6 +101,7 @@ export async function reviewRoutes(instance: FastifyInstance): Promise<void> {
     async (request) => {
       assertEmailVerified(request);
       const member = currentMember(request);
+      await assertCanWrite(member.workspaceId);
       await postReply(member, request.params.reviewId, request.body.text, request.ip);
       return getReview(member, request.params.reviewId);
     },

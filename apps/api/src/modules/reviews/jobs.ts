@@ -5,6 +5,7 @@ import type { JobDefinition } from '../../jobs/runner';
 import { emailEnabled, sendEmail } from '../../providers/email';
 import { renderEmail } from '../../providers/email/template';
 import { getContext, usesFakeData, markNeedsReconnect } from '../google/connection.service';
+import { writableWorkspaceFilter } from '../billing/service';
 import { scanConnection } from '../google/locations.service';
 import { applyModerationResult, reviewIdOf, syncLocation } from '../google/sync.service';
 import { adminEmails } from '../workspaces/service';
@@ -40,8 +41,10 @@ export async function syncDueLocations(): Promise<void> {
 }
 
 export async function runDraftQueue(): Promise<void> {
+  // A workspace without a plan keeps its new reviews waiting for a draft, rather than spending AI
+  // calls on them. They are drafted as soon as it subscribes.
   const pending = await prisma.reply.findMany({
-    where: { state: 'drafting' },
+    where: { state: 'drafting', workspace: writableWorkspaceFilter() },
     orderBy: { createdAt: 'asc' },
     take: DRAFT_BATCH,
     select: { id: true, reviewId: true, draftAttempts: true },
