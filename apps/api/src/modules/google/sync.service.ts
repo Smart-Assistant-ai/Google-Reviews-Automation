@@ -23,6 +23,8 @@ export const reviewResourceName = (
 
 // The states where our copy follows Google. Anything else is the owner's work in progress.
 const FOLLOWS_GOOGLE: ReplyState[] = ['pending_google', 'live', 'rejected'];
+// An AI draft still waiting for the owner: being written, written, or given up on.
+const UNTOUCHED_AI: ReplyState[] = ['drafting', 'draft', 'failed'];
 
 // What the reply Google lists means for our copy.
 function fromGoogle(reply: GbpReply) {
@@ -64,6 +66,25 @@ async function applyGoogleReply(
   await prisma.reply.updateMany({
     where: { id: local.id, updatedAt: local.updatedAt, state: { in: FOLLOWS_GOOGLE } },
     data: values,
+  });
+  // The review was answered somewhere else: on Google itself, or from another copy of ReplyPilot.
+  // An AI draft that nobody here touched or posted gives way to that reply, so the review leaves the
+  // to-do list. A draft the owner wrote or edited (source human), or one posted from here before,
+  // stays theirs.
+  await prisma.reply.updateMany({
+    where: {
+      id: local.id,
+      updatedAt: local.updatedAt,
+      source: 'ai',
+      postedAt: null,
+      state: { in: UNTOUCHED_AI },
+    },
+    data: {
+      ...values,
+      source: 'google',
+      error: null,
+      postedAt: reply.updateTime ? new Date(reply.updateTime) : null,
+    },
   });
 }
 
