@@ -445,6 +445,8 @@ model Subscription {
   workspaceId          String    @unique @map("workspace_id") @db.Uuid
   stripeCustomerId     String    @unique @map("stripe_customer_id")
   stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  // The last checkout opened, so opening another can close it and both can't be paid.
+  checkoutSessionId    String?   @map("checkout_session_id")
   // Stripe's own word: active, trialing, past_due, canceled, unpaid, incomplete...
   status               String?
   interval             String?

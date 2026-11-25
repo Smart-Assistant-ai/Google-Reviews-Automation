@@ -154,6 +154,18 @@ export async function startCheckout(
     );
   }
   const customer = await ensureCustomer(workspaceId, userId);
+  // Only one checkout open at a time: one left open in another tab would otherwise let the owner
+  // pay twice and end up with two subscriptions. Stripe refuses to expire a finished or already
+  // expired checkout, which is fine.
+  const open = await prisma.subscription.findUnique({
+    where: { workspaceId },
+    select: { checkoutSessionId: true },
+  });
+  if (open?.checkoutSessionId) {
+    await stripe()
+      .checkout.sessions.expire(open.checkoutSessionId)
+      .catch(() => undefined);
+  }
   const price = await priceId(interval);
   const quantity = Math.max(1, await locationCount(workspaceId));
   // Choosing a plan during the trial doesn't cut it short: the first charge waits for its end.
@@ -180,6 +192,10 @@ export async function startCheckout(
     cancel_url: `${env.APP_URL}/settings?tab=billing`,
   });
   if (!session.url) throw new Error('Stripe returned no checkout page');
+  await prisma.subscription.update({
+    where: { workspaceId },
+    data: { checkoutSessionId: session.id },
+  });
   await recordAudit({
     action: 'billing.checkout_started',
     workspaceId,
@@ -235,13 +251,24 @@ export async function saveSubscription(sub: Stripe.Subscription): Promise<void> 
     // Metadata naming a workspace that already pays through a different customer.
     return;
   }
+  const other = row?.stripeSubscriptionId && row.stripeSubscriptionId !== sub.id ? row : null;
   // An event about an older subscription mustn't replace the one in use.
-  if (
-    row?.stripeSubscriptionId &&
-    row.stripeSubscriptionId !== sub.id &&
-    LIVE_STATUSES.includes(row.status ?? '') &&
-    !LIVE_STATUSES.includes(sub.status)
-  ) {
+  if (other && LIVE_STATUSES.includes(other.status ?? '') && !LIVE_STATUSES.includes(sub.status)) {
+    return;
+  }
+  // A second live subscription for a workspace that already pays, for example from two checkouts
+  // paid in two tabs. The first one stays; this one is cancelled at once so the card isn't charged
+  // twice from now on. Anything it already took needs a refund, so it is reported.
+  if (other && LIVE_STATUSES.includes(other.status ?? '') && LIVE_STATUSES.includes(sub.status)) {
+    await stripe().subscriptions.cancel(sub.id);
+    Sentry.captureMessage('Cancelled a duplicate subscription; check whether it needs a refund', {
+      extra: { workspaceId, kept: other.stripeSubscriptionId, cancelled: sub.id },
+    });
+    await recordAudit({
+      action: 'billing.duplicate_cancelled',
+      workspaceId,
+      meta: { kept: other.stripeSubscriptionId, cancelled: sub.id },
+    });
     return;
   }
   const item = sub.items.data[0];

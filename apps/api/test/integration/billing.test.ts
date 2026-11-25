@@ -42,6 +42,7 @@ beforeEach(async () => {
     Promise.resolve({
       data: [{ id: params.lookup_keys[0]!.includes('year') ? 'price_year' : 'price_month' }],
     })) as never);
+  vi.spyOn(fake.checkout.sessions, 'expire').mockResolvedValue({} as never);
 });
 afterEach(() => {
   env.BILLING_PROVIDER = 'off';
@@ -336,6 +337,27 @@ describe('choosing a plan', () => {
     expect(session.line_items).toEqual([{ price: 'price_month', quantity: 1 }]);
   });
 
+  it('closes the previous checkout when a new one opens, so both cannot be paid', async () => {
+    const owner = await signup(app);
+    vi.spyOn(fake.customers, 'create').mockResolvedValue({ id: 'cus_1' } as never);
+    vi.spyOn(fake.checkout.sessions, 'create')
+      .mockResolvedValueOnce({ id: 'cs_1', url: 'https://checkout.stripe.com/c/pay/cs_1' } as never)
+      .mockResolvedValueOnce({
+        id: 'cs_2',
+        url: 'https://checkout.stripe.com/c/pay/cs_2',
+      } as never);
+    const expire = vi.spyOn(fake.checkout.sessions, 'expire');
+
+    await call('POST', `/workspaces/${owner.workspaceId}/billing/checkout`, owner, {
+      interval: 'month',
+    });
+    expect(expire).not.toHaveBeenCalled();
+    await call('POST', `/workspaces/${owner.workspaceId}/billing/checkout`, owner, {
+      interval: 'year',
+    });
+    expect(expire).toHaveBeenCalledWith('cs_1');
+  });
+
   it("doesn't open a second checkout for a workspace that already pays", async () => {
     const owner = await signup(app);
     await prisma.subscription.create({
@@ -498,6 +520,36 @@ describe("Stripe's webhook", () => {
     expect((await sendWebhook(payload, header)).statusCode).toBe(200);
     expect(retrieve).toHaveBeenCalledWith('sub_1');
     expect(await status(owner)).toMatchObject({ state: 'past_due', canWrite: true });
+  });
+
+  it('cancels a second live subscription for a workspace that already pays', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: {
+        workspaceId: owner.workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_1',
+        status: 'active',
+      },
+    });
+    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(
+      subscription({ id: 'sub_2', status: 'active' }) as never,
+    );
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ id: 'sub_2', status: 'canceled' }) as never);
+    const { payload, header } = signedEvent({
+      id: 'evt_duplicate',
+      type: 'customer.subscription.created',
+      object: subscription({ id: 'sub_2' }),
+    });
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_2');
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row).toMatchObject({ stripeSubscriptionId: 'sub_1', status: 'active' });
   });
 
   it("ignores another product's subscriptions in the same Stripe account", async () => {
