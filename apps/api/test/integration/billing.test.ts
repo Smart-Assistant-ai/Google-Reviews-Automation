@@ -440,6 +440,29 @@ describe('choosing a plan', () => {
   });
 });
 
+describe('the portal settings', () => {
+  it('finds settings made after the server started, without a restart', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1', status: 'active' },
+    });
+    vi.spyOn(fake.billingPortal.configurations, 'list')
+      .mockResolvedValueOnce({ data: [] } as never)
+      .mockResolvedValueOnce({
+        data: [{ id: 'bpc_replypilot', metadata: { app: 'replypilot' } }],
+      } as never);
+    const createPortal = vi
+      .spyOn(fake.billingPortal.sessions, 'create')
+      .mockResolvedValue({ url: 'https://billing.stripe.com/p/session/test_2' } as never);
+
+    await call('POST', `/workspaces/${owner.workspaceId}/billing/portal`, owner);
+    expect(createPortal.mock.calls[0]![0]).not.toHaveProperty('configuration');
+    // stripe:setup runs now. The next visit picks the settings up.
+    await call('POST', `/workspaces/${owner.workspaceId}/billing/portal`, owner);
+    expect(createPortal.mock.calls[1]![0]).toMatchObject({ configuration: 'bpc_replypilot' });
+  });
+});
+
 describe("Stripe's webhook", () => {
   it('keeps up with Stripe while billing is switched off', async () => {
     env.BILLING_PROVIDER = 'off';

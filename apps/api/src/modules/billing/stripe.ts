@@ -15,7 +15,7 @@ export const APP_TAG = 'replypilot';
 
 let client: Stripe | null = null;
 const priceIds = new Map<BillingInterval, string>();
-let portalConfigId: string | null | undefined;
+let portalConfigId: string | undefined;
 
 // The SDK pins the Stripe API version it was built for, so its types match what Stripe sends.
 export function stripe(): Stripe {
@@ -62,13 +62,14 @@ export async function priceId(interval: BillingInterval): Promise<string> {
 }
 
 // The customer portal settings `stripe:setup` made. Without them Stripe uses the account's
-// default settings, which another product may have chosen.
+// default settings, which another product may have chosen. Only a found id is remembered, so
+// running stripe:setup while the server is up takes effect without a restart.
 export async function portalConfiguration(): Promise<string | undefined> {
-  if (portalConfigId === undefined) {
+  if (!portalConfigId) {
     const { data } = await stripe().billingPortal.configurations.list({ active: true, limit: 100 });
-    portalConfigId = data.find((config) => config.metadata?.app === APP_TAG)?.id ?? null;
+    portalConfigId = data.find((config) => config.metadata?.app === APP_TAG)?.id;
   }
-  return portalConfigId ?? undefined;
+  return portalConfigId;
 }
 
 // Stripe fields that may hold an id or the expanded object.
