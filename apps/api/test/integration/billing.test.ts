@@ -256,6 +256,7 @@ describe('choosing a plan', () => {
       customer: 'cus_1',
       client_reference_id: owner.workspaceId,
       line_items: [{ price: 'price_year', quantity: 2 }],
+      adaptive_pricing: { enabled: false },
       subscription_data: {
         metadata: { workspaceId: owner.workspaceId },
         trial_end: Math.floor(workspace.trialEndsAt.getTime() / 1000),

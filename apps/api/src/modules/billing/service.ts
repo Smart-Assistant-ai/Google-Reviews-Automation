@@ -137,6 +137,9 @@ export async function startCheckout(
     customer,
     client_reference_id: workspaceId,
     line_items: [{ price, quantity }],
+    // US dollars only. Stripe would otherwise show local prices abroad with a conversion fee; this
+    // is set here rather than in the account settings, which other products may share.
+    adaptive_pricing: { enabled: false },
     allow_promotion_codes: true,
     billing_address_collection: 'auto',
     customer_update: { address: 'auto', name: 'auto' },
