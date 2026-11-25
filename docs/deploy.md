@@ -141,7 +141,7 @@ After approval, each API's Quotas tab shows 300 requests a minute instead of 0. 
 
 ## Billing (Stripe)
 
-Billing stays off until `BILLING_PROVIDER=stripe`. With it on, every workspace gets a 14-day trial with no card, then needs a plan to draft and post replies. Reading stays open and nothing is deleted. The trial starts when billing is switched on, not at sign-up: every workspace, old or new, gets 14 days from that moment, so switching on never cuts anyone off.
+Billing stays off until `BILLING_PROVIDER=stripe`. With it on, every workspace gets a 14-day trial with no card, then needs a plan to draft and post replies. Reading stays open and nothing is deleted. The trial starts when billing is switched on, not at sign-up: every workspace that hasn't had a trial yet, old or new, gets 14 days from that moment. A trial that already started keeps its end date, so if billing is switched off and on again, a workspace whose trial has run out needs a plan straight away.
 
 Try it with a test key first, then repeat with the live key at launch:
 
