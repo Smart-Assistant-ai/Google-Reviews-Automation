@@ -36,9 +36,31 @@ const LIVE = ['active', 'trialing', 'past_due'];
 // good. Choosing a new plan closes the old one once the new one starts.
 const STALLED = ['unpaid', 'paused', 'incomplete'];
 
+// Stripe can't hold the first charge for a trial ending sooner than the server's limit. The page
+// stops promising the hold a little before that, to allow for the owner's clock being off and the
+// time spent reading before choosing. Choosing in between still gets the hold, which Stripe's page
+// shows as nothing due today.
+const HOLD_SHOWN_MS = TRIAL_HOLD_MIN_HOURS * 3_600_000 + 15 * 60_000;
+
+// Draws again once the time `at` passes, so wording that depends on the clock doesn't go stale in
+// a tab left open.
+function useRedrawAt(at: number | null) {
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    if (at === null || at <= Date.now()) return;
+    const timer = setTimeout(() => redraw((n) => n + 1), Math.min(at - Date.now(), 2 ** 31 - 1));
+    return () => clearTimeout(timer);
+  }, [at]);
+}
+
 // What the plan is now, in a sentence or two.
 function PlanSummary({ billing }: { billing: BillingStatus }) {
   const { plan, state } = billing;
+  const holdEnds =
+    state === 'trial' && billing.trialEndsAt
+      ? Date.parse(billing.trialEndsAt) - HOLD_SHOWN_MS
+      : null;
+  useRedrawAt(holdEnds);
   const live = plan && LIVE.includes(plan.status);
   if (live && plan) {
     const what = `${plan.interval === 'year' ? 'Yearly' : 'Monthly'} plan for ${plural(plan.quantity ?? billing.locations, 'location')}.`;
@@ -63,14 +85,13 @@ function PlanSummary({ billing }: { billing: BillingStatus }) {
   }
   if (state === 'trial' && billing.trialEndsAt) {
     const left = daysLeft(billing.trialEndsAt);
-    // Stripe can't hold the first charge for a trial ending sooner than this.
-    const holds = Date.parse(billing.trialEndsAt) - Date.now() > TRIAL_HOLD_MIN_HOURS * 3_600_000;
+    const holds = holdEnds !== null && Date.now() < holdEnds;
     return (
       <Typography>
         Free trial: {plural(left, 'day')} left, until {day(billing.trialEndsAt)}.{' '}
         {holds
           ? 'Choose a plan any time; nothing is charged until the trial ends.'
-          : 'With less than two days of it left, a plan chosen now starts, and is charged, today.'}
+          : 'With the trial this close to its end, a plan chosen now starts, and is charged, today.'}
       </Typography>
     );
   }
