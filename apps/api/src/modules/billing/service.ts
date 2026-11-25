@@ -1,4 +1,9 @@
-import type { BillingInterval, BillingState, BillingStatus } from '@replypilot/shared';
+import {
+  PRICING,
+  type BillingInterval,
+  type BillingState,
+  type BillingStatus,
+} from '@replypilot/shared';
 import type { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/node';
 import type Stripe from 'stripe';
@@ -14,11 +19,13 @@ import { APP_TAG, idOf, portalConfiguration, priceId, stripe, stripeAvailable } 
 export const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 export const billingOn = () => env.BILLING_PROVIDER === 'stripe';
 
 interface Standing {
-  trialEndsAt: Date;
+  // Empty until billing is switched on: the trial hasn't started yet.
+  trialEndsAt: Date | null;
   subscription: { status: string | null } | null;
 }
 
@@ -27,7 +34,7 @@ export function stateOf(workspace: Standing, now = new Date()): BillingState {
   const status = workspace.subscription?.status;
   if (status === 'active' || status === 'trialing') return 'active';
   if (status === 'past_due') return 'past_due';
-  if (workspace.trialEndsAt > now) return 'trial';
+  if (!workspace.trialEndsAt || workspace.trialEndsAt > now) return 'trial';
   return 'lapsed';
 }
 
@@ -37,8 +44,24 @@ export const canWrite = (state: BillingState) => state !== 'lapsed';
 export function writableWorkspaceFilter(now = new Date()): Prisma.WorkspaceWhereInput {
   if (!billingOn()) return {};
   return {
-    OR: [{ trialEndsAt: { gt: now } }, { subscription: { is: { status: { in: LIVE_STATUSES } } } }],
+    OR: [
+      { trialEndsAt: null },
+      { trialEndsAt: { gt: now } },
+      { subscription: { is: { status: { in: LIVE_STATUSES } } } },
+    ],
   };
+}
+
+// A trial starts when billing is switched on, not at sign-up: a workspace made while billing was
+// off has had nothing to try yet. This gives every workspace without a trial its 14 days from now,
+// so switching billing on never cuts anyone off. A job runs it every minute, and the places that
+// need the date call it for one workspace first.
+export async function startTrials(workspaceId?: string): Promise<void> {
+  if (!billingOn()) return;
+  await prisma.workspace.updateMany({
+    where: { trialEndsAt: null, ...(workspaceId ? { id: workspaceId } : {}) },
+    data: { trialEndsAt: new Date(Date.now() + PRICING.trialDays * DAY) },
+  });
 }
 
 // What the plan charges for: the locations the workspace has switched on.
@@ -47,6 +70,7 @@ export async function locationCount(workspaceId: string): Promise<number> {
 }
 
 export async function billingStatus(workspaceId: string): Promise<BillingStatus> {
+  await startTrials(workspaceId);
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: { trialEndsAt: true, subscription: true },
@@ -57,7 +81,7 @@ export async function billingStatus(workspaceId: string): Promise<BillingStatus>
   return {
     state,
     canWrite: canWrite(state),
-    trialEndsAt: workspace.trialEndsAt.toISOString(),
+    trialEndsAt: workspace.trialEndsAt?.toISOString() ?? null,
     locations: await locationCount(workspaceId),
     plan: sub?.status
       ? {
@@ -117,6 +141,7 @@ export async function startCheckout(
   interval: BillingInterval,
 ): Promise<string> {
   if (!billingOn()) throw new HttpError(409, 'Billing is switched off', 'billing_off');
+  await startTrials(workspaceId);
   const workspace = await prisma.workspace.findUniqueOrThrow({
     where: { id: workspaceId },
     select: { trialEndsAt: true, subscription: { select: { status: true } } },
@@ -133,7 +158,8 @@ export async function startCheckout(
   const quantity = Math.max(1, await locationCount(workspaceId));
   // Choosing a plan during the trial doesn't cut it short: the first charge waits for its end.
   // Stripe only accepts a trial end at least two days away.
-  const keepTrial = workspace.trialEndsAt.getTime() - Date.now() > 49 * HOUR;
+  const trialEnd = workspace.trialEndsAt?.getTime() ?? 0;
+  const keepTrial = trialEnd - Date.now() > 49 * HOUR;
   const session = await stripe().checkout.sessions.create({
     mode: 'subscription',
     customer,
@@ -148,7 +174,7 @@ export async function startCheckout(
     metadata: { workspaceId },
     subscription_data: {
       metadata: { workspaceId },
-      ...(keepTrial ? { trial_end: Math.floor(workspace.trialEndsAt.getTime() / 1000) } : {}),
+      ...(keepTrial ? { trial_end: Math.floor(trialEnd / 1000) } : {}),
     },
     success_url: `${env.APP_URL}/settings?tab=billing&checkout={CHECKOUT_SESSION_ID}`,
     cancel_url: `${env.APP_URL}/settings?tab=billing`,

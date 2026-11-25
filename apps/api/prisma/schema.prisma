@@ -125,9 +125,9 @@ model Workspace {
   name        String
   status      WorkspaceStatus @default(active)
   deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  // The free trial runs 14 days from sign-up, with no card. Workspaces that existed before billing
-  // got 14 days from when it arrived.
-  trialEndsAt DateTime        @default(dbgenerated("(now() + '14 days'::interval)")) @map("trial_ends_at") @db.Timestamptz(6)
+  // The 14-day free trial, with no card. Empty until billing is switched on: then every workspace,
+  // old or new, gets 14 days from that moment (see startTrials in the billing module).
+  trialEndsAt DateTime?       @map("trial_ends_at") @db.Timestamptz(6)
   createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 

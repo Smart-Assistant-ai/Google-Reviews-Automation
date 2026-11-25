@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/node';
 import type { JobDefinition } from '../../jobs/runner';
 import { prisma } from '../../lib/prisma';
-import { billingOn, LIVE_STATUSES, syncQuantity } from './service';
+import { billingOn, LIVE_STATUSES, startTrials, syncQuantity } from './service';
 
 const MINUTE = 60_000;
 
@@ -31,5 +31,6 @@ export async function syncBillingQuantities(): Promise<void> {
 }
 
 export const billingJobs: JobDefinition[] = [
+  { name: 'start-trials', everyMs: MINUTE, run: () => startTrials() },
   { name: 'sync-billing-quantities', everyMs: 10 * MINUTE, run: syncBillingQuantities },
 ];

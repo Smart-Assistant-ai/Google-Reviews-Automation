@@ -161,7 +161,9 @@ function BillingBanner() {
       </Alert>
     );
   }
-  const left = Math.ceil((Date.parse(billing.trialEndsAt) - Date.now()) / 864e5);
+  const left = billing.trialEndsAt
+    ? Math.ceil((Date.parse(billing.trialEndsAt) - Date.now()) / 864e5)
+    : Infinity;
   if (billing.state === 'trial' && left <= 3) {
     return (
       <Alert severity="info" sx={{ borderRadius: 0 }} action={action}>

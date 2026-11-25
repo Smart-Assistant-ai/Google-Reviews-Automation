@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { env } from '../../src/config';
 import { prisma } from '../../src/lib/prisma';
 import { syncBillingQuantities } from '../../src/modules/billing/jobs';
+import { startTrials } from '../../src/modules/billing/service';
 import { setStripeClient } from '../../src/modules/billing/stripe';
 import { runDraftQueue } from '../../src/modules/reviews/jobs';
 import {
@@ -169,6 +170,45 @@ describe('with billing switched off', () => {
 });
 
 describe('the free trial', () => {
+  it('starts when billing is switched on, not at sign-up', async () => {
+    env.BILLING_PROVIDER = 'off';
+    const owner = await signup(app);
+    const before = await prisma.workspace.findUniqueOrThrow({ where: { id: owner.workspaceId } });
+    expect(before.trialEndsAt).toBeNull();
+
+    env.BILLING_PROVIDER = 'stripe';
+    const body = await status(owner);
+    expect(body.state).toBe('trial');
+    expect((Date.parse(body.trialEndsAt) - Date.now()) / DAY).toBeGreaterThan(13.9);
+  });
+
+  it('gives every workspace waiting for a trial its 14 days, and leaves started ones alone', async () => {
+    const waiting = await signup(app);
+    const started = await signup(app);
+    const end = new Date(Date.now() + 3 * DAY);
+    await prisma.workspace.update({
+      where: { id: started.workspaceId },
+      data: { trialEndsAt: end },
+    });
+
+    await startTrials();
+    const [a, b] = await Promise.all([
+      prisma.workspace.findUniqueOrThrow({ where: { id: waiting.workspaceId } }),
+      prisma.workspace.findUniqueOrThrow({ where: { id: started.workspaceId } }),
+    ]);
+    expect((a.trialEndsAt!.getTime() - Date.now()) / DAY).toBeGreaterThan(13.9);
+    expect(b.trialEndsAt).toEqual(end);
+  });
+
+  it('writes drafts for a workspace whose trial has not started yet', async () => {
+    const owner = await signup(app);
+    const review = await reviewWithDraft(owner.workspaceId, 'drafting');
+    await runDraftQueue();
+    expect((await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).state).toBe(
+      'draft',
+    );
+  });
+
   it('gives a new workspace 14 days', async () => {
     const owner = await signup(app);
     const body = await status(owner);
@@ -270,7 +310,7 @@ describe('choosing a plan', () => {
       adaptive_pricing: { enabled: false },
       subscription_data: {
         metadata: { workspaceId: owner.workspaceId },
-        trial_end: Math.floor(workspace.trialEndsAt.getTime() / 1000),
+        trial_end: Math.floor(workspace.trialEndsAt!.getTime() / 1000),
       },
     });
 

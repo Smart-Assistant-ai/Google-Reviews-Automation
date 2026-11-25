@@ -52,7 +52,7 @@ function PlanSummary({ billing }: { billing: BillingStatus }) {
       </Stack>
     );
   }
-  if (state === 'trial') {
+  if (state === 'trial' && billing.trialEndsAt) {
     const left = daysLeft(billing.trialEndsAt);
     return (
       <Typography>

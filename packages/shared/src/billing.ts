@@ -38,7 +38,8 @@ export const billingStatusSchema = z.object({
   state: billingStateSchema,
   // Whether replies can be drafted and posted.
   canWrite: z.boolean(),
-  trialEndsAt: z.string(),
+  // Empty while billing is switched off, before any trial has started.
+  trialEndsAt: z.string().nullable(),
   // Locations connected now, which is what the plan charges for.
   locations: z.number().int(),
   plan: z
