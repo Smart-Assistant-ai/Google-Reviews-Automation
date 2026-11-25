@@ -81,8 +81,9 @@ export default function Terms() {
             period is charged or credited on your next invoice.
           </li>
           <li>
-            If a payment fails, we and Stripe will retry it and let you know. If it still isn&apos;t
-            paid, the workspace goes back to read-only until it is.
+            If a payment fails, Stripe will try it again over the following days, and ReplyPilot
+            shows a notice. If it still isn&apos;t paid, the workspace goes back to read-only until
+            it is.
           </li>
           <li>
             Except where the law requires otherwise, payments aren&apos;t refundable. We&apos;ll
