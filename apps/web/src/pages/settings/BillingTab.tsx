@@ -1,4 +1,10 @@
-import { PRICING, planTotal, type BillingInterval, type BillingStatus } from '@replypilot/shared';
+import {
+  PRICING,
+  TRIAL_HOLD_MIN_HOURS,
+  planTotal,
+  type BillingInterval,
+  type BillingStatus,
+} from '@replypilot/shared';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import {
   Alert,
@@ -26,6 +32,9 @@ const day = (iso: string) =>
 const daysLeft = (iso: string) => Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 864e5));
 
 const LIVE = ['active', 'trialing', 'past_due'];
+// Plans Stripe still holds open without them giving access, mostly ones whose payments failed for
+// good. Choosing a new plan closes the old one once the new one starts.
+const STALLED = ['unpaid', 'paused', 'incomplete'];
 
 // What the plan is now, in a sentence or two.
 function PlanSummary({ billing }: { billing: BillingStatus }) {
@@ -54,17 +63,26 @@ function PlanSummary({ billing }: { billing: BillingStatus }) {
   }
   if (state === 'trial' && billing.trialEndsAt) {
     const left = daysLeft(billing.trialEndsAt);
+    // Stripe can't hold the first charge for a trial ending sooner than this.
+    const holds = Date.parse(billing.trialEndsAt) - Date.now() > TRIAL_HOLD_MIN_HOURS * 3_600_000;
     return (
       <Typography>
-        Free trial: {plural(left, 'day')} left, until {day(billing.trialEndsAt)}. Choose a plan any
-        time; nothing is charged until the trial ends.
+        Free trial: {plural(left, 'day')} left, until {day(billing.trialEndsAt)}.{' '}
+        {holds
+          ? 'Choose a plan any time; nothing is charged until the trial ends.'
+          : 'With less than two days of it left, a plan chosen now starts, and is charged, today.'}
       </Typography>
     );
   }
+  const stalled = plan && STALLED.includes(plan.status);
   return (
     <Alert severity="warning">
-      This workspace has no active plan, so replies can&apos;t be drafted or posted. Your reviews,
-      replies and settings are all still here. Choose a plan to carry on.
+      {stalled
+        ? "Your plan is on hold in Stripe, usually because its payments didn't go through, so"
+        : 'This workspace has no active plan, so'}{' '}
+      replies can&apos;t be drafted or posted. Your reviews, replies and settings are all still
+      here. Choose a plan to carry on
+      {stalled ? '; the old one is closed when the new one starts' : ''}.
     </Alert>
   );
 }
@@ -118,7 +136,7 @@ function PlanChoice({
 
 export default function BillingTab() {
   const workspaceId = useWorkspaceId();
-  const { data: billing, isLoading } = useBilling();
+  const { data: billing, isLoading, isError, refetch } = useBilling();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
@@ -159,6 +177,21 @@ export default function BillingTab() {
     }
   };
 
+  if (isError && !billing && !returning) {
+    return (
+      <Alert
+        severity="error"
+        action={
+          <Button color="inherit" size="small" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        }
+      >
+        Your plan couldn&apos;t be loaded just now.
+      </Alert>
+    );
+  }
+
   if (isLoading || !billing || returning) {
     return (
       <Box sx={{ py: 6, textAlign: 'center' }}>
@@ -176,14 +209,19 @@ export default function BillingTab() {
           <Stack spacing={2} alignItems="flex-start">
             <Typography variant="subtitle2">Your plan</Typography>
             <PlanSummary billing={billing} />
-            {live && (
+            {billing.plan && (
               <>
-                <Button variant="contained" disabled={busy} onClick={() => go('/billing/portal')}>
+                <Button
+                  variant={live ? 'contained' : 'outlined'}
+                  disabled={busy}
+                  onClick={() => go('/billing/portal')}
+                >
                   Manage billing
                 </Button>
                 <Typography variant="body2" color="text.secondary">
-                  Change the card, switch between monthly and yearly, download invoices or cancel,
-                  on Stripe&apos;s secure page.
+                  {live
+                    ? "Change the card, switch between monthly and yearly, download invoices or cancel, on Stripe's secure page."
+                    : "See past invoices or change the card on Stripe's secure page."}
                 </Typography>
               </>
             )}

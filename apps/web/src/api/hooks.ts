@@ -39,6 +39,14 @@ export function useBilling() {
     queryFn: () => api.get<BillingStatus>(wsPath(id, '/billing')),
     enabled: !!id,
     staleTime: 60_000,
+    // During the trial, asks again just after it ends, so the banner and the buttons change with
+    // it rather than at the next page load. At most hourly, since timers that long are unreliable.
+    refetchInterval: (query) => {
+      const { data } = query.state;
+      if (data?.state !== 'trial' || !data.trialEndsAt) return false;
+      const untilEnd = Date.parse(data.trialEndsAt) - Date.now() + 1000;
+      return Math.min(Math.max(untilEnd, 30_000), 60 * 60_000);
+    },
   });
 }
 

@@ -17,9 +17,11 @@ export default function Settings() {
   const isAdmin = workspace ? hasAtLeast(workspace.role, 'admin') : false;
   // Teammates join through an emailed invitation, so the tab waits until email is switched on.
   const emails = useAuthConfig().data?.emails === true;
-  // Only the owner pays, and the tab stays hidden on a server with billing switched off.
+  // Only the owner pays, and the tab stays hidden on a server with billing switched off. A plan
+  // that couldn't be loaded keeps the tab, which says so and offers to try again.
   const isOwner = workspace?.role === 'owner';
-  const billingOn = (useBilling().data?.state ?? 'free') !== 'free';
+  const billing = useBilling();
+  const billingOn = billing.isError || (billing.data?.state ?? 'free') !== 'free';
 
   // Controls a role can't use aren't shown. The API refuses them regardless.
   const tabs = useMemo(() => {
