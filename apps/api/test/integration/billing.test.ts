@@ -425,6 +425,29 @@ describe("Stripe's webhook", () => {
     expect(await status(owner)).toMatchObject({ state: 'lapsed', canWrite: false });
   });
 
+  // Stripe sends events in the endpoint's API version. A sandbox made before 2025 defaults to an
+  // older one, where an invoice names its subscription directly rather than under `parent`.
+  it.each([
+    ['current', { parent: { subscription_details: { subscription: 'sub_1' } } }],
+    ['older', { subscription: 'sub_1' }],
+  ])('reads a failed payment in the %s event format', async (_format, invoice) => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1', status: 'active' },
+    });
+    const retrieve = vi
+      .spyOn(fake.subscriptions, 'retrieve')
+      .mockResolvedValue(subscription({ status: 'past_due' }) as never);
+    const { payload, header } = signedEvent({
+      id: `evt_invoice_${_format}`,
+      type: 'invoice.payment_failed',
+      object: { id: 'in_1', object: 'invoice', customer: 'cus_1', ...invoice },
+    });
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(retrieve).toHaveBeenCalledWith('sub_1');
+    expect(await status(owner)).toMatchObject({ state: 'past_due', canWrite: true });
+  });
+
   it("ignores another product's subscriptions in the same Stripe account", async () => {
     vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(
       subscription({ customer: 'cus_someone_else' }) as never,

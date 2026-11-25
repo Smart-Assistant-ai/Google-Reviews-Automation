@@ -255,6 +255,18 @@ export async function syncQuantity(workspaceId: string): Promise<void> {
   });
 }
 
+// Which subscription an invoice belongs to. Events come in the webhook endpoint's Stripe API
+// version, which is the account's default unless stripe:setup pinned it. Older versions (before
+// 2025) keep it in `subscription`; newer ones under `parent`. Both are read, so an endpoint made
+// by hand in the dashboard still works.
+export function invoiceSubscription(invoice: Stripe.Invoice): string | null {
+  const current = invoice.parent?.subscription_details?.subscription;
+  const older = (invoice as unknown as { subscription?: string | { id: string } | null })
+    .subscription;
+  const found = current ?? older;
+  return found ? idOf(found) : null;
+}
+
 // The events the webhook acts on. Each is handled once, however often Stripe sends it.
 export async function handleEvent(event: Stripe.Event): Promise<void> {
   const fresh = await prisma.stripeEvent.createMany({
@@ -280,8 +292,8 @@ export async function handleEvent(event: Stripe.Event): Promise<void> {
         break;
       case 'invoice.paid':
       case 'invoice.payment_failed': {
-        const subscription = event.data.object.parent?.subscription_details?.subscription;
-        if (subscription) await syncSubscription(idOf(subscription));
+        const subscription = invoiceSubscription(event.data.object);
+        if (subscription) await syncSubscription(subscription);
         break;
       }
       default:
