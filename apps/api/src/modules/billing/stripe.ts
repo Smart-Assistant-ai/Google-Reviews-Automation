@@ -31,6 +31,9 @@ export function stripe(): Stripe {
   return client;
 }
 
+// Whether this server can call Stripe at all: it has a key, or a test has supplied a client.
+export const stripeAvailable = () => client !== null || Boolean(env.STRIPE_SECRET_KEY);
+
 // Tests swap in a client whose network calls are stubbed.
 export function setStripeClient(next: Stripe | null): void {
   client = next;

@@ -6,7 +6,14 @@ import { prisma } from '../../src/lib/prisma';
 import { syncBillingQuantities } from '../../src/modules/billing/jobs';
 import { setStripeClient } from '../../src/modules/billing/stripe';
 import { runDraftQueue } from '../../src/modules/reviews/jobs';
-import { signup, testApp, tokenFromEmail, uniqueEmail, type TestUser } from '../helpers/app';
+import {
+  PASSWORD,
+  signup,
+  testApp,
+  tokenFromEmail,
+  uniqueEmail,
+  type TestUser,
+} from '../helpers/app';
 import { resetDb } from '../helpers/db';
 import { verifyEmail } from '../helpers/google';
 import { addLocation } from '../helpers/seed-location';
@@ -42,8 +49,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const call = (method: 'GET' | 'POST' | 'PUT', url: string, user?: TestUser, payload?: object) =>
-  app.inject({ method, url: `/api/v1${url}`, headers: user?.headers, payload });
+const call = (
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  url: string,
+  user?: TestUser,
+  payload?: object,
+) => app.inject({ method, url: `/api/v1${url}`, headers: user?.headers, payload });
 
 const status = async (user: TestUser) =>
   (await call('GET', `/workspaces/${user.workspaceId}/billing`, user)).json();
@@ -485,6 +496,65 @@ describe("Stripe's webhook", () => {
       where: { workspaceId: owner.workspaceId },
     });
     expect(row).toMatchObject({ stripeSubscriptionId: 'sub_new', status: 'active' });
+  });
+});
+
+describe('deleting a workspace', () => {
+  const paying = (workspaceId: string) =>
+    prisma.subscription.create({
+      data: {
+        workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_1',
+        status: 'active',
+      },
+    });
+
+  it('cancels its plan, so the card stops being charged', async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ status: 'canceled' }) as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_1');
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row.status).toBe('canceled');
+  });
+
+  it('cancels it when the owner deletes their whole account too', async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ status: 'canceled' }) as never);
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/auth/me',
+      headers: owner.headers,
+      payload: { password: PASSWORD },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_1');
+  });
+
+  it("keeps the workspace when Stripe can't cancel the plan, so the owner can try again", async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    vi.spyOn(fake.subscriptions, 'cancel').mockRejectedValue(new Error('Stripe is down'));
+    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(subscription() as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error.code).toBe('billing_cancel_failed');
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: owner.workspaceId },
+    });
+    expect(workspace.deletedAt).toBeNull();
   });
 });
 

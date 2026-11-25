@@ -1,11 +1,13 @@
 import type { BillingInterval, BillingState, BillingStatus } from '@replypilot/shared';
 import type { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
 import type Stripe from 'stripe';
 import { env } from '../../config';
 import { recordAudit } from '../../lib/audit';
 import { HttpError, notFound } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
-import { APP_TAG, idOf, portalConfiguration, priceId, stripe } from './stripe';
+import { onWorkspaceDeleted } from '../workspaces/lifecycle';
+import { APP_TAG, idOf, portalConfiguration, priceId, stripe, stripeAvailable } from './stripe';
 
 // Stripe statuses that keep a workspace able to draft and post. past_due is Stripe still
 // retrying a failed card, so the business isn't cut off while it fixes it.
@@ -257,6 +259,50 @@ export async function syncQuantity(workspaceId: string): Promise<void> {
     meta: { from: item.quantity ?? null, to: want },
   });
 }
+
+// A deleted workspace, on its own or with its owner's account, stops paying at once. This runs
+// before the workspace is marked deleted, so if Stripe can't be reached the deletion stops and the
+// owner can try again, rather than a card being charged for a workspace that no longer exists.
+export async function cancelForDeletedWorkspace(
+  workspaceId: string,
+  actorUserId: string | null,
+): Promise<void> {
+  const row = await prisma.subscription.findUnique({ where: { workspaceId } });
+  if (!row?.stripeSubscriptionId || !LIVE_STATUSES.includes(row.status ?? '')) return;
+  if (!stripeAvailable()) {
+    // Billing was set up and later removed from this server. Someone must cancel it in Stripe.
+    Sentry.captureMessage('A deleted workspace still has a live Stripe subscription', {
+      extra: { workspaceId, subscription: row.stripeSubscriptionId },
+    });
+    return;
+  }
+  let canceled: Stripe.Subscription;
+  try {
+    canceled = await stripe().subscriptions.cancel(row.stripeSubscriptionId);
+  } catch {
+    // Already cancelled in Stripe, and our copy hadn't caught up yet, is fine.
+    const current = await stripe()
+      .subscriptions.retrieve(row.stripeSubscriptionId)
+      .catch(() => null);
+    if (!current || LIVE_STATUSES.includes(current.status)) {
+      throw new HttpError(
+        502,
+        "We couldn't cancel this workspace's plan with Stripe, so nothing was deleted. Please try again in a moment.",
+        'billing_cancel_failed',
+      );
+    }
+    canceled = current;
+  }
+  await saveSubscription(canceled);
+  await recordAudit({
+    action: 'billing.canceled_on_delete',
+    workspaceId,
+    actorUserId,
+    meta: { subscription: canceled.id },
+  });
+}
+
+onWorkspaceDeleted(cancelForDeletedWorkspace);
 
 // Which subscription an invoice belongs to. Events come in the webhook endpoint's Stripe API
 // version, which is the account's default unless stripe:setup pinned it. Older versions (before

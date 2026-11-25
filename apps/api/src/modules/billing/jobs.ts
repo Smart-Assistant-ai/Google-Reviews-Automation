@@ -11,7 +11,12 @@ const MINUTE = 60_000;
 export async function syncBillingQuantities(): Promise<void> {
   if (!billingOn()) return;
   const paying = await prisma.subscription.findMany({
-    where: { status: { in: LIVE_STATUSES }, stripeSubscriptionId: { not: null } },
+    // A deleted workspace's plan is cancelled when it is deleted; there is nothing left to count.
+    where: {
+      status: { in: LIVE_STATUSES },
+      stripeSubscriptionId: { not: null },
+      workspace: { deletedAt: null },
+    },
     select: { workspaceId: true },
   });
   for (const { workspaceId } of paying) {
