@@ -101,8 +101,11 @@ function subscription(
     workspaceId?: string;
     quantity?: number;
     interval?: 'month' | 'year';
+    // A plan from another product sharing the Stripe account.
+    otherProduct?: boolean;
   } = {},
 ) {
+  const interval = fields.interval ?? 'month';
   return {
     id: fields.id ?? 'sub_1',
     object: 'subscription',
@@ -117,7 +120,19 @@ function subscription(
           id: 'si_1',
           quantity: fields.quantity ?? 1,
           current_period_end: Math.floor((Date.now() + 30 * DAY) / 1000),
-          price: { id: 'price_month', recurring: { interval: fields.interval ?? 'month' } },
+          price: fields.otherProduct
+            ? {
+                id: 'price_other',
+                lookup_key: 'other_app_pro',
+                metadata: {},
+                recurring: { interval },
+              }
+            : {
+                id: `price_${interval}`,
+                lookup_key: `replypilot_${interval}_v1`,
+                metadata: { app: 'replypilot' },
+                recurring: { interval },
+              },
         },
       ],
     },
@@ -683,6 +698,155 @@ describe("Stripe's webhook", () => {
     });
     expect(row).toMatchObject({ stripeSubscriptionId: 'sub_new', status: 'active' });
   });
+
+  it("leaves another product's plan on a ReplyPilot customer alone", async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: {
+        workspaceId: owner.workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_1',
+        status: 'active',
+      },
+    });
+    const theirs = subscription({ id: 'sub_theirs', otherProduct: true });
+    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(theirs as never);
+    const cancel = vi.spyOn(fake.subscriptions, 'cancel');
+    const { payload, header } = signedEvent({
+      id: 'evt_theirs',
+      type: 'customer.subscription.created',
+      object: theirs,
+    });
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(cancel).not.toHaveBeenCalled();
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row).toMatchObject({ stripeSubscriptionId: 'sub_1', status: 'active' });
+  });
+
+  it('keeps the newer state when two updates to one plan arrive together', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: {
+        workspaceId: owner.workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_1',
+        status: 'active',
+      },
+    });
+    // The first handler reads the plan just before it is cancelled, and Stripe is slow to answer
+    // it. The second reads it once cancelled.
+    let reads = 0;
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation((() => {
+      reads += 1;
+      return reads === 1
+        ? new Promise((resolve) => setTimeout(() => resolve(subscription()), 300))
+        : Promise.resolve(subscription({ status: 'canceled' }));
+    }) as never);
+    const first = signedEvent({
+      id: 'evt_first',
+      type: 'customer.subscription.updated',
+      object: subscription(),
+    });
+    const second = signedEvent({
+      id: 'evt_second',
+      type: 'customer.subscription.deleted',
+      object: subscription({ status: 'canceled' }),
+    });
+
+    const sentFirst = sendWebhook(first.payload, first.header);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await Promise.all([sentFirst, sendWebhook(second.payload, second.header)]);
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row.status).toBe('canceled');
+  });
+
+  it('cancels one of two plans paid at the same moment, whichever lands first', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1' },
+    });
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      Promise.resolve(subscription({ id }))) as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockImplementation(((id: string) =>
+        Promise.resolve(subscription({ id, status: 'canceled' }))) as never);
+    const events = ['sub_a', 'sub_b'].map((id) =>
+      signedEvent({
+        id: `evt_${id}`,
+        type: 'customer.subscription.created',
+        object: subscription({ id }),
+      }),
+    );
+
+    await Promise.all(events.map((e) => sendWebhook(e.payload, e.header)));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row.status).toBe('active');
+    expect(cancel.mock.calls[0]![0]).not.toBe(row.stripeSubscriptionId);
+  });
+
+  it('records an event as handled only once the work is done', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1' },
+    });
+    let recordedDuringWork: number | null = null;
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation((async () => {
+      recordedDuringWork = await prisma.stripeEvent.count();
+      return subscription();
+    }) as never);
+    const { payload, header } = signedEvent({
+      id: 'evt_order',
+      type: 'customer.subscription.created',
+      object: subscription(),
+    });
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    // Had the server stopped mid-way, nothing would mark the event handled, and Stripe's resend
+    // would be acted on.
+    expect(recordedDuringWork).toBe(0);
+    expect(await prisma.stripeEvent.count()).toBe(1);
+  });
+
+  it('closes a plan left unpaid once a new one starts', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: {
+        workspaceId: owner.workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_unpaid',
+        status: 'unpaid',
+      },
+    });
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      Promise.resolve(
+        subscription({ id, status: id === 'sub_unpaid' ? 'unpaid' : 'active' }),
+      )) as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ id: 'sub_unpaid', status: 'canceled' }) as never);
+    const { payload, header } = signedEvent({
+      id: 'evt_new_plan',
+      type: 'customer.subscription.created',
+      object: subscription({ id: 'sub_new' }),
+    });
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_unpaid');
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row).toMatchObject({ stripeSubscriptionId: 'sub_new', status: 'active' });
+    expect(await status(owner)).toMatchObject({ state: 'active', canWrite: true });
+  });
 });
 
 describe('deleting a workspace', () => {
@@ -741,6 +905,64 @@ describe('deleting a workspace', () => {
       where: { id: owner.workspaceId },
     });
     expect(workspace.deletedAt).toBeNull();
+  });
+
+  it('keeps the workspace when this server has no Stripe key to cancel the plan with', async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    setStripeClient(null);
+    const key = env.STRIPE_SECRET_KEY;
+    env.STRIPE_SECRET_KEY = '';
+    try {
+      const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+      expect(res.statusCode).toBe(502);
+      expect(res.json().error.code).toBe('billing_cancel_failed');
+    } finally {
+      env.STRIPE_SECRET_KEY = key;
+    }
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: owner.workspaceId },
+    });
+    expect(workspace.deletedAt).toBeNull();
+  });
+
+  it('closes a checkout left open, so it cannot be paid afterwards', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: {
+        workspaceId: owner.workspaceId,
+        stripeCustomerId: 'cus_1',
+        checkoutSessionId: 'cs_open',
+      },
+    });
+    const expire = vi.spyOn(fake.checkout.sessions, 'expire').mockResolvedValue({} as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(expire).toHaveBeenCalledWith('cs_open');
+  });
+
+  it('cancels a plan paid for after the workspace was deleted', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1' },
+    });
+    await prisma.workspace.update({
+      where: { id: owner.workspaceId },
+      data: { deletedAt: new Date() },
+    });
+    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(subscription() as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ status: 'canceled' }) as never);
+    const { payload, header } = signedEvent({
+      id: 'evt_late_checkout',
+      type: 'customer.subscription.created',
+      object: subscription(),
+    });
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_1');
   });
 });
 

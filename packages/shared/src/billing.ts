@@ -15,6 +15,11 @@ export const PRICING = {
   yearlyMonths: 10,
 } as const;
 
+// Stripe only holds the first charge for a trial end at least two days away. A plan chosen with
+// less of the trial left starts, and is charged, at once. The hour over two days covers the time
+// the owner spends on Stripe's page.
+export const TRIAL_HOLD_MIN_HOURS = 49;
+
 export const billingIntervalSchema = z.enum(['month', 'year']);
 export type BillingInterval = z.infer<typeof billingIntervalSchema>;
 

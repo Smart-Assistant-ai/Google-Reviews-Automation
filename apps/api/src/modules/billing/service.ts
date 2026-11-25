@@ -1,5 +1,6 @@
 import {
   PRICING,
+  TRIAL_HOLD_MIN_HOURS,
   type BillingInterval,
   type BillingState,
   type BillingStatus,
@@ -10,13 +11,40 @@ import type Stripe from 'stripe';
 import { env } from '../../config';
 import { recordAudit } from '../../lib/audit';
 import { HttpError, notFound } from '../../lib/errors';
+import { withLock } from '../../lib/lock';
 import { prisma } from '../../lib/prisma';
 import { onWorkspaceDeleted } from '../workspaces/lifecycle';
-import { APP_TAG, idOf, portalConfiguration, priceId, stripe, stripeAvailable } from './stripe';
+import {
+  APP_TAG,
+  PRICE_LOOKUP_KEYS,
+  idOf,
+  portalConfiguration,
+  priceId,
+  stripe,
+  stripeAvailable,
+} from './stripe';
 
 // Stripe statuses that keep a workspace able to draft and post. past_due is Stripe still
 // retrying a failed card, so the business isn't cut off while it fixes it.
 export const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
+
+// Stripe statuses of a subscription that is over and charges nothing more.
+const ENDED_STATUSES = ['canceled', 'incomplete_expired'];
+
+// Every Stripe read and write for one customer, and so one workspace, takes this lock: a save of
+// an older copy can't land after a newer one, and two new subscriptions can't both slip past the
+// check for a second one. Each workspace has its own customer.
+const customerLock = <T>(customerId: string, work: () => Promise<T>) =>
+  withLock(`stripe-customer:${customerId}`, work);
+
+// ReplyPilot's own line on a subscription. A subscription without one belongs to another product
+// sharing the Stripe account, even one on a customer ReplyPilot made.
+function ourItem(sub: Stripe.Subscription): Stripe.SubscriptionItem | undefined {
+  const keys: string[] = Object.values(PRICE_LOOKUP_KEYS);
+  return sub.items.data.find(
+    (item) => item.price.metadata?.app === APP_TAG || keys.includes(item.price.lookup_key ?? ''),
+  );
+}
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -53,9 +81,10 @@ export function writableWorkspaceFilter(now = new Date()): Prisma.WorkspaceWhere
 }
 
 // A trial starts when billing is switched on, not at sign-up: a workspace made while billing was
-// off has had nothing to try yet. This gives every workspace without a trial its 14 days from now,
-// so switching billing on never cuts anyone off. A job runs it every minute, and the places that
-// need the date call it for one workspace first.
+// off has had nothing to try yet. This gives every workspace without a trial its 14 days from now.
+// A trial that already started keeps its end date, even if billing was switched off and on again
+// meanwhile. A job runs it every minute, and the places that need the date call it for one
+// workspace first.
 export async function startTrials(workspaceId?: string): Promise<void> {
   if (!billingOn()) return;
   await prisma.workspace.updateMany({
@@ -169,9 +198,10 @@ export async function startCheckout(
   const price = await priceId(interval);
   const quantity = Math.max(1, await locationCount(workspaceId));
   // Choosing a plan during the trial doesn't cut it short: the first charge waits for its end.
-  // Stripe only accepts a trial end at least two days away.
+  // Stripe can't hold it for less than two days, so a plan chosen in the trial's last two days
+  // starts at once. The Billing tab says so before the owner chooses.
   const trialEnd = workspace.trialEndsAt?.getTime() ?? 0;
-  const keepTrial = trialEnd - Date.now() > 49 * HOUR;
+  const keepTrial = trialEnd - Date.now() > TRIAL_HOLD_MIN_HOURS * HOUR;
   const session = await stripe().checkout.sessions.create({
     mode: 'subscription',
     customer,
@@ -211,7 +241,12 @@ export async function confirmCheckout(workspaceId: string, sessionId: string): P
   if (!billingOn()) return;
   const session = await stripe().checkout.sessions.retrieve(sessionId);
   if (session.client_reference_id !== workspaceId) throw notFound();
-  if (session.subscription) await syncSubscription(idOf(session.subscription));
+  if (session.subscription) {
+    await syncSubscription(
+      idOf(session.subscription),
+      session.customer ? idOf(session.customer) : null,
+    );
+  }
 }
 
 // Stripe's own page for changing the card, switching monthly and yearly, seeing invoices and
@@ -235,60 +270,118 @@ export async function refreshPlan(workspaceId: string): Promise<void> {
   if (!billingOn()) return;
   const row = await prisma.subscription.findUnique({
     where: { workspaceId },
-    select: { stripeSubscriptionId: true },
+    select: { stripeSubscriptionId: true, stripeCustomerId: true },
   });
-  if (row?.stripeSubscriptionId) await syncSubscription(row.stripeSubscriptionId);
+  if (row?.stripeSubscriptionId) {
+    await syncSubscription(row.stripeSubscriptionId, row.stripeCustomerId);
+  }
 }
 
 // Reads a subscription fresh from Stripe rather than trusting an event's copy, so events that
-// arrive late or out of order still leave the latest state.
-export async function syncSubscription(subscriptionId: string): Promise<void> {
-  await saveSubscription(await stripe().subscriptions.retrieve(subscriptionId));
+// arrive late or out of order still leave the latest state. The read happens inside the
+// customer's lock, so a copy read before a change can't be saved after it.
+export async function syncSubscription(
+  subscriptionId: string,
+  customerId: string | null,
+): Promise<void> {
+  const customer =
+    customerId ?? idOf((await stripe().subscriptions.retrieve(subscriptionId)).customer);
+  await customerLock(customer, async () => {
+    await saveSubscription(await stripe().subscriptions.retrieve(subscriptionId));
+  });
 }
 
-export async function saveSubscription(sub: Stripe.Subscription): Promise<void> {
+// Cancels a subscription nobody should be paying for, at once. Anything it already took may need
+// a refund, so it is reported.
+async function cancelUnwanted(
+  sub: Stripe.Subscription,
+  workspaceId: string,
+  action: string,
+  reason: string,
+  meta: Record<string, string | null>,
+): Promise<void> {
+  await stripe().subscriptions.cancel(sub.id);
+  Sentry.captureMessage(`${reason}; check whether it needs a refund`, {
+    extra: { workspaceId, cancelled: sub.id, ...meta },
+  });
+  await recordAudit({ action, workspaceId, meta: { cancelled: sub.id, ...meta } });
+}
+
+// Saves Stripe's copy of a subscription. Callers hold the customer's lock, so the reads, the
+// decisions and the write below can't interleave with another save for the same workspace.
+async function saveSubscription(sub: Stripe.Subscription): Promise<void> {
+  const item = ourItem(sub);
+  // Another product's subscription in a shared Stripe account, whichever customer it is on.
+  if (!item) return;
   const customerId = idOf(sub.customer);
   const byCustomer = await prisma.subscription.findUnique({
     where: { stripeCustomerId: customerId },
   });
   const workspaceId = byCustomer?.workspaceId ?? sub.metadata?.workspaceId;
-  // Another product's subscription in a shared Stripe account.
   if (!workspaceId) return;
   const row = byCustomer ?? (await prisma.subscription.findUnique({ where: { workspaceId } }));
-  if (!row) {
-    const exists = await prisma.workspace.findUnique({ where: { id: workspaceId } });
-    if (!exists) return;
-  } else if (row.stripeCustomerId !== customerId) {
-    // Metadata naming a workspace that already pays through a different customer.
+  // Metadata naming a workspace that already pays through a different customer.
+  if (row && row.stripeCustomerId !== customerId) return;
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { deletedAt: true },
+  });
+  // A workspace this database has never had. It may be another environment's, such as a
+  // developer's machine sharing the test server's Stripe sandbox, so it is left alone.
+  if (!workspace) return;
+  const live = LIVE_STATUSES.includes(sub.status);
+  // A plan that started after its workspace was deleted, from a checkout paid late. Nobody can use
+  // it, so it stops at once.
+  if (workspace.deletedAt && live) {
+    await cancelUnwanted(
+      sub,
+      workspaceId,
+      'billing.cancelled_after_delete',
+      'Cancelled a plan started after its workspace was deleted',
+      {},
+    );
     return;
   }
   const other = row?.stripeSubscriptionId && row.stripeSubscriptionId !== sub.id ? row : null;
+  const otherLive = LIVE_STATUSES.includes(other?.status ?? '');
   // An event about an older subscription mustn't replace the one in use.
-  if (other && LIVE_STATUSES.includes(other.status ?? '') && !LIVE_STATUSES.includes(sub.status)) {
-    return;
-  }
+  if (other && otherLive && !live) return;
   // A second live subscription for a workspace that already pays, for example from two checkouts
-  // paid in two tabs. The first one stays; this one is cancelled at once so the card isn't charged
-  // twice from now on. Anything it already took needs a refund, so it is reported.
-  if (other && LIVE_STATUSES.includes(other.status ?? '') && LIVE_STATUSES.includes(sub.status)) {
-    await stripe().subscriptions.cancel(sub.id);
-    Sentry.captureMessage('Cancelled a duplicate subscription; check whether it needs a refund', {
-      extra: { workspaceId, kept: other.stripeSubscriptionId, cancelled: sub.id },
-    });
-    await recordAudit({
-      action: 'billing.duplicate_cancelled',
+  // paid in two tabs. The first one stays; this one is cancelled so the card isn't charged twice.
+  if (other && otherLive && live) {
+    await cancelUnwanted(
+      sub,
       workspaceId,
-      meta: { kept: other.stripeSubscriptionId, cancelled: sub.id },
-    });
+      'billing.duplicate_cancelled',
+      'Cancelled a duplicate subscription',
+      { kept: other.stripeSubscriptionId },
+    );
     return;
   }
-  const item = sub.items.data[0];
+  // A new plan replacing one Stripe still holds open without it giving access, such as one left
+  // unpaid after its payments failed. The old one is closed so it doesn't linger in Stripe. Its
+  // status is read again first, in case it was paid meanwhile.
+  if (other?.stripeSubscriptionId && live) {
+    const previous = await stripe()
+      .subscriptions.retrieve(other.stripeSubscriptionId)
+      .catch(() => null);
+    if (previous && !LIVE_STATUSES.includes(previous.status)) {
+      if (!ENDED_STATUSES.includes(previous.status)) {
+        await stripe().subscriptions.cancel(previous.id);
+      }
+      await recordAudit({
+        action: 'billing.plan_replaced',
+        workspaceId,
+        meta: { replaced: previous.id, by: sub.id },
+      });
+    }
+  }
   const fields = {
     stripeSubscriptionId: sub.id,
     status: sub.status,
-    interval: item?.price.recurring?.interval ?? null,
-    quantity: item?.quantity ?? null,
-    currentPeriodEnd: item ? new Date(item.current_period_end * 1000) : null,
+    interval: item.price.recurring?.interval ?? null,
+    quantity: item.quantity ?? null,
+    currentPeriodEnd: new Date(item.current_period_end * 1000),
     cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at !== null,
   };
   await prisma.subscription.upsert({
@@ -302,25 +395,29 @@ export async function saveSubscription(sub: Stripe.Subscription): Promise<void> 
 // added mid-month costs only the rest of the month.
 export async function syncQuantity(workspaceId: string): Promise<void> {
   if (!billingOn()) return;
-  const row = await prisma.subscription.findUnique({ where: { workspaceId } });
-  if (!row?.stripeSubscriptionId || !LIVE_STATUSES.includes(row.status ?? '')) return;
+  const known = await prisma.subscription.findUnique({ where: { workspaceId } });
+  if (!known?.stripeSubscriptionId || !LIVE_STATUSES.includes(known.status ?? '')) return;
   const want = Math.max(1, await locationCount(workspaceId));
-  if (row.quantity === want) return;
-  const sub = await stripe().subscriptions.retrieve(row.stripeSubscriptionId);
-  const item = sub.items.data[0];
-  if (!item || item.quantity === want) {
-    await saveSubscription(sub);
-    return;
-  }
-  const updated = await stripe().subscriptions.update(sub.id, {
-    items: [{ id: item.id, quantity: want }],
-    proration_behavior: 'create_prorations',
-  });
-  await saveSubscription(updated);
-  await recordAudit({
-    action: 'billing.locations_changed',
-    workspaceId,
-    meta: { from: item.quantity ?? null, to: want },
+  if (known.quantity === want) return;
+  await customerLock(known.stripeCustomerId, async () => {
+    const row = await prisma.subscription.findUnique({ where: { workspaceId } });
+    if (!row?.stripeSubscriptionId) return;
+    const sub = await stripe().subscriptions.retrieve(row.stripeSubscriptionId);
+    const item = ourItem(sub);
+    if (!item || !LIVE_STATUSES.includes(sub.status) || item.quantity === want) {
+      await saveSubscription(sub);
+      return;
+    }
+    const updated = await stripe().subscriptions.update(sub.id, {
+      items: [{ id: item.id, quantity: want }],
+      proration_behavior: 'create_prorations',
+    });
+    await saveSubscription(updated);
+    await recordAudit({
+      action: 'billing.locations_changed',
+      workspaceId,
+      meta: { from: item.quantity ?? null, to: want },
+    });
   });
 }
 
@@ -331,38 +428,54 @@ export async function cancelForDeletedWorkspace(
   workspaceId: string,
   actorUserId: string | null,
 ): Promise<void> {
-  const row = await prisma.subscription.findUnique({ where: { workspaceId } });
-  if (!row?.stripeSubscriptionId || !LIVE_STATUSES.includes(row.status ?? '')) return;
+  const known = await prisma.subscription.findUnique({ where: { workspaceId } });
+  if (!known) return;
+  // A checkout left open in another tab could otherwise still be paid once the workspace is gone.
+  if (known.checkoutSessionId && stripeAvailable()) {
+    await stripe()
+      .checkout.sessions.expire(known.checkoutSessionId)
+      .catch(() => undefined);
+  }
+  // Anything Stripe hasn't ended is cancelled, including a plan left unpaid or paused.
+  if (!known.stripeSubscriptionId || ENDED_STATUSES.includes(known.status ?? '')) return;
   if (!stripeAvailable()) {
-    // Billing was set up and later removed from this server. Someone must cancel it in Stripe.
-    Sentry.captureMessage('A deleted workspace still has a live Stripe subscription', {
-      extra: { workspaceId, subscription: row.stripeSubscriptionId },
+    // Billing was set up and later removed from this server. The plan can't be cancelled from
+    // here, so nothing is deleted until someone puts the key back or cancels it in Stripe.
+    Sentry.captureMessage('Workspace deletion stopped: its plan needs cancelling in Stripe', {
+      extra: { workspaceId, subscription: known.stripeSubscriptionId },
     });
-    return;
+    throw new HttpError(
+      502,
+      "We couldn't cancel this workspace's plan, so nothing was deleted. Please contact us and we'll sort it out.",
+      'billing_cancel_failed',
+    );
   }
-  let canceled: Stripe.Subscription;
-  try {
-    canceled = await stripe().subscriptions.cancel(row.stripeSubscriptionId);
-  } catch {
-    // Already cancelled in Stripe, and our copy hadn't caught up yet, is fine.
-    const current = await stripe()
-      .subscriptions.retrieve(row.stripeSubscriptionId)
-      .catch(() => null);
-    if (!current || LIVE_STATUSES.includes(current.status)) {
-      throw new HttpError(
-        502,
-        "We couldn't cancel this workspace's plan with Stripe, so nothing was deleted. Please try again in a moment.",
-        'billing_cancel_failed',
-      );
+  await customerLock(known.stripeCustomerId, async () => {
+    const subscriptionId = known.stripeSubscriptionId!;
+    let canceled: Stripe.Subscription;
+    try {
+      canceled = await stripe().subscriptions.cancel(subscriptionId);
+    } catch {
+      // Already cancelled in Stripe, and our copy hadn't caught up yet, is fine.
+      const current = await stripe()
+        .subscriptions.retrieve(subscriptionId)
+        .catch(() => null);
+      if (!current || !ENDED_STATUSES.includes(current.status)) {
+        throw new HttpError(
+          502,
+          "We couldn't cancel this workspace's plan with Stripe, so nothing was deleted. Please try again in a moment.",
+          'billing_cancel_failed',
+        );
+      }
+      canceled = current;
     }
-    canceled = current;
-  }
-  await saveSubscription(canceled);
-  await recordAudit({
-    action: 'billing.canceled_on_delete',
-    workspaceId,
-    actorUserId,
-    meta: { subscription: canceled.id },
+    await saveSubscription(canceled);
+    await recordAudit({
+      action: 'billing.canceled_on_delete',
+      workspaceId,
+      actorUserId,
+      meta: { subscription: canceled.id },
+    });
   });
 }
 
@@ -380,41 +493,48 @@ export function invoiceSubscription(invoice: Stripe.Invoice): string | null {
   return found ? idOf(found) : null;
 }
 
-// The events the webhook acts on. Each is handled once, however often Stripe sends it.
+// The events the webhook acts on. One already handled is skipped, however often Stripe sends it.
+// An event is recorded as handled only once the work is done, so one cut short, even by the server
+// stopping halfway, is handled when Stripe sends it again. Handling one twice does no harm: each
+// reads the latest state from Stripe.
 export async function handleEvent(event: Stripe.Event): Promise<void> {
-  const fresh = await prisma.stripeEvent.createMany({
+  const seen = await prisma.stripeEvent.findUnique({
+    where: { id: event.id },
+    select: { id: true },
+  });
+  if (seen) return;
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      if (session.mode === 'subscription' && session.subscription) {
+        await syncSubscription(
+          idOf(session.subscription),
+          session.customer ? idOf(session.customer) : null,
+        );
+      }
+      break;
+    }
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated':
+    case 'customer.subscription.deleted':
+    case 'customer.subscription.paused':
+    case 'customer.subscription.resumed':
+      await syncSubscription(event.data.object.id, idOf(event.data.object.customer));
+      break;
+    case 'invoice.paid':
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object;
+      const subscription = invoiceSubscription(invoice);
+      if (subscription) {
+        await syncSubscription(subscription, invoice.customer ? idOf(invoice.customer) : null);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  await prisma.stripeEvent.createMany({
     data: [{ id: event.id, type: event.type }],
     skipDuplicates: true,
   });
-  if (fresh.count === 0) return;
-  try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        if (session.mode === 'subscription' && session.subscription) {
-          await syncSubscription(idOf(session.subscription));
-        }
-        break;
-      }
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-      case 'customer.subscription.paused':
-      case 'customer.subscription.resumed':
-        await syncSubscription(event.data.object.id);
-        break;
-      case 'invoice.paid':
-      case 'invoice.payment_failed': {
-        const subscription = invoiceSubscription(event.data.object);
-        if (subscription) await syncSubscription(subscription);
-        break;
-      }
-      default:
-        break;
-    }
-  } catch (err) {
-    // Lets Stripe's retry try again rather than being skipped as already handled.
-    await prisma.stripeEvent.delete({ where: { id: event.id } }).catch(() => undefined);
-    throw err;
-  }
 }
