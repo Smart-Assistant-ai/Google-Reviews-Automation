@@ -17,12 +17,15 @@ import {
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
-import { useWorkspaceId, wsPath } from '../../api/hooks';
+import { useBilling, useWorkspaceId, wsPath } from '../../api/hooks';
 import { useAuth } from '../../auth/AuthContext';
 
 export default function WorkspaceTab() {
   const { workspace, reload } = useAuth();
   const workspaceId = useWorkspaceId();
+  const { data: billing } = useBilling();
+  // A paid plan ends with the workspace, so the owner knows the card stops being charged.
+  const paying = ['active', 'trialing', 'past_due'].includes(billing?.plan?.status ?? '');
   const navigate = useNavigate();
   const [name, setName] = useState(workspace?.name ?? '');
   const [saved, setSaved] = useState(false);
@@ -87,6 +90,7 @@ export default function WorkspaceTab() {
               <Typography variant="body2" color="text.secondary">
                 Disconnects Google and deletes all stored reviews and replies, for everyone. Replies
                 already on Google stay there.
+                {paying && " Your plan is cancelled too, so the card isn't charged again."}
               </Typography>
               <Button color="error" variant="outlined" onClick={() => setDeleting(true)}>
                 Delete workspace
@@ -99,7 +103,10 @@ export default function WorkspaceTab() {
         <DialogTitle>Delete {workspace?.name}?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            This can&apos;t be undone. Type the workspace name to confirm.
+            This can&apos;t be undone.
+            {paying &&
+              ' Your plan is cancelled at once, with no refund for time already paid.'}{' '}
+            Type the workspace name to confirm.
           </Typography>
           <TextField
             fullWidth
