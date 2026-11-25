@@ -18,10 +18,13 @@ export default function Settings() {
   // Teammates join through an emailed invitation, so the tab waits until email is switched on.
   const emails = useAuthConfig().data?.emails === true;
   // Only the owner pays, and the tab stays hidden on a server with billing switched off. A plan
-  // that couldn't be loaded keeps the tab, which says so and offers to try again.
+  // already loaded counts, even if a later reload failed. One that couldn't be loaded keeps the
+  // tab, which says so and offers to try again. That is told by a failure having happened rather
+  // than by the error itself, which clears while the tab asks again: the tab would vanish, come
+  // back when the request failed, ask again, and so on.
   const isOwner = workspace?.role === 'owner';
   const billing = useBilling();
-  const billingOn = billing.isError || (billing.data?.state ?? 'free') !== 'free';
+  const billingOn = billing.data ? billing.data.state !== 'free' : billing.errorUpdateCount > 0;
 
   // Controls a role can't use aren't shown. The API refuses them regardless.
   const tabs = useMemo(() => {
