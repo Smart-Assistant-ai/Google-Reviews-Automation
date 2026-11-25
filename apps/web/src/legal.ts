@@ -2,4 +2,4 @@
 // verification checks that these pages and the consent screen name the same app and contact.
 export const COMPANY = 'AI Assistant Platform';
 export const CONTACT_EMAIL = 'info@aiassistant.co';
-export const LEGAL_UPDATED = '24 November 2026';
+export const LEGAL_UPDATED = '25 November 2026';
