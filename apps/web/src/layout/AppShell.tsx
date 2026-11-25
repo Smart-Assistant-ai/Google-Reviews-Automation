@@ -32,7 +32,7 @@ import FullPageLoader from '../components/FullPageLoader';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { useAuthConfig, useGoogleStatus, useTodoCount } from '../api/hooks';
+import { useAuthConfig, useBilling, useGoogleStatus, useTodoCount } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import Logo from '../components/Logo';
 import OutboxLink from '../components/OutboxLink';
@@ -129,6 +129,50 @@ function EmailBanner() {
       <OutboxLink />
     </Alert>
   );
+}
+
+// Says when drafting has stopped, or is about to, and who can fix it. Only the owner can pay.
+function BillingBanner() {
+  const { workspace } = useAuth();
+  const { data: billing } = useBilling();
+  const location = useLocation();
+  if (!billing || !workspace) return null;
+  const owner = workspace.role === 'owner';
+  const onBilling =
+    location.pathname.startsWith('/settings') && location.search.includes('tab=billing');
+  const action = owner && !onBilling && (
+    <Button color="inherit" size="small" component={NavLink} to="/settings?tab=billing">
+      {billing.state === 'past_due' ? 'Update card' : 'Choose a plan'}
+    </Button>
+  );
+  const ask = owner ? '' : ' Ask the workspace owner to sort out the plan.';
+  if (billing.state === 'lapsed') {
+    return (
+      <Alert severity="warning" sx={{ borderRadius: 0 }} action={action}>
+        This workspace has no active plan, so replies can&apos;t be drafted or posted. Your reviews
+        are all still here.{ask}
+      </Alert>
+    );
+  }
+  if (billing.state === 'past_due') {
+    return (
+      <Alert severity="warning" sx={{ borderRadius: 0 }} action={action}>
+        The last payment didn&apos;t go through. Stripe will try again.{ask}
+      </Alert>
+    );
+  }
+  const left = Math.ceil((Date.parse(billing.trialEndsAt) - Date.now()) / 864e5);
+  if (billing.state === 'trial' && left <= 3) {
+    return (
+      <Alert severity="info" sx={{ borderRadius: 0 }} action={action}>
+        {left <= 1
+          ? 'Your free trial ends today.'
+          : `${plural(left, 'day')} left in your free trial.`}{' '}
+        Choose a plan to keep drafting and posting replies.{ask}
+      </Alert>
+    );
+  }
+  return null;
 }
 
 export default function AppShell() {
@@ -327,6 +371,7 @@ export default function AppShell() {
         >
           {!desktop && <Toolbar />}
           <EmailBanner />
+          <BillingBanner />
           <Box ref={scrollRef} sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <Outlet />
           </Box>
