@@ -235,7 +235,29 @@ describe('a reply removed directly on Google', () => {
     });
   });
 
-  it('sync keeps a draft the owner wrote, even when Google has a reply', async () => {
+  it('sync takes a reply made on Google after the owner last changed their draft here', async () => {
+    const { review, name, location } = await postedReply();
+    // The owner edited a draft here three days ago, then answered on Google directly today.
+    await prisma.reply.update({
+      where: { reviewId: review.id },
+      data: {
+        text: 'An older draft of mine',
+        state: 'draft',
+        source: 'human',
+        postedAt: null,
+        updatedAt: new Date(Date.now() - 3 * 86_400_000),
+      },
+    });
+    mockGbp.editReplyOnGoogle(name, 'Answered on Google');
+    await syncLocation(location.id);
+    expect(await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'Answered on Google',
+      state: 'live',
+      source: 'google',
+    });
+  });
+
+  it('sync keeps a draft the owner changed after the reply on Google', async () => {
     const { review, name, location } = await postedReply();
     await prisma.reply.update({
       where: { reviewId: review.id },
