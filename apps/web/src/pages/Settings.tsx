@@ -2,10 +2,11 @@ import { hasAtLeast } from '@replypilot/shared';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
 import { useMemo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuthConfig } from '../api/hooks';
+import { useAuthConfig, useBilling } from '../api/hooks';
 import { useAuth } from '../auth/AuthContext';
 import AccountTab from './settings/AccountTab';
 import ActivityTab from './settings/ActivityTab';
+import BillingTab from './settings/BillingTab';
 import GoogleTab from './settings/GoogleTab';
 import TeamTab from './settings/TeamTab';
 import VoiceTab from './settings/VoiceTab';
@@ -16,6 +17,9 @@ export default function Settings() {
   const isAdmin = workspace ? hasAtLeast(workspace.role, 'admin') : false;
   // Teammates join through an emailed invitation, so the tab waits until email is switched on.
   const emails = useAuthConfig().data?.emails === true;
+  // Only the owner pays, and the tab stays hidden on a server with billing switched off.
+  const isOwner = workspace?.role === 'owner';
+  const billingOn = (useBilling().data?.state ?? 'free') !== 'free';
 
   // Controls a role can't use aren't shown. The API refuses them regardless.
   const tabs = useMemo(() => {
@@ -25,10 +29,11 @@ export default function Settings() {
       { key: 'team', label: 'Team', el: <TeamTab />, show: emails },
       { key: 'activity', label: 'Activity', el: <ActivityTab />, show: isAdmin },
       { key: 'workspace', label: 'Workspace', el: <WorkspaceTab />, show: isAdmin },
+      { key: 'billing', label: 'Billing', el: <BillingTab />, show: isOwner && billingOn },
       { key: 'account', label: 'Your account', el: <AccountTab />, show: true },
     ];
     return all.filter((t) => t.show);
-  }, [isAdmin, emails]);
+  }, [isAdmin, emails, isOwner, billingOn]);
 
   // The tab lives in the URL (/settings?tab=team), so it survives a refresh and can be linked to.
   // A tab this role can't see falls back to the usual first one.

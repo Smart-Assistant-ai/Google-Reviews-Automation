@@ -1,6 +1,7 @@
 import type {
   ActivityItem,
   AuthConfig,
+  BillingStatus,
   GoogleStatus,
   Invitation,
   Member,
@@ -26,6 +27,17 @@ export function useAuthConfig() {
   return useQuery({
     queryKey: ['auth-config'],
     queryFn: () => api.get<AuthConfig>('/auth/config'),
+    staleTime: 60_000,
+  });
+}
+
+// The workspace's plan. Every member sees it, so the app can say why drafting has stopped.
+export function useBilling() {
+  const id = useWorkspaceId();
+  return useQuery({
+    queryKey: ['billing', id],
+    queryFn: () => api.get<BillingStatus>(wsPath(id, '/billing')),
+    enabled: !!id,
     staleTime: 60_000,
   });
 }
