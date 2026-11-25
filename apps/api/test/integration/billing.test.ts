@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import type { FastifyInstance } from 'fastify';
 import Stripe from 'stripe';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +19,12 @@ import {
 import { resetDb } from '../helpers/db';
 import { verifyEmail } from '../helpers/google';
 import { addLocation } from '../helpers/seed-location';
+
+// Sentry's reports are watched, so a test can check when one was raised.
+vi.mock('@sentry/node', async (original) => ({
+  ...(await original<typeof import('@sentry/node')>()),
+  captureMessage: vi.fn(),
+}));
 
 // Billing runs against a real Stripe client whose network calls are stubbed, so the signature
 // checks are Stripe's own code and nothing reaches Stripe.
@@ -43,6 +50,7 @@ beforeEach(async () => {
       data: [{ id: params.lookup_keys[0]!.includes('year') ? 'price_year' : 'price_month' }],
     })) as never);
   vi.spyOn(fake.checkout.sessions, 'expire').mockResolvedValue({} as never);
+  vi.spyOn(fake.subscriptions, 'list').mockResolvedValue({ data: [] } as never);
 });
 afterEach(() => {
   env.BILLING_PROVIDER = 'off';
@@ -641,9 +649,8 @@ describe("Stripe's webhook", () => {
         status: 'active',
       },
     });
-    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(
-      subscription({ id: 'sub_2', status: 'active' }) as never,
-    );
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      Promise.resolve(subscription({ id }))) as never);
     const cancel = vi
       .spyOn(fake.subscriptions, 'cancel')
       .mockResolvedValue(subscription({ id: 'sub_2', status: 'canceled' }) as never);
@@ -736,29 +743,48 @@ describe("Stripe's webhook", () => {
         status: 'active',
       },
     });
-    // The first handler reads the plan just before it is cancelled, and Stripe is slow to answer
-    // it. The second reads it once cancelled.
+    // The first handler reads the plan just before it is cancelled, and Stripe holds that answer
+    // until the test lets it go. Every later read sees it cancelled.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
     let reads = 0;
-    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation((() => {
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation((async () => {
       reads += 1;
-      return reads === 1
-        ? new Promise((resolve) => setTimeout(() => resolve(subscription()), 300))
-        : Promise.resolve(subscription({ status: 'canceled' }));
+      if (reads > 1) return subscription({ status: 'canceled' });
+      await held;
+      return subscription();
     }) as never);
     const first = signedEvent({
       id: 'evt_first',
       type: 'customer.subscription.updated',
       object: subscription(),
     });
+    // An invoice without its customer: the second handler reads the plan once to learn whose it
+    // is, then waits for the lock, then reads it again.
     const second = signedEvent({
       id: 'evt_second',
-      type: 'customer.subscription.deleted',
-      object: subscription({ status: 'canceled' }),
+      type: 'invoice.paid',
+      object: {
+        id: 'in_1',
+        object: 'invoice',
+        customer: null,
+        parent: { subscription_details: { subscription: 'sub_1' } },
+      },
     });
 
-    const sentFirst = sendWebhook(first.payload, first.header);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await Promise.all([sentFirst, sendWebhook(second.payload, second.header)]);
+    // inject only sends a request once something waits on it, so each is started here.
+    const sentFirst = Promise.resolve(sendWebhook(first.payload, first.header));
+    await vi.waitFor(() => expect(reads).toBe(1));
+    const sentSecond = Promise.resolve(sendWebhook(second.payload, second.header));
+    await vi.waitFor(() => expect(reads).toBe(2));
+    // Without the lock, the second handler's next read would follow at once.
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(reads).toBe(2);
+    release();
+
+    const responses = await Promise.all([sentFirst, sentSecond]);
+    expect(responses.map((res) => res.statusCode)).toEqual([200, 200]);
+    expect(reads).toBe(3);
     const row = await prisma.subscription.findUniqueOrThrow({
       where: { workspaceId: owner.workspaceId },
     });
@@ -847,6 +873,82 @@ describe("Stripe's webhook", () => {
     expect(row).toMatchObject({ stripeSubscriptionId: 'sub_new', status: 'active' });
     expect(await status(owner)).toMatchObject({ state: 'active', canWrite: true });
   });
+
+  const heldPlan = (workspaceId: string, status: string) =>
+    prisma.subscription.create({
+      data: {
+        workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_old',
+        status,
+      },
+    });
+  const newPlanEvent = () =>
+    signedEvent({
+      id: 'evt_new_plan',
+      type: 'customer.subscription.created',
+      object: subscription({ id: 'sub_new' }),
+    });
+
+  it('keeps the old plan if Stripe says it came back, and cancels the new one', async () => {
+    const owner = await signup(app);
+    // Our copy says paused, but the owner has since paid and Stripe has it running again.
+    await heldPlan(owner.workspaceId, 'paused');
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      Promise.resolve(subscription({ id }))) as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ id: 'sub_new', status: 'canceled' }) as never);
+    const { payload, header } = newPlanEvent();
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledWith('sub_new');
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row.stripeSubscriptionId).toBe('sub_old');
+  });
+
+  it("leaves the event for Stripe to resend when it can't say what became of the old plan", async () => {
+    const owner = await signup(app);
+    await heldPlan(owner.workspaceId, 'unpaid');
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      id === 'sub_old'
+        ? Promise.reject(new Error('Stripe is down'))
+        : Promise.resolve(subscription({ id }))) as never);
+    const cancel = vi.spyOn(fake.subscriptions, 'cancel');
+    const { payload, header } = newPlanEvent();
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(500);
+    expect(cancel).not.toHaveBeenCalled();
+    expect(await prisma.stripeEvent.count()).toBe(0);
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row).toMatchObject({ stripeSubscriptionId: 'sub_old', status: 'unpaid' });
+  });
+
+  it('takes the new plan when Stripe has never heard of the old one', async () => {
+    const owner = await signup(app);
+    // For example, one saved while this server used a different Stripe account's key.
+    await heldPlan(owner.workspaceId, 'unpaid');
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      id === 'sub_old'
+        ? Promise.reject(
+            Object.assign(new Error('No such subscription'), { code: 'resource_missing' }),
+          )
+        : Promise.resolve(subscription({ id }))) as never);
+    const cancel = vi.spyOn(fake.subscriptions, 'cancel');
+    const { payload, header } = newPlanEvent();
+
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+    expect(cancel).not.toHaveBeenCalled();
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row).toMatchObject({ stripeSubscriptionId: 'sub_new', status: 'active' });
+  });
 });
 
 describe('deleting a workspace', () => {
@@ -860,9 +962,14 @@ describe('deleting a workspace', () => {
       },
     });
 
+  // What Stripe lists for the customer.
+  const listed = (...subs: object[]) =>
+    vi.spyOn(fake.subscriptions, 'list').mockResolvedValue({ data: subs } as never);
+
   it('cancels its plan, so the card stops being charged', async () => {
     const owner = await signup(app);
     await paying(owner.workspaceId);
+    listed(subscription());
     const cancel = vi
       .spyOn(fake.subscriptions, 'cancel')
       .mockResolvedValue(subscription({ status: 'canceled' }) as never);
@@ -879,6 +986,7 @@ describe('deleting a workspace', () => {
   it('cancels it when the owner deletes their whole account too', async () => {
     const owner = await signup(app);
     await paying(owner.workspaceId);
+    listed(subscription());
     const cancel = vi
       .spyOn(fake.subscriptions, 'cancel')
       .mockResolvedValue(subscription({ status: 'canceled' }) as never);
@@ -895,6 +1003,7 @@ describe('deleting a workspace', () => {
   it("keeps the workspace when Stripe can't cancel the plan, so the owner can try again", async () => {
     const owner = await signup(app);
     await paying(owner.workspaceId);
+    listed(subscription());
     vi.spyOn(fake.subscriptions, 'cancel').mockRejectedValue(new Error('Stripe is down'));
     vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(subscription() as never);
 
@@ -942,6 +1051,44 @@ describe('deleting a workspace', () => {
     expect(expire).toHaveBeenCalledWith('cs_open');
   });
 
+  it("cancels a plan paid moments before, whose news hasn't arrived yet", async () => {
+    const owner = await signup(app);
+    // Checkout was opened, and our copy has no plan yet.
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1' },
+    });
+    listed(
+      subscription({ id: 'sub_just_paid' }),
+      subscription({ id: 'sub_long_gone', status: 'canceled' }),
+      subscription({ id: 'sub_theirs', otherProduct: true }),
+    );
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ id: 'sub_just_paid', status: 'canceled' }) as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledWith('sub_just_paid');
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row).toMatchObject({ stripeSubscriptionId: 'sub_just_paid', status: 'canceled' });
+  });
+
+  it("keeps the workspace when Stripe can't list its plans", async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    vi.spyOn(fake.subscriptions, 'list').mockRejectedValue(new Error('Stripe is down'));
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(502);
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: owner.workspaceId },
+    });
+    expect(workspace.deletedAt).toBeNull();
+  });
+
   it('cancels a plan paid for after the workspace was deleted', async () => {
     const owner = await signup(app);
     await prisma.subscription.create({
@@ -955,6 +1102,8 @@ describe('deleting a workspace', () => {
     const cancel = vi
       .spyOn(fake.subscriptions, 'cancel')
       .mockResolvedValue(subscription({ status: 'canceled' }) as never);
+    const report = vi.mocked(Sentry.captureMessage);
+    report.mockClear();
     const { payload, header } = signedEvent({
       id: 'evt_late_checkout',
       type: 'customer.subscription.created',
@@ -963,6 +1112,8 @@ describe('deleting a workspace', () => {
 
     expect((await sendWebhook(payload, header)).statusCode).toBe(200);
     expect(cancel).toHaveBeenCalledWith('sub_1');
+    // The refund check is raised before the cancel, so a crash in between can't lose it.
+    expect(report.mock.invocationCallOrder[0]!).toBeLessThan(cancel.mock.invocationCallOrder[0]!);
   });
 });
 

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -5,9 +6,13 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 // Runs `work` while no other call holds the same key, in this process or any other one using the
 // same database. A caller that finds the key taken lets go of its database connection and tries
 // again shortly, so a burst of waiters can't use up the pool the holder needs for its own work.
+//
+// `work` gets the lock's own transaction and must make every database read and write through it.
+// That way the holder needs no second connection, and if it overruns the time limit, the lock is
+// released and its writes are refused, rather than landing after a newer caller's.
 export async function withLock<T>(
   key: string,
-  work: () => Promise<T>,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
   waitMs = 30_000,
 ): Promise<T> {
   const deadline = Date.now() + waitMs;
@@ -21,7 +26,7 @@ export async function withLock<T>(
           SELECT pg_try_advisory_xact_lock(hashtextextended(${key}, 0)) AS locked`;
         if (!row?.locked) return;
         held = true;
-        result = await work();
+        result = await work(tx);
       },
       { maxWait: 10_000, timeout: 120_000 },
     );
