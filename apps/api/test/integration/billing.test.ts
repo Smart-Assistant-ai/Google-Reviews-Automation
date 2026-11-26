@@ -1136,14 +1136,14 @@ describe('deleting a workspace', () => {
   it('cancels plans on every page Stripe lists', async () => {
     const owner = await signup(app);
     await paying(owner.workspaceId);
-    const list = vi.spyOn(fake.subscriptions, 'list').mockImplementation(((params: {
-      starting_after?: string;
-    }) =>
-      Promise.resolve(
-        params.starting_after === 'sub_1'
-          ? { data: [subscription({ id: 'sub_2' })], has_more: false }
-          : { data: [subscription({ id: 'sub_1' })], has_more: true },
-      )) as never);
+    const list = vi
+      .spyOn(fake.subscriptions, 'list')
+      .mockImplementation(((params: { starting_after?: string }) =>
+        Promise.resolve(
+          params.starting_after === 'sub_1'
+            ? { data: [subscription({ id: 'sub_2' })], has_more: false }
+            : { data: [subscription({ id: 'sub_1' })], has_more: true },
+        )) as never);
     const cancel = vi
       .spyOn(fake.subscriptions, 'cancel')
       .mockImplementation(((id: string) =>
@@ -1159,10 +1159,12 @@ describe('deleting a workspace', () => {
     const owner = await signup(app);
     await paying(owner.workspaceId);
     listed(subscription({ id: 'sub_1' }), subscription({ id: 'sub_2' }));
-    const cancel = vi.spyOn(fake.subscriptions, 'cancel').mockImplementation(((id: string) =>
-      id === 'sub_2'
-        ? Promise.reject(new Error('Stripe is down'))
-        : Promise.resolve(subscription({ id, status: 'canceled' }))) as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockImplementation(((id: string) =>
+        id === 'sub_2'
+          ? Promise.reject(new Error('Stripe is down'))
+          : Promise.resolve(subscription({ id, status: 'canceled' }))) as never);
     vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
       Promise.resolve(subscription({ id }))) as never);
     const cancelledOnDelete = () =>
