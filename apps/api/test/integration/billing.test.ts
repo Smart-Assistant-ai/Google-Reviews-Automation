@@ -929,6 +929,43 @@ describe("Stripe's webhook", () => {
     expect(row).toMatchObject({ stripeSubscriptionId: 'sub_old', status: 'unpaid' });
   });
 
+  it('keeps the old plan while a new one waits for its first payment, and closes it once that is paid', async () => {
+    const owner = await signup(app);
+    await heldPlan(owner.workspaceId, 'paused');
+    let newStatus = 'incomplete';
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      Promise.resolve(
+        subscription({ id, status: id === 'sub_old' ? 'paused' : newStatus }),
+      )) as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ id: 'sub_old', status: 'canceled' }) as never);
+    const waiting = signedEvent({
+      id: 'evt_waiting',
+      type: 'customer.subscription.created',
+      object: subscription({ id: 'sub_new', status: 'incomplete' }),
+    });
+
+    expect((await sendWebhook(waiting.payload, waiting.header)).statusCode).toBe(200);
+    const before = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(before).toMatchObject({ stripeSubscriptionId: 'sub_old', status: 'paused' });
+
+    newStatus = 'active';
+    const paid = signedEvent({
+      id: 'evt_paid',
+      type: 'customer.subscription.updated',
+      object: subscription({ id: 'sub_new' }),
+    });
+    expect((await sendWebhook(paid.payload, paid.header)).statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_old');
+    const after = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(after).toMatchObject({ stripeSubscriptionId: 'sub_new', status: 'active' });
+  });
+
   it('takes the new plan when Stripe has never heard of the old one', async () => {
     const owner = await signup(app);
     // For example, one saved while this server used a different Stripe account's key.

@@ -365,8 +365,10 @@ async function saveSubscription(
     return;
   }
   const other = row?.stripeSubscriptionId && row.stripeSubscriptionId !== sub.id ? row : null;
-  // An event about an older subscription mustn't replace the one in use.
-  if (other && !live && LIVE_STATUSES.includes(other.status ?? '')) return;
+  // News of a different plan that gives no access, such as an old one ending or a new one still
+  // waiting for its first payment, replaces ours only once ours is over. Until then the new one
+  // takes over only when it goes live, below, where Stripe decides what happens to the old one.
+  if (other && !live && !ENDED_STATUSES.includes(other.status ?? '')) return;
   // A new live plan while the workspace already has one. Our copy of the old one may be behind,
   // so Stripe decides what happens to it.
   if (other?.stripeSubscriptionId && live) {
