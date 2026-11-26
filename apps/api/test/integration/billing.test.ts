@@ -1318,4 +1318,67 @@ describe('the location count', () => {
     await syncBillingQuantities();
     expect(update).toHaveBeenCalledTimes(1);
   });
+
+  // Two locations are on, and our copy says Stripe charges for both.
+  async function inLine(workspaceId: string) {
+    await addLocation(workspaceId, 'North');
+    await addLocation(workspaceId, 'South');
+    await prisma.subscription.create({
+      data: {
+        workspaceId,
+        stripeCustomerId: 'cus_1',
+        stripeSubscriptionId: 'sub_1',
+        status: 'active',
+        quantity: 2,
+      },
+    });
+  }
+
+  it('puts right a count Stripe reports changed, such as one that reached it late', async () => {
+    const owner = await signup(app);
+    await inLine(owner.workspaceId);
+    // A change to 1 that reached Stripe late, and Stripe's news of it.
+    vi.spyOn(fake.subscriptions, 'retrieve').mockResolvedValue(
+      subscription({ quantity: 1 }) as never,
+    );
+    const update = vi
+      .spyOn(fake.subscriptions, 'update')
+      .mockResolvedValue(subscription({ quantity: 2 }) as never);
+    const { payload, header } = signedEvent({
+      id: 'evt_late_change',
+      type: 'customer.subscription.updated',
+      object: subscription({ quantity: 1 }),
+    });
+    expect((await sendWebhook(payload, header)).statusCode).toBe(200);
+
+    await syncBillingQuantities();
+    expect(update).toHaveBeenCalledWith('sub_1', {
+      items: [{ id: 'si_1', quantity: 2 }],
+      proration_behavior: 'create_prorations',
+    });
+  });
+
+  it('asks Stripe again once a day, even when our copy is in line', async () => {
+    const owner = await signup(app);
+    await inLine(owner.workspaceId);
+    await prisma.$executeRaw`UPDATE subscriptions SET updated_at = ${new Date(Date.now() - 2 * DAY)}
+      WHERE workspace_id = ${owner.workspaceId}::uuid`;
+    // Stripe charges for 1, and its news of that never arrived.
+    const retrieve = vi
+      .spyOn(fake.subscriptions, 'retrieve')
+      .mockResolvedValue(subscription({ quantity: 1 }) as never);
+    const update = vi
+      .spyOn(fake.subscriptions, 'update')
+      .mockResolvedValue(subscription({ quantity: 2 }) as never);
+
+    await syncBillingQuantities();
+    expect(update).toHaveBeenCalledWith('sub_1', {
+      items: [{ id: 'si_1', quantity: 2 }],
+      proration_behavior: 'create_prorations',
+    });
+
+    // Checked just now, so the next run trusts our copy.
+    await syncBillingQuantities();
+    expect(retrieve).toHaveBeenCalledTimes(1);
+  });
 });

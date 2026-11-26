@@ -435,7 +435,11 @@ export async function syncQuantity(workspaceId: string): Promise<void> {
   if (!billingOn()) return;
   const known = await prisma.subscription.findUnique({ where: { workspaceId } });
   if (!known?.stripeSubscriptionId || !LIVE_STATUSES.includes(known.status ?? '')) return;
-  if (known.quantity === Math.max(1, await locationCount(workspaceId))) return;
+  // Our copy is trusted for a day at most. Stripe reports each change back by webhook, but one
+  // that never arrives, or a change that reached Stripe late, such as from a holder of the lock
+  // that ran out of time, is put right by asking Stripe again.
+  const fresh = Date.now() - known.updatedAt.getTime() < DAY;
+  if (fresh && known.quantity === Math.max(1, await locationCount(workspaceId))) return;
   await customerLock(known.stripeCustomerId, async (tx) => {
     const row = await tx.subscription.findUnique({ where: { workspaceId } });
     if (!row?.stripeSubscriptionId) return;
