@@ -24,7 +24,8 @@ export default function Terms() {
       <Section title="2. Your account">
         <Typography>
           Keep your login details safe and tell us at {mail} if you think someone else has used your
-          account. You are responsible for what happens in your workspace.
+          account. You are responsible for what happens in your workspace, including what your
+          invited colleagues do.
         </Typography>
       </Section>
 
@@ -58,11 +59,37 @@ export default function Terms() {
         <Typography>We may suspend an account that breaks these rules.</Typography>
       </Section>
 
-      <Section title="6. Fees">
-        <Typography>
-          If ReplyPilot or a plan you choose has a fee, we&apos;ll show it to you, and you&apos;ll
-          agree to it before you are charged.
-        </Typography>
+      <Section title="6. Trial, plans and payment">
+        <ul>
+          <li>
+            Each workspace starts with a free 14-day trial that needs no card. When it ends, a paid
+            plan is needed to draft and post replies. Your reviews, replies and settings stay
+            available to read.
+          </li>
+          <li>
+            Plans are priced by the number of locations you connect and billed monthly or yearly in
+            advance through our payment provider, Stripe. We show the price before you pay. Prices
+            don&apos;t include taxes unless we say so.
+          </li>
+          <li>
+            Plans renew automatically until you cancel, which you can do at any time in Settings.
+            Cancelling stops the next renewal, and you keep the plan until the end of the period you
+            paid for.
+          </li>
+          <li>
+            Connecting or removing locations changes the price, and the difference for the current
+            period is charged or credited on your next invoice.
+          </li>
+          <li>
+            If a payment fails, Stripe will try it again over the following days, and ReplyPilot
+            shows a notice. If it still isn&apos;t paid, the workspace goes back to read-only until
+            it is.
+          </li>
+          <li>
+            Except where the law requires otherwise, payments aren&apos;t refundable. We&apos;ll
+            tell you at least 30 days before a price change applies to you.
+          </li>
+        </ul>
       </Section>
 
       <Section title="7. Your data">

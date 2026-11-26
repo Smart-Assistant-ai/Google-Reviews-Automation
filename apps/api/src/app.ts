@@ -9,6 +9,7 @@ import { accessPlugin } from './plugins/access';
 import { registerErrorHandling } from './plugins/errors';
 import { healthRoutes } from './plugins/health';
 import { authRoutes } from './modules/auth/routes';
+import { billingRoutes, billingWebhookRoutes } from './modules/billing/routes';
 import { googleCallbackRoutes } from './modules/auth/google-callback';
 import { googleRoutes } from './modules/google/routes';
 import { devOutboxEnabled, devOutboxRoutes } from './providers/email/outbox';
@@ -48,6 +49,8 @@ export async function buildApp(options: BuildOptions = {}): Promise<FastifyInsta
   await app.register(googleCallbackRoutes, { prefix: '/api/v1/google' });
   if (devOutboxEnabled()) await app.register(devOutboxRoutes, { prefix: '/api/v1/dev' });
   await app.register(reviewRoutes, { prefix: '/api/v1/workspaces/:workspaceId' });
+  await app.register(billingRoutes, { prefix: '/api/v1/workspaces/:workspaceId/billing' });
+  await app.register(billingWebhookRoutes, { prefix: '/api/v1/billing' });
   options.extraRoutes?.(app);
 
   await app.ready();

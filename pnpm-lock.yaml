@@ -74,6 +74,9 @@ importers:
       openai:
         specifier: ^5.8.2
         version: 5.23.2(zod@3.25.76)
+      stripe:
+        specifier: ^23.2.0
+        version: 23.2.0(@types/node@22.20.5)
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -2756,6 +2759,15 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
+
+  stripe@23.2.0:
+    resolution: {integrity: sha512-0W0J4yA9qFO2rnF61v8Y62OiO2SmAR+Cv04VJaFUMpCxiq8lG5bxEYbeSMSpMDR9ofFZGd+Z/iUIgSFbOolmUw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@types/node': '>=20'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   stylis@4.2.0:
     resolution: {integrity: sha512-Orov6g6BB1sDfYgzWfTHDOxamtX1bE/zo104Dh9e6fqJ3PooipYyfJ0pUmrZO2wAvO8YbEyeFrkV91XTsGMSrw==}
@@ -5577,6 +5589,10 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
+
+  stripe@23.2.0(@types/node@22.20.5):
+    optionalDependencies:
+      '@types/node': 22.20.5
 
   stylis@4.2.0: {}
 

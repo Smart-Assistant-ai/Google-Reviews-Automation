@@ -46,6 +46,8 @@ const EXPECTED_PUBLIC = [
   'GET /api/v1/auth/google/start',
   'GET /api/v1/invitations/preview',
   'GET /api/v1/google/callback',
+  // Stripe calls it without a login. Every event must carry Stripe's signature.
+  'POST /api/v1/billing/webhook',
   // Only exists while email is the local mock. Production refuses that setting.
   'GET /api/v1/dev/outbox',
 ];

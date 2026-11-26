@@ -71,6 +71,10 @@ RESEND_API_KEY=from-resend
 EMAIL_FROM=ReplyPilot <hello@your-domain.com>
 OPENAI_API_KEY=from-openai
 OPENAI_MODEL=confirm-this-with-your-team
+# off keeps ReplyPilot free. stripe needs the steps in "Billing" below first.
+BILLING_PROVIDER=off
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
 SENTRY_DSN=optional
 ```
 
@@ -135,6 +139,26 @@ After approval, each API's Quotas tab shows 300 requests a minute instead of 0. 
 
 **Testing mode:** until Google verifies the OAuth consent screen, only listed test users can connect, up to 100, and their tokens expire every 7 days. The app emails the owner when a token dies, and they reconnect from Settings.
 
+## Billing (Stripe)
+
+Billing stays off until `BILLING_PROVIDER=stripe`. With it on, every workspace gets a 14-day trial with no card, then needs a plan to draft and post replies. Reading stays open and nothing is deleted. The trial starts when billing is switched on, not at sign-up: every workspace that hasn't had a trial yet, old or new, gets 14 days from that moment. A trial that already started keeps its end date, so if billing is switched off and on again, a workspace whose trial has run out needs a plan straight away.
+
+Try it with a test key first, then repeat with the live key at launch:
+
+1. In the Stripe dashboard, copy the secret key (Developers, API keys) into `apps/api/.env` as `STRIPE_SECRET_KEY`.
+2. Create the ReplyPilot product, its monthly and yearly prices, and the customer portal settings. Running it again changes nothing that already exists:
+
+   ```bash
+   pnpm --filter @replypilot/api stripe:setup --webhook-url https://app.your-domain.com/api/v1/billing/webhook
+   ```
+
+   It prints the webhook's signing secret once. Put it in `.env` as `STRIPE_WEBHOOK_SECRET`.
+
+3. Set `BILLING_PROVIDER=stripe`, then release as usual (`bash deploy/deploy.sh` applies the migration).
+4. In Stripe's billing settings, turn on Smart Retries and the emails for failed payments, so a failed card is retried and the customer is told.
+
+Prices come from `PRICING` in `packages/shared/src/billing.ts`. To change a price, change it there, give the price a new lookup key in `apps/api/src/modules/billing/stripe.ts`, and run `stripe:setup` again. Existing subscribers stay on the old price until moved. Discount codes, such as a founding-customer rate, are coupons and promotion codes made in the Stripe dashboard; checkout accepts them.
+
 ## 6. First deploy
 
 Take a database snapshot before any release that includes a migration. Migrations only move forward.
@@ -175,12 +199,13 @@ To see or remove entries, use `pnpm allow-signup --list` and `pnpm allow-signup 
 
 ## Day-to-day
 
-| Task                                       | Command                                                                                                                    |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Release                                    | `bash deploy/deploy.sh`                                                                                                    |
-| See logs                                   | `pm2 logs replypilot-api`                                                                                                  |
-| See job health                             | `psql "$(grep ^DATABASE_URL= apps/api/.env \| cut -d= -f2-)" -c "select name, last_finished_at, last_error from job_runs"` |
-| Stop all posting to Google in an emergency | Set `GOOGLE_POSTING_ENABLED=false` in `.env`, then `pm2 restart replypilot-api`                                            |
+| Task                                       | Command                                                                                                                                                     |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Release                                    | `bash deploy/deploy.sh`                                                                                                                                     |
+| See logs                                   | `pm2 logs replypilot-api`                                                                                                                                   |
+| See job health                             | `psql "$(grep ^DATABASE_URL= apps/api/.env \| cut -d= -f2-)" -c "select name, last_finished_at, last_error from job_runs"`                                  |
+| Stop all posting to Google in an emergency | Set `GOOGLE_POSTING_ENABLED=false` in `.env`, then `pm2 restart replypilot-api`                                                                             |
+| Make everything free again                 | Set `BILLING_PROVIDER=off` in `.env`, then `pm2 restart replypilot-api`. Subscriptions keep running in Stripe, and the webhook keeps their state up to date |
 
 ## Limits to know about
 

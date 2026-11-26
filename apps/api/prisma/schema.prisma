@@ -121,21 +121,25 @@ enum MemberRole {
 }
 
 model Workspace {
-  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
-  status    WorkspaceStatus @default(active)
-  deletedAt DateTime?       @map("deleted_at") @db.Timestamptz(6)
-  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  status      WorkspaceStatus @default(active)
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  // The 14-day free trial, with no card. Empty until billing is switched on: then every workspace,
+  // old or new, gets 14 days from that moment (see startTrials in the billing module).
+  trialEndsAt DateTime?       @map("trial_ends_at") @db.Timestamptz(6)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  members     WorkspaceMember[]
-  invitations WorkspaceInvitation[]
-  connections GoogleConnection[]
-  locations   Location[]
-  reviews     Review[]
-  replies     Reply[]
-  voices      VoiceProfile[]
-  auditLogs   AuditLog[]
+  subscription Subscription?
+  members      WorkspaceMember[]
+  invitations  WorkspaceInvitation[]
+  connections  GoogleConnection[]
+  locations    Location[]
+  reviews      Review[]
+  replies      Reply[]
+  voices       VoiceProfile[]
+  auditLogs    AuditLog[]
 
   @@map("workspaces")
 }
@@ -432,4 +436,36 @@ model JobRun {
   lockedUntil    DateTime? @map("locked_until") @db.Timestamptz(6)
 
   @@map("job_runs")
+}
+
+// A workspace's Stripe customer and its one subscription, as Stripe last told us. Stripe holds the
+// card and the invoices; this is only what the app needs to decide what a workspace may do.
+model Subscription {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId          String    @unique @map("workspace_id") @db.Uuid
+  stripeCustomerId     String    @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  // The last checkout opened, so opening another can close it and both can't be paid.
+  checkoutSessionId    String?   @map("checkout_session_id")
+  // Stripe's own word: active, trialing, past_due, canceled, unpaid, incomplete...
+  status               String?
+  interval             String?
+  quantity             Int?
+  currentPeriodEnd     DateTime? @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd    Boolean   @default(false) @map("cancel_at_period_end")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// Every Stripe event handled, so one Stripe sends twice is handled once.
+model StripeEvent {
+  id         String   @id
+  type       String
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@map("stripe_events")
 }

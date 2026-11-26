@@ -24,9 +24,15 @@ export default function Privacy() {
             account&apos;s email address and name.
           </li>
           <li>
-            Your workspace: your business name and the reply voice you set (tone and sign-off).
+            Your workspace: your business name, the reply voice you set (tone and sign-off), and the
+            email addresses of colleagues you invite.
           </li>
           <li>The drafts and replies you write or edit in ReplyPilot.</li>
+          <li>
+            If you subscribe: the billing name, email address and address you give, and the plan you
+            choose. Card details go straight to our payment provider, Stripe. We never see or store
+            them.
+          </li>
         </ul>
       </Section>
 
@@ -60,12 +66,12 @@ export default function Privacy() {
           <li>to show your reviews in your inbox and your dashboard;</li>
           <li>to draft replies to your reviews with AI, for you to check and change;</li>
           <li>
-            to post, edit or delete a reply on Google when you choose to. ReplyPilot never posts a
-            reply you didn&apos;t approve;
+            to post, edit or delete a reply on Google when you or a colleague in your workspace
+            choose to. ReplyPilot never posts a reply nobody approved;
           </li>
           <li>
-            to show you in ReplyPilot when Google publishes or turns down a reply, or when access
-            needs fixing.
+            to show you when Google publishes or turns down a reply, and to tell you, in ReplyPilot
+            and by email, when access needs fixing.
           </li>
         </ul>
         <Typography>
@@ -105,6 +111,8 @@ export default function Privacy() {
           <li>Amazon Web Services, which hosts our servers and database;</li>
           <li>Cloudflare, which carries traffic to our site;</li>
           <li>OpenAI, which drafts replies as described above;</li>
+          <li>Resend, which sends our emails, such as password resets and invitations;</li>
+          <li>Stripe, which takes payments and keeps card details;</li>
           <li>Sentry, which receives error reports so we can fix problems;</li>
           <li>Google, when we post or change replies on your Business Profile for you.</li>
         </ul>
@@ -131,6 +139,10 @@ export default function Privacy() {
             security.
           </li>
           <li>Replies already posted on Google stay on Google until you delete them there.</li>
+          <li>
+            Invoices and payment records stay with us and Stripe for as long as tax and accounting
+            law requires, even after you delete your account.
+          </li>
         </ul>
       </Section>
 

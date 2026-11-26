@@ -218,6 +218,59 @@ describe('a reply removed directly on Google', () => {
     });
   });
 
+  it('sync takes a reply made elsewhere over an AI draft nobody touched', async () => {
+    const { review, name, location } = await postedReply();
+    // As on a second copy of ReplyPilot: the review has an untouched AI draft here, and someone
+    // answered it on Google meanwhile.
+    await prisma.reply.update({
+      where: { reviewId: review.id },
+      data: { text: 'An AI draft', state: 'draft', source: 'ai', postedAt: null },
+    });
+    mockGbp.editReplyOnGoogle(name, 'Answered on Google');
+    await syncLocation(location.id);
+    expect(await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'Answered on Google',
+      state: 'live',
+      source: 'google',
+    });
+  });
+
+  it('sync takes a reply made on Google after the owner last changed their draft here', async () => {
+    const { review, name, location } = await postedReply();
+    // The owner edited a draft here three days ago, then answered on Google directly today.
+    await prisma.reply.update({
+      where: { reviewId: review.id },
+      data: {
+        text: 'An older draft of mine',
+        state: 'draft',
+        source: 'human',
+        postedAt: null,
+        updatedAt: new Date(Date.now() - 3 * 86_400_000),
+      },
+    });
+    mockGbp.editReplyOnGoogle(name, 'Answered on Google');
+    await syncLocation(location.id);
+    expect(await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'Answered on Google',
+      state: 'live',
+      source: 'google',
+    });
+  });
+
+  it('sync keeps a draft the owner changed after the reply on Google', async () => {
+    const { review, name, location } = await postedReply();
+    await prisma.reply.update({
+      where: { reviewId: review.id },
+      data: { text: 'My own words', state: 'draft', source: 'human', postedAt: null },
+    });
+    mockGbp.editReplyOnGoogle(name, 'Answered on Google');
+    await syncLocation(location.id);
+    expect(await prisma.reply.findUniqueOrThrow({ where: { reviewId: review.id } })).toMatchObject({
+      text: 'My own words',
+      state: 'draft',
+    });
+  });
+
   it('sync never replaces a new draft with the text on Google', async () => {
     const { review, name, location } = await postedReply();
     await prisma.reply.update({

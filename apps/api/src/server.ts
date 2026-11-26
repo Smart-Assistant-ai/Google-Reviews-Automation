@@ -3,6 +3,7 @@ import { env } from './config';
 import { buildApp } from './app';
 import { createJobRunner } from './jobs/runner';
 import { prisma } from './lib/prisma';
+import { billingJobs } from './modules/billing/jobs';
 import { reviewJobs } from './modules/reviews/jobs';
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
@@ -12,7 +13,7 @@ async function main(): Promise<void> {
 
   await prisma.$queryRaw`SELECT 1`;
   const app = await buildApp();
-  const jobs = createJobRunner(reviewJobs);
+  const jobs = createJobRunner([...reviewJobs, ...billingJobs]);
 
   let stopping = false;
   const shutdown = async (signal: string) => {

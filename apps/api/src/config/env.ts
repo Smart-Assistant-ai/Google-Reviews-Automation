@@ -47,6 +47,13 @@ const schema = z
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().default('ReplyPilot <onboarding@resend.dev>'),
 
+    // off keeps everything free, as before billing. stripe gives each workspace a 14-day trial,
+    // then needs a paid plan through Stripe to draft and post replies.
+    BILLING_PROVIDER: z.enum(['off', 'stripe']).optional(),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    // Signs the events Stripe sends to /api/v1/billing/webhook.
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
     OPENAI_API_KEY: z.string().optional(),
     OPENAI_MODEL: z.string().default('gpt-6-luna'),
 
@@ -70,6 +77,21 @@ const schema = z
     if (value.EMAIL_PROVIDER === 'resend' && !value.RESEND_API_KEY) {
       fail('RESEND_API_KEY', 'RESEND_API_KEY is required to send real email');
     }
+    if (value.BILLING_PROVIDER === 'stripe' && !value.STRIPE_SECRET_KEY) {
+      fail('STRIPE_SECRET_KEY', 'STRIPE_SECRET_KEY is required when BILLING_PROVIDER is stripe');
+    }
+    if (value.STRIPE_SECRET_KEY && !/^(sk|rk)_(test|live)_/.test(value.STRIPE_SECRET_KEY)) {
+      fail(
+        'STRIPE_SECRET_KEY',
+        'STRIPE_SECRET_KEY must be a Stripe secret key (sk_test_ or sk_live_)',
+      );
+    }
+    if (production && value.BILLING_PROVIDER === 'stripe' && !value.STRIPE_WEBHOOK_SECRET) {
+      fail(
+        'STRIPE_WEBHOOK_SECRET',
+        'STRIPE_WEBHOOK_SECRET is required to take payments in production',
+      );
+    }
     const usesRealGoogle = value.GBP_PROVIDER === 'live' || value.GOOGLE_SIGNIN_PROVIDER === 'live';
     if (usesRealGoogle && !value.GOOGLE_CLIENT_ID) {
       fail('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_ID is required to use real Google');
@@ -89,6 +111,7 @@ const schema = z
       // A real reply is public under the business's name, so only production posts by default.
       GOOGLE_POSTING_ENABLED: value.GOOGLE_POSTING_ENABLED ?? production,
       EMAIL_PROVIDER: value.EMAIL_PROVIDER ?? 'mock',
+      BILLING_PROVIDER: value.BILLING_PROVIDER ?? 'off',
       COOKIE_SECURE: value.APP_URL.startsWith('https://'),
       APP_URL: value.APP_URL.replace(/\/$/, ''),
       API_URL: (value.API_URL ?? value.APP_URL).replace(/\/$/, ''),

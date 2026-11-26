@@ -8,7 +8,7 @@ import { prisma } from '../../lib/prisma';
 import { emailEnabled, sendEmailSafely } from '../../providers/email';
 import { createWorkspaceWithOwner } from '../workspaces/create';
 import { findUsableInvitation, joinFromInvitation } from '../workspaces/invitations-core';
-import { runWorkspaceCleanups } from '../workspaces/lifecycle';
+import { closeWorkspace } from '../workspaces/lifecycle';
 import { resetPasswordMessage, verifyEmailMessage } from './emails';
 import { consumeToken, issueToken, tokenOwner } from './one-time-tokens';
 import { revokeAllSessions } from './sessions';
@@ -289,14 +289,12 @@ export async function deleteAccount(
     soloWorkspaces.push(membership.workspaceId);
   }
 
-  for (const workspaceId of soloWorkspaces) await runWorkspaceCleanups(workspaceId, userId);
-
+  // Each workspace is cleaned up and marked deleted on its own, so one whose cleanup worked, such
+  // as having its plan cancelled, never stays open if a later step fails.
   const now = new Date();
+  for (const workspaceId of soloWorkspaces) await closeWorkspace(workspaceId, userId, now);
+
   await prisma.$transaction([
-    prisma.workspace.updateMany({
-      where: { id: { in: soloWorkspaces } },
-      data: { deletedAt: now },
-    }),
     prisma.workspaceMember.updateMany({
       where: { userId, removedAt: null },
       data: { removedAt: now },

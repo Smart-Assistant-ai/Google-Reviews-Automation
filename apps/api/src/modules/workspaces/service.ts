@@ -5,7 +5,7 @@ import { HttpError, notFound } from '../../lib/errors';
 import { prisma } from '../../lib/prisma';
 import type { MemberContext } from './access';
 import { createWorkspaceWithOwner } from './create';
-import { runWorkspaceCleanups } from './lifecycle';
+import { closeWorkspace } from './lifecycle';
 
 type MemberRow = WorkspaceMember & {
   user: { email: string; name: string | null };
@@ -99,11 +99,7 @@ export async function renameWorkspace(member: MemberContext, name: string, ip?: 
 }
 
 export async function deleteWorkspace(member: MemberContext, ip?: string): Promise<void> {
-  await runWorkspaceCleanups(member.workspaceId, member.userId);
-  await prisma.workspace.update({
-    where: { id: member.workspaceId },
-    data: { deletedAt: new Date() },
-  });
+  await closeWorkspace(member.workspaceId, member.userId);
   await recordAudit({
     action: 'workspace.deleted',
     workspaceId: member.workspaceId,
