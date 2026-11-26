@@ -24,10 +24,15 @@ export default function WorkspaceTab() {
   const { workspace, reload } = useAuth();
   const workspaceId = useWorkspaceId();
   const { data: billing } = useBilling();
-  // A paid plan ends with the workspace, so the owner knows the card stops being charged. While
-  // the plan is unknown, for example because it couldn't be loaded, the warning says so anyway.
+  // A paid plan ends with the workspace, so the owner knows the card stops being charged. Unless
+  // a live plan is shown, the warning still covers one there may be: our copy can miss a plan paid
+  // moments ago, and the plan may not have loaded. Only a server with billing off has none.
   const paying = ['active', 'trialing', 'past_due'].includes(billing?.plan?.status ?? '');
-  const plan = paying ? 'Your plan' : billing ? null : 'Any plan this workspace has';
+  const plan = paying
+    ? 'Your plan'
+    : billing?.state === 'free'
+      ? null
+      : 'Any plan this workspace has';
   const navigate = useNavigate();
   const [name, setName] = useState(workspace?.name ?? '');
   const [saved, setSaved] = useState(false);
