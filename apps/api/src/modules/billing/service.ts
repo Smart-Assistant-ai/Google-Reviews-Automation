@@ -13,7 +13,7 @@ import { recordAudit } from '../../lib/audit';
 import { HttpError, notFound } from '../../lib/errors';
 import { withLock } from '../../lib/lock';
 import { prisma } from '../../lib/prisma';
-import { onWorkspaceDeleted } from '../workspaces/lifecycle';
+import { onWorkspaceDeleted, workspaceLock } from '../workspaces/lifecycle';
 import {
   APP_TAG,
   PRICE_LOOKUP_KEYS,
@@ -146,19 +146,23 @@ export async function assertCanWrite(workspaceId: string): Promise<void> {
 
 // One Stripe customer per workspace, made the first time it opens checkout. It is never looked
 // up by email, so it can't attach to a customer another product made in the same Stripe account.
-async function ensureCustomer(workspaceId: string, userId: string): Promise<string> {
-  const existing = await prisma.subscription.findUnique({ where: { workspaceId } });
+async function ensureCustomer(
+  db: Prisma.TransactionClient,
+  workspaceId: string,
+  userId: string,
+): Promise<string> {
+  const existing = await db.subscription.findUnique({ where: { workspaceId } });
   if (existing) return existing.stripeCustomerId;
   const [workspace, user] = await Promise.all([
-    prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { name: true } }),
-    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } }),
+    db.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { name: true } }),
+    db.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } }),
   ]);
-  // The same key returns the same customer if two clicks race.
+  // The same key returns the same customer if this is ever asked twice.
   const customer = await stripe().customers.create(
     { name: workspace.name, email: user.email, metadata: { workspaceId, app: APP_TAG } },
     { idempotencyKey: `${APP_TAG}-customer-${workspaceId}` },
   );
-  const row = await prisma.subscription.upsert({
+  const row = await db.subscription.upsert({
     where: { workspaceId },
     create: { workspaceId, stripeCustomerId: customer.id },
     update: {},
@@ -175,68 +179,77 @@ export async function startCheckout(
 ): Promise<string> {
   if (!billingOn()) throw new HttpError(409, 'Billing is switched off', 'billing_off');
   await startTrials(workspaceId);
-  const workspace = await prisma.workspace.findUniqueOrThrow({
-    where: { id: workspaceId },
-    select: { trialEndsAt: true, subscription: { select: { status: true } } },
-  });
-  if (LIVE_STATUSES.includes(workspace.subscription?.status ?? '')) {
-    throw new HttpError(
-      409,
-      'This workspace already has a plan. Change it from Manage billing.',
-      'already_subscribed',
-    );
-  }
-  const customer = await ensureCustomer(workspaceId, userId);
-  // Only one checkout open at a time: one left open in another tab would otherwise let the owner
-  // pay twice and end up with two subscriptions. Stripe refuses to expire a finished or already
-  // expired checkout, which is fine.
-  const open = await prisma.subscription.findUnique({
-    where: { workspaceId },
-    select: { checkoutSessionId: true },
-  });
-  if (open?.checkoutSessionId) {
-    await stripe()
-      .checkout.sessions.expire(open.checkoutSessionId)
-      .catch(() => undefined);
-  }
-  const price = await priceId(interval);
-  const quantity = Math.max(1, await locationCount(workspaceId));
-  // Choosing a plan during the trial doesn't cut it short: the first charge waits for its end.
-  // Stripe can't hold it for less than two days, so a plan chosen in the trial's last two days
-  // starts at once. The Billing tab says so before the owner chooses.
-  const trialEnd = workspace.trialEndsAt?.getTime() ?? 0;
-  const keepTrial = trialEnd - Date.now() > TRIAL_HOLD_MIN_HOURS * HOUR;
-  const session = await stripe().checkout.sessions.create({
-    mode: 'subscription',
-    customer,
-    client_reference_id: workspaceId,
-    line_items: [{ price, quantity }],
-    // US dollars only. Stripe would otherwise show local prices abroad with a conversion fee; this
-    // is set here rather than in the account settings, which other products may share.
-    adaptive_pricing: { enabled: false },
-    allow_promotion_codes: true,
-    billing_address_collection: 'auto',
-    customer_update: { address: 'auto', name: 'auto' },
-    metadata: { workspaceId },
-    subscription_data: {
+  // Under the workspace's lock, which deletion holds throughout. A checkout opened first is closed
+  // by the deletion; one asked for meanwhile waits, then finds the workspace gone. Two clicks take
+  // turns too, so each closes the checkout before it.
+  return workspaceLock(workspaceId, async (tx) => {
+    const workspace = await tx.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      select: { deletedAt: true, trialEndsAt: true, subscription: { select: { status: true } } },
+    });
+    if (workspace.deletedAt) throw notFound();
+    if (LIVE_STATUSES.includes(workspace.subscription?.status ?? '')) {
+      throw new HttpError(
+        409,
+        'This workspace already has a plan. Change it from Manage billing.',
+        'already_subscribed',
+      );
+    }
+    const customer = await ensureCustomer(tx, workspaceId, userId);
+    // Only one checkout open at a time: one left open in another tab would otherwise let the owner
+    // pay twice and end up with two subscriptions. Stripe refuses to expire a finished or already
+    // expired checkout, which is fine.
+    const open = await tx.subscription.findUnique({
+      where: { workspaceId },
+      select: { checkoutSessionId: true },
+    });
+    if (open?.checkoutSessionId) {
+      await stripe()
+        .checkout.sessions.expire(open.checkoutSessionId)
+        .catch(() => undefined);
+    }
+    const price = await priceId(interval);
+    const quantity = Math.max(1, await locationCount(workspaceId, tx));
+    // Choosing a plan during the trial doesn't cut it short: the first charge waits for its end.
+    // Stripe can't hold it for less than two days, so a plan chosen in the trial's last two days
+    // starts at once. The Billing tab says so before the owner chooses.
+    const trialEnd = workspace.trialEndsAt?.getTime() ?? 0;
+    const keepTrial = trialEnd - Date.now() > TRIAL_HOLD_MIN_HOURS * HOUR;
+    const session = await stripe().checkout.sessions.create({
+      mode: 'subscription',
+      customer,
+      client_reference_id: workspaceId,
+      line_items: [{ price, quantity }],
+      // US dollars only. Stripe would otherwise show local prices abroad with a conversion fee;
+      // this is set here rather than in the account settings, which other products may share.
+      adaptive_pricing: { enabled: false },
+      allow_promotion_codes: true,
+      billing_address_collection: 'auto',
+      customer_update: { address: 'auto', name: 'auto' },
       metadata: { workspaceId },
-      ...(keepTrial ? { trial_end: Math.floor(trialEnd / 1000) } : {}),
-    },
-    success_url: `${env.APP_URL}/settings?tab=billing&checkout={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${env.APP_URL}/settings?tab=billing`,
+      subscription_data: {
+        metadata: { workspaceId },
+        ...(keepTrial ? { trial_end: Math.floor(trialEnd / 1000) } : {}),
+      },
+      success_url: `${env.APP_URL}/settings?tab=billing&checkout={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.APP_URL}/settings?tab=billing`,
+    });
+    if (!session.url) throw new Error('Stripe returned no checkout page');
+    await tx.subscription.update({
+      where: { workspaceId },
+      data: { checkoutSessionId: session.id },
+    });
+    await recordAudit(
+      {
+        action: 'billing.checkout_started',
+        workspaceId,
+        actorUserId: userId,
+        meta: { interval, quantity },
+      },
+      tx,
+    );
+    return session.url;
   });
-  if (!session.url) throw new Error('Stripe returned no checkout page');
-  await prisma.subscription.update({
-    where: { workspaceId },
-    data: { checkoutSessionId: session.id },
-  });
-  await recordAudit({
-    action: 'billing.checkout_started',
-    workspaceId,
-    actorUserId: userId,
-    meta: { interval, quantity },
-  });
-  return session.url;
 }
 
 // The owner is back from Stripe's page. Reads the outcome straight from Stripe, so the plan shows

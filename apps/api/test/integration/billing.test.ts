@@ -1178,6 +1178,48 @@ describe('deleting a workspace', () => {
     expect(workspace.deletedAt).toBeNull();
   });
 
+  it('opens no checkout once the deletion has started', async () => {
+    const owner = await signup(app);
+    await prisma.subscription.create({
+      data: { workspaceId: owner.workspaceId, stripeCustomerId: 'cus_1' },
+    });
+    // The deletion waits on Stripe's list of plans until the test lets it go.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let listing = false;
+    vi.spyOn(fake.subscriptions, 'list').mockImplementation((async () => {
+      listing = true;
+      await held;
+      return { data: [] };
+    }) as never);
+    const create = vi
+      .spyOn(fake.checkout.sessions, 'create')
+      .mockResolvedValue({ id: 'cs_late', url: 'https://checkout.stripe.com/c/pay/cs' } as never);
+
+    const started: Promise<Awaited<ReturnType<typeof call>>>[] = [];
+    try {
+      started.push(Promise.resolve(call('DELETE', `/workspaces/${owner.workspaceId}`, owner)));
+      await vi.waitFor(() => expect(listing).toBe(true));
+      // Asked for while the deletion is under way, after the workspace was last checked as live.
+      started.push(
+        Promise.resolve(
+          call('POST', `/workspaces/${owner.workspaceId}/billing/checkout`, owner, {
+            interval: 'month',
+          }),
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    } finally {
+      release();
+      await Promise.allSettled(started);
+    }
+    const [deleted, checkout] = await Promise.all(started);
+
+    expect(deleted!.statusCode).toBe(200);
+    expect(checkout!.statusCode).toBe(404);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("cancels a plan paid moments before, whose news hasn't arrived yet", async () => {
     const owner = await signup(app);
     // Checkout was opened, and our copy has no plan yet.
