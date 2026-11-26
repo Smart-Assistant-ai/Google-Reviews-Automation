@@ -43,12 +43,14 @@ const STALLED = ['unpaid', 'paused', 'incomplete'];
 const HOLD_SHOWN_MS = TRIAL_HOLD_MIN_HOURS * 3_600_000 + 15 * 60_000;
 
 // Draws again once the time `at` passes, so wording that depends on the clock doesn't go stale in
-// a tab left open.
+// a tab left open. A time that passed between drawing and this running still gets its redraw, at
+// once.
 function useRedrawAt(at: number | null) {
   const [, redraw] = useState(0);
   useEffect(() => {
-    if (at === null || at <= Date.now()) return;
-    const timer = setTimeout(() => redraw((n) => n + 1), Math.min(at - Date.now(), 2 ** 31 - 1));
+    if (at === null) return;
+    const wait = Math.min(Math.max(0, at - Date.now()), 2 ** 31 - 1);
+    const timer = setTimeout(() => redraw((n) => n + 1), wait);
     return () => clearTimeout(timer);
   }, [at]);
 }
