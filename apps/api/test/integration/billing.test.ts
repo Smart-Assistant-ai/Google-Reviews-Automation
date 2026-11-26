@@ -1088,6 +1088,96 @@ describe('deleting a workspace', () => {
     expect(expire).toHaveBeenCalledWith('cs_open');
   });
 
+  const openCheckout = (workspaceId: string) =>
+    prisma.subscription.create({
+      data: { workspaceId, stripeCustomerId: 'cus_1', checkoutSessionId: 'cs_open' },
+    });
+
+  it("keeps the workspace when a checkout left open can't be closed", async () => {
+    const owner = await signup(app);
+    await openCheckout(owner.workspaceId);
+    vi.spyOn(fake.checkout.sessions, 'expire').mockRejectedValue(new Error('Stripe is down'));
+    vi.spyOn(fake.checkout.sessions, 'retrieve').mockResolvedValue({ status: 'open' } as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(502);
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: owner.workspaceId },
+    });
+    expect(workspace.deletedAt).toBeNull();
+  });
+
+  it('goes ahead when the checkout left open was paid just before, and cancels its plan', async () => {
+    const owner = await signup(app);
+    await openCheckout(owner.workspaceId);
+    // Stripe won't expire a checkout that was paid.
+    vi.spyOn(fake.checkout.sessions, 'expire').mockRejectedValue(new Error('Already paid'));
+    vi.spyOn(fake.checkout.sessions, 'retrieve').mockResolvedValue({
+      status: 'complete',
+    } as never);
+    listed(subscription({ id: 'sub_just_paid' }));
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockResolvedValue(subscription({ id: 'sub_just_paid', status: 'canceled' }) as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('sub_just_paid');
+  });
+
+  it('cancels plans on every page Stripe lists', async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    const list = vi.spyOn(fake.subscriptions, 'list').mockImplementation(((params: {
+      starting_after?: string;
+    }) =>
+      Promise.resolve(
+        params.starting_after === 'sub_1'
+          ? { data: [subscription({ id: 'sub_2' })], has_more: false }
+          : { data: [subscription({ id: 'sub_1' })], has_more: true },
+      )) as never);
+    const cancel = vi
+      .spyOn(fake.subscriptions, 'cancel')
+      .mockImplementation(((id: string) =>
+        Promise.resolve(subscription({ id, status: 'canceled' }))) as never);
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(200);
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(cancel.mock.calls.map(([id]) => id)).toEqual(['sub_1', 'sub_2']);
+  });
+
+  it("keeps the record of a plan it cancelled when another one can't be", async () => {
+    const owner = await signup(app);
+    await paying(owner.workspaceId);
+    listed(subscription({ id: 'sub_1' }), subscription({ id: 'sub_2' }));
+    const cancel = vi.spyOn(fake.subscriptions, 'cancel').mockImplementation(((id: string) =>
+      id === 'sub_2'
+        ? Promise.reject(new Error('Stripe is down'))
+        : Promise.resolve(subscription({ id, status: 'canceled' }))) as never);
+    vi.spyOn(fake.subscriptions, 'retrieve').mockImplementation(((id: string) =>
+      Promise.resolve(subscription({ id }))) as never);
+    const cancelledOnDelete = () =>
+      prisma.auditLog.findMany({
+        where: { workspaceId: owner.workspaceId, action: 'billing.canceled_on_delete' },
+      });
+
+    const res = await call('DELETE', `/workspaces/${owner.workspaceId}`, owner);
+    expect(res.statusCode).toBe(502);
+    expect(cancel.mock.calls.map(([id]) => id)).toEqual(['sub_1', 'sub_2']);
+    expect((await cancelledOnDelete()).map((entry) => entry.meta)).toEqual([
+      { subscription: 'sub_1' },
+    ]);
+    const row = await prisma.subscription.findUniqueOrThrow({
+      where: { workspaceId: owner.workspaceId },
+    });
+    expect(row.status).toBe('canceled');
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: owner.workspaceId },
+    });
+    expect(workspace.deletedAt).toBeNull();
+  });
+
   it("cancels a plan paid moments before, whose news hasn't arrived yet", async () => {
     const owner = await signup(app);
     // Checkout was opened, and our copy has no plan yet.

@@ -480,32 +480,30 @@ export async function cancelForDeletedWorkspace(
       'billing_cancel_failed',
     );
   }
-  await customerLock(known.stripeCustomerId, async (tx) => {
+  const allCancelled = await customerLock(known.stripeCustomerId, async (tx) => {
     // A checkout left open in another tab could otherwise still be paid once the workspace is gone.
     const row = await tx.subscription.findUnique({ where: { workspaceId } });
-    if (row?.checkoutSessionId) {
-      await stripe()
-        .checkout.sessions.expire(row.checkoutSessionId)
-        .catch(() => undefined);
-    }
+    if (row?.checkoutSessionId) await closeCheckout(row.checkoutSessionId);
     // Stripe's own list rather than our copy, which may not have caught up: it includes a plan
     // paid moments ago, or one that replaced the plan we know about. Anything Stripe hasn't ended
     // is cancelled, including a plan left unpaid or paused.
-    const { data } = await stripe()
-      .subscriptions.list({ customer: known.stripeCustomerId, status: 'all', limit: 100 })
-      .catch(() => {
-        throw cancelFailed();
-      });
-    for (const sub of data) {
+    const subs = await customerSubscriptions(known.stripeCustomerId).catch(() => {
+      throw cancelFailed();
+    });
+    let cancelledAll = true;
+    for (const sub of subs) {
       if (!ourItem(sub) || ENDED_STATUSES.includes(sub.status)) continue;
-      let canceled: Stripe.Subscription;
-      try {
-        canceled = await stripe().subscriptions.cancel(sub.id);
-      } catch {
-        // Already cancelled in Stripe since the list was read is fine.
-        const current = await currentSubscription(sub.id).catch(() => null);
-        if (!current || !ENDED_STATUSES.includes(current.status)) throw cancelFailed();
-        canceled = current;
+      const canceled = await stripe()
+        .subscriptions.cancel(sub.id)
+        .catch(async () => {
+          // Already cancelled in Stripe since the list was read is fine.
+          const current = await currentSubscription(sub.id).catch(() => null);
+          return current && ENDED_STATUSES.includes(current.status) ? current : null;
+        });
+      // The rest are still tried, so each one cancelled is saved and recorded below.
+      if (!canceled) {
+        cancelledAll = false;
+        continue;
       }
       await saveSubscription(tx, canceled);
       await recordAudit(
@@ -518,7 +516,48 @@ export async function cancelForDeletedWorkspace(
         tx,
       );
     }
+    return cancelledAll;
   });
+  // Stopped only now, once the plans that were cancelled are saved: Stripe doesn't undo a cancel,
+  // so neither should the record of it.
+  if (!allCancelled) throw cancelFailed();
+}
+
+// Every subscription the customer has, page by page.
+async function customerSubscriptions(customer: string): Promise<Stripe.Subscription[]> {
+  const all: Stripe.Subscription[] = [];
+  for (;;) {
+    const last = all.at(-1);
+    const page = await stripe().subscriptions.list({
+      customer,
+      status: 'all',
+      limit: 100,
+      ...(last ? { starting_after: last.id } : {}),
+    });
+    all.push(...page.data);
+    if (!page.has_more || page.data.length === 0) return all;
+  }
+}
+
+// Makes sure a checkout can't be paid any more. Stripe won't expire one that was paid or has
+// already expired, which is fine: a plan it started is cancelled with the rest. One that may still
+// be open stops the deletion, so the owner can try again.
+async function closeCheckout(sessionId: string): Promise<void> {
+  const closed = await stripe()
+    .checkout.sessions.expire(sessionId)
+    .then(
+      () => true,
+      async () => {
+        try {
+          const session = await stripe().checkout.sessions.retrieve(sessionId);
+          return session.status === 'expired' || session.status === 'complete';
+        } catch (err) {
+          // Stripe has no such checkout, so nobody can pay it.
+          return (err as { code?: string }).code === 'resource_missing';
+        }
+      },
+    );
+  if (!closed) throw cancelFailed();
 }
 
 onWorkspaceDeleted(cancelForDeletedWorkspace);
