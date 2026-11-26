@@ -772,17 +772,25 @@ describe("Stripe's webhook", () => {
       },
     });
 
-    // inject only sends a request once something waits on it, so each is started here.
-    const sentFirst = Promise.resolve(sendWebhook(first.payload, first.header));
-    await vi.waitFor(() => expect(reads).toBe(1));
-    const sentSecond = Promise.resolve(sendWebhook(second.payload, second.header));
-    await vi.waitFor(() => expect(reads).toBe(2));
-    // Without the lock, the second handler's next read would follow at once.
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    expect(reads).toBe(2);
-    release();
+    // inject only sends a request once something waits on it, so each is started here. Whatever
+    // happens, Stripe's answer is let go and both requests finish before the test does.
+    const started: Promise<Awaited<ReturnType<typeof sendWebhook>>>[] = [];
+    const start = (event: { payload: string; header: string }) =>
+      started.push(Promise.resolve(sendWebhook(event.payload, event.header)));
+    try {
+      start(first);
+      await vi.waitFor(() => expect(reads).toBe(1));
+      start(second);
+      await vi.waitFor(() => expect(reads).toBe(2));
+      // Without the lock, the second handler's next read would follow at once.
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      expect(reads).toBe(2);
+    } finally {
+      release();
+      await Promise.allSettled(started);
+    }
 
-    const responses = await Promise.all([sentFirst, sentSecond]);
+    const responses = await Promise.all(started);
     expect(responses.map((res) => res.statusCode)).toEqual([200, 200]);
     expect(reads).toBe(3);
     const row = await prisma.subscription.findUniqueOrThrow({
